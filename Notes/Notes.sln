@@ -5,6 +5,10 @@ VisualStudioVersion = 16.0.31205.134
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notes", "Notes\Notes.csproj", "{7C363587-050B-42AA-9DA4-4F056D6CC97E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DXSplashScreen", "WPF\DXSplashScreen\DXSplashScreen.csproj", "{F7739541-DFCA-496E-8512-0627A83B9BC9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WPF", "WPF", "{7405D9B7-FFDF-462B-B577-D84288DE5480}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,9 +19,16 @@ Global
 		{7C363587-050B-42AA-9DA4-4F056D6CC97E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C363587-050B-42AA-9DA4-4F056D6CC97E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C363587-050B-42AA-9DA4-4F056D6CC97E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F7739541-DFCA-496E-8512-0627A83B9BC9} = {7405D9B7-FFDF-462B-B577-D84288DE5480}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6E2DBA5C-B9DF-4315-A635-724060144950}
