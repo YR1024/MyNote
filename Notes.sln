@@ -9,6 +9,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DXSplashScreen", "WPF\DXSpl
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WPF", "WPF", "{7405D9B7-FFDF-462B-B577-D84288DE5480}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demo", "Demo", "{00585ED5-E830-417D-9C9E-BC5E601EB3D5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp5", "Demo\线程lock\ConsoleApp5.csproj", "{2EAE77F2-A69B-4DC8-BCA6-233211A09E62}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "线程Lock", "线程Lock", "{9BC4F3CE-24B7-45F3-8819-77A9D2B5ED01}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,12 +29,18 @@ Global
 		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F7739541-DFCA-496E-8512-0627A83B9BC9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2EAE77F2-A69B-4DC8-BCA6-233211A09E62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EAE77F2-A69B-4DC8-BCA6-233211A09E62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EAE77F2-A69B-4DC8-BCA6-233211A09E62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EAE77F2-A69B-4DC8-BCA6-233211A09E62}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{F7739541-DFCA-496E-8512-0627A83B9BC9} = {7405D9B7-FFDF-462B-B577-D84288DE5480}
+		{2EAE77F2-A69B-4DC8-BCA6-233211A09E62} = {9BC4F3CE-24B7-45F3-8819-77A9D2B5ED01}
+		{9BC4F3CE-24B7-45F3-8819-77A9D2B5ED01} = {00585ED5-E830-417D-9C9E-BC5E601EB3D5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6E2DBA5C-B9DF-4315-A635-724060144950}

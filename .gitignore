@@ -2,10 +2,10 @@
 # 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
 ################################################################################
 
-/Notes/Notes/bin/Debug
-/Notes/Notes/obj/Debug
-/Notes/.vs
-/Notes/DXSplashScreen/bin/Debug
-/Notes/DXSplashScreen/obj/Debug
-/Notes/WPF/DXSplashScreen/bin/Debug
-/Notes/WPF/DXSplashScreen/obj/Debug
+/.vs
+/Demo/线程lock/bin/Debug
+/Demo/线程lock/obj/Debug
+/Notes/obj/Debug
+/Notes/obj/Release
+/WPF/DXSplashScreen/obj/Debug
+/WPF/DXSplashScreen/obj/Release
