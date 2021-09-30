@@ -1,0 +1,35 @@
+﻿<Window x:Class="WpfApp1.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfApp1"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <TabControl>
+            <TabItem Header="1">
+                <StackPanel Width="300" VerticalAlignment="Center">
+                    <TextBlock  Margin="10">
+                <Run Text="Timer计时："/>
+                <Run x:Name="time1" Text=""/>
+                <Run Text="执行次数："/>
+                <Run x:Name="times1" Text=""/>
+                    </TextBlock>
+                    <TextBlock Margin="10">
+                <Run Text="系统计时"/>
+                <Run x:Name="time2" Text=""/>
+                <Run Text="执行次数："/>
+                <Run x:Name="times2" Text=""/>
+                    </TextBlock>
+                    <Button Content="开始计时" Click="start"/>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="2">
+                <local:UIThread/>
+            </TabItem>
+        </TabControl>
+        
+    </Grid>
+</Window>
