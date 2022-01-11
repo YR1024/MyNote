@@ -5,8 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:R_Auto_Task"
         mc:Ignorable="d"
-        Title="MainWindow" Height="200" Width="200">
+        Title="MainWindow" Height="500" Width="400">
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
         <Button Content="开始" Click="Button_Click" Width="150" Height="50"/>
+        <TextBox x:Name="InputTxt" Grid.Column="1" TextWrapping="Wrap" />
     </Grid>
 </Window>

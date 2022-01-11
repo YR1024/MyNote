@@ -107,24 +107,43 @@ namespace GTA挂机
 
 
         #region function 2
-       
-        private void Button2_Click(object sender, RoutedEventArgs e)
+        Task HangUpTask()
         {
-            //WinIO.KeyDownUp(Keys.W);
+            return new Task(new Action(() => {
+                Random rd = new Random();
+                while (start)
+                {
+                    WinIO.KeyDownUp(Keys.Enter);
 
-            Task.Run(new Action(() =>
-            {
-                 while (start)
-                 {
-                    this.Dispatcher.Invoke(new Action(() =>
-                    {
-                        txtbox.Focus();
-                    }));
-                    WinIO.KeyDownUp(Keys.W);
-
-                    Thread.Sleep(2 * 1000);
+                    Thread.Sleep(2000);
                 }
             }));
+        }
+        private void Button2_Click(object sender, RoutedEventArgs e)
+        {
+            Thread.Sleep(5000);
+
+            if (btn2.Content.ToString() == "开始2")
+            {
+                btn2.Content = "停止";
+                start = true;
+                t = HangUpTask();
+                t.Start();
+            }
+            else
+            {
+                btn2.IsEnabled = false;
+                start = false;
+                while (true)
+                {
+                    if (t.Status == TaskStatus.RanToCompletion)
+                        break;
+                    Thread.Sleep(300);
+                }
+                btn2.Content = "开始2";
+                btn2.IsEnabled = true;
+
+            }
         }
         #endregion
 

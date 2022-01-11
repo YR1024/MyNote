@@ -1,5 +1,6 @@
 ﻿using Emgu.CV;
 using Emgu.CV.CvEnum;
+using Emgu.CV.Structure;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -37,27 +38,52 @@ namespace R_Auto_Task.Helper
         /// </summary>
         /// <param name="img2">小图</param>
         /// <returns></returns>
-        public static Rectangle GetMatchPos(string img2)
+        public static Rectangle GetMatchPos(string img2,out double Similarity, double threshold = 0.98)
         {
             GetFullScreen();
+            //Sao(FullScreenImage, img2);
             Mat Src = CvInvoke.Imread(FullScreenImage, ImreadModes.Grayscale);
             Mat Template = CvInvoke.Imread(img2, ImreadModes.Grayscale);
 
             Mat MatchResult = new Mat();//匹配结果
             CvInvoke.MatchTemplate(Src, Template, MatchResult, Emgu.CV.CvEnum.TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
+            //CvInvoke.Threshold(MatchResult, MatchResult, 0.8, 1.0, ThresholdType.ToZero);
             Point max_loc = new Point();
             Point min_loc = new Point();
             double max = 0, min = 0;
             CvInvoke.MinMaxLoc(MatchResult, ref min, ref max, ref min_loc, ref max_loc);//获得极值信息
 
-            return new Rectangle(max_loc, Template.Size);
+            Similarity = max;
+            if (max > threshold)
+            {
+                return new Rectangle(max_loc, Template.Size);
+            }
+            else
+            {
+                return Rectangle.Empty ;
+            }
+
         }
 
 
         public static string FullScreenImage = @"C:\Users\YR\Desktop\FullScreenImage.png";
 
 
-
+        static bool Sao(string sourcePng, string targetPng)
+        {
+            //原图
+            Image<Bgr, byte> source = new Image<Bgr, byte>(sourcePng);
+            //子图
+            Image<Bgr, byte> subPicPath = new Image<Bgr, byte>(targetPng);
+            if (source.MatchTemplate(subPicPath, Emgu.CV.CvEnum.TemplateMatchingType.CcoeffNormed) != null)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
 
         /// <summary>
         /// 截取全屏幕图像
