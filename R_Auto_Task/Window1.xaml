@@ -1,0 +1,107 @@
+﻿<Window
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:R_Auto_Task"
+        xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors" xmlns:dx="clr-namespace:DevExpress.Xpf.Grid.ConditionalFormatting;assembly=DevExpress.Xpf.Grid.v19.2.Core" x:Class="R_Auto_Task.Window1"
+        mc:Ignorable="d"
+        Title="Window1" Height="450" Width="800">
+    <Window.DataContext>
+        <local:MainViewModel/>
+    </Window.DataContext>
+
+    <Window.Resources>
+        <Style TargetType="dxg:TableView" x:Key="grid1">
+            <Setter Property="ShowGroupPanel" Value="False" />
+            <!--<Setter Property="NavigationStyle" Value="Row" />-->
+            <Setter Property="ShowIndicator" Value="False" />
+            <Setter Property="AllowSorting" Value="False" />
+            <Setter Property="AllowColumnMoving" Value="False" />
+            <Setter Property="IsColumnMenuEnabled" Value="False" />
+            <Setter Property="AllowColumnFiltering" Value="False" />
+            <Setter Property="ShowSearchPanelMode" Value="Never" />
+            <Setter Property="ShowVerticalLines" Value="True" />
+            <!--<Setter Property="AlternateRowBackground" Value="#FFF6F6F6" />-->
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="dxg:BaseGridHeader">
+                        <Setter Property="Foreground" Value="#333333" />
+                        <Setter Property="Height" Value="25"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="200"/>
+        </Grid.ColumnDefinitions>
+        <dxg:GridControl Name="Sensors"
+                         ItemsSource="{Binding OperationList}"
+                         AutoPopulateColumns="True" 
+                         AllowInitiallyFocusedRow="False">
+            <dxg:GridControl.View>
+                <dxg:TableView Name="tableView1" Style="{StaticResource grid1}"
+                               AllowHorizontalScrollingVirtualization="True" >
+                </dxg:TableView>
+            </dxg:GridControl.View>
+
+            <dxg:GridControl.Columns>
+                <dxg:GridColumn FieldName="SensorName"  Header="名称"   >
+                </dxg:GridColumn>
+
+                <dxg:GridColumn FieldName="ImgSource"  Header="图片"  >
+                    <dxg:GridColumn.CellDisplayTemplate>
+                        <DataTemplate>
+                            <Image Source="{Binding Value}" Stretch="Uniform" Height="40"/>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellDisplayTemplate>
+                    <dxg:GridColumn.CellEditTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="100"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Source="{Binding Value}" Stretch="Uniform"/>
+                                <Button Content="选择图片" Grid.Column="1" Tag="{Binding RowData.Row}" Click="SetImageFile_Click" />
+                            </Grid>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellEditTemplate>
+                </dxg:GridColumn>
+
+                <dxg:GridColumn FieldName="ActionType"   Header="操作动作"  AllowEditing="False">
+
+                </dxg:GridColumn>
+
+
+
+
+
+
+                <dxg:GridColumn FieldName="IsEPUReturn"  Visible="False" x:Name="isepuReturn"  AllowEditing="False"/>
+                <dxg:GridColumn FieldName="Mark"  Visible="False" x:Name="isMark"  AllowEditing="False"/>
+
+            </dxg:GridControl.Columns>
+
+        </dxg:GridControl>
+        <StackPanel Grid.Column="1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBox Text="1920" Width="75" Height="25"/>
+                <TextBlock Text="×"/>
+                <TextBox Text="1080" Width="75" Height="25"/>
+            </StackPanel>
+            <Button Content="增加一行" Width="150" Height="40" Margin="0,5" Click="Button_Click"/>
+            <Button Content="删除一行" Width="150" Height="40" Margin="0,5" Click="RemoveRow_Click"/>
+            <Button Content="开始任务" Width="150" Height="40" Margin="0,5"/>
+        </StackPanel>
+    </Grid>
+</Window>

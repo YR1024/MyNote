@@ -57,3 +57,5 @@
 /PYAutoGui/obj/Debug
 /PYAutoGui/obj/Release
 /packages
+/Tesseract_OCR/bin/Debug
+/Tesseract_OCR/obj/Debug
