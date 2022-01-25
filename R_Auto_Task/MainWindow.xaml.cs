@@ -144,7 +144,6 @@ namespace R_Auto_Task
             {
                 int i = 0;
              
-
                 ////总成绩
                 //while (i < 20)
                 //{
@@ -171,7 +170,7 @@ namespace R_Auto_Task
 
                 SendInfo("开始查找随机.png");
                 //重玩
-                while (i < 40)
+                while (i < 60)
                 {
                     string pic = @"C:\Users\YR\Desktop\随机.png";
                     var rct = EmguCvHelper.GetMatchPos(pic, out Similarity);
@@ -225,7 +224,7 @@ namespace R_Auto_Task
                 Thread.Sleep(500);
                 SendInfo("回车：");
                 WinIoHelper.KeyDownUp(System.Windows.Forms.Keys.Enter);
-                Thread.Sleep(3000);
+                Thread.Sleep(6000);
                 SendInfo("上：");
                 WinIoHelper.KeyDownUp(System.Windows.Forms.Keys.W);
                 Thread.Sleep(500);
@@ -235,58 +234,6 @@ namespace R_Auto_Task
                 SendInfo("回车：");
                 WinIoHelper.KeyDownUp(System.Windows.Forms.Keys.Enter);
 
-                ////右，困难
-                //while (i < 15)
-                //{
-                //    string pic = @"C:\Users\YR\Desktop\4.png";
-                //    var rct = EmguCvHelper.GetMatchPos(pic);
-                //    if (rct != System.Drawing.Rectangle.Empty)
-                //    {
-                //        MouseHelper.MouseDownUp(rct.X + rct.Width / 2, rct.Y + rct.Height / 2);
-                //        i = 0;
-                //        break;
-                //    }
-                //    Thread.Sleep(1000);
-                //    i++;
-                //    SendInfo("i=" + i);
-
-                //}
-
-                ////确认设定
-                //while (i < 15)
-                //{
-                //    string pic = @"C:\Users\YR\Desktop\5.png";
-                //    var rct = EmguCvHelper.GetMatchPos(pic);
-                //    if (rct != System.Drawing.Rectangle.Empty)
-                //    {
-                //        MouseHelper.MouseDownUp(rct.X + rct.Width / 2, rct.Y + rct.Height / 2);
-                //        Thread.Sleep(500);
-                //        MouseHelper.MouseDownUp(rct.X + rct.Width / 2, rct.Y + rct.Height / 2);
-                //        i = 0;
-                //        break;
-                //    }
-                //    Thread.Sleep(1000);
-                //    i++;
-                //}
-
-                ////确认设定
-                //while (i < 15)
-                //{
-                //    string pic = @"C:\Users\YR\Desktop\6.png";
-                //    var rct = EmguCvHelper.GetMatchPos(pic);
-                //    if (rct != System.Drawing.Rectangle.Empty)
-                //    {
-                //        MouseHelper.MouseDownUp(rct.X + rct.Width / 2, rct.Y + rct.Height / 2);
-                //        Thread.Sleep(500);
-                //        MouseHelper.MouseDownUp(rct.X + rct.Width / 2, rct.Y + rct.Height / 2);
-                //        Thread.Sleep(1000);
-                //        WinIoHelper.KeyDownUp(System.Windows.Forms.Keys.Enter);
-                //        i = 0;
-                //        break;
-                //    }
-                //    Thread.Sleep(1000);
-                //    i++;
-                //}
 
                 start = true;
                 EnterTask().Start(); //开启挂机
@@ -318,6 +265,9 @@ namespace R_Auto_Task
         {
             return new Task(new Action(() =>
             {
+                SendInfo("长时间挂机开始 检测到柱子任务等待10min, 次数：" + times++ );
+                Thread.Sleep(10 * 60 * 1000);
+
                 while (IsEnd)
                 {
                     string pic = @"C:\Users\YR\Desktop\柱子.png";
@@ -339,7 +289,7 @@ namespace R_Auto_Task
                 }
             }));
         }
-
+        int times = 0;
         void SendInfo(string info)
         {
             this.Dispatcher.Invoke(new Action(()=> {
@@ -355,7 +305,7 @@ namespace R_Auto_Task
 
         private static void write_txt( string content)
         {
-            string FILE_NAME = @"C:\Users\YR\Desktop\"+ DateTime.Now.ToString() + ".txt";//每天按照日期建立一个不同的文件名
+            string FILE_NAME = @"C:\Users\YR\Desktop\"+ DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";//每天按照日期建立一个不同的文件名
             StreamWriter sr;
             if (File.Exists(FILE_NAME)) //如果文件存在,则创建File.AppendText对象
             {

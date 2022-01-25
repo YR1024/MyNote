@@ -189,6 +189,59 @@ namespace GTA挂机
 
             
         }
+
+
+        [DllImport("User32.dll", EntryPoint = "FindWindow")]
+        public extern static IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
+        static extern bool ShowWindow(IntPtr hWnd, uint nCmdShow);
+        private void btn4_Click(object sender, RoutedEventArgs e)
+        {
+            b = !b;
+            if (b)
+            {
+                hideTaskbar();
+            }
+            else
+            {
+                showTaskbar();
+            }
+        }
+
+        bool b = true;
+        /// <summary>
+        /// 隐藏任务栏和桌面图标
+        /// </summary>
+        private void hideTaskbar()
+        {
+            IntPtr trayHwnd = FindWindow("Shell_TrayWnd", null);
+            IntPtr hStar = FindWindow("Button", null);
+            IntPtr desktopPtr = FindWindow("Progman", null);
+            if (trayHwnd != IntPtr.Zero)
+            {
+                ShowWindow(desktopPtr, 0);//隐藏桌面图标 （0是隐藏，1是显示）
+                ShowWindow(trayHwnd, 0);//隐藏任务栏
+                ShowWindow(hStar, 0);//隐藏windows 按钮
+            }
+        }
+
+        /// <summary>
+        /// 显示任务栏和桌面图标 
+        /// </summary>
+        private void showTaskbar()
+        {
+            IntPtr trayHwnd = FindWindow("Shell_TrayWnd", null);
+            IntPtr hStar = FindWindow("Button", null);
+            IntPtr desktopPtr = FindWindow("Progman", null);
+            if (trayHwnd != IntPtr.Zero)
+            {
+                ShowWindow(desktopPtr, 1);
+                ShowWindow(trayHwnd, 1);
+                ShowWindow(hStar, 1);
+            }
+        }
+
     }
 
     public class WinIO

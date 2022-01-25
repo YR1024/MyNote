@@ -10,6 +10,7 @@
         <Button x:Name="btn" Content="开始" Width="120" Height="50" Click="Button_Click"/>
         <TextBox x:Name="txtbox" Text=""/>
         <Button x:Name="btn2" Content="开始2" Width="120" Height="50" Click="Button2_Click" Visibility="Visible"/>
-        <Button x:Name="btn3" Content="开始3" Width="120" Height="50" Click="btn3_Click" Visibility="Visible"/>
+        <Button x:Name="btn3" Content="开始3" Width="120" Height="50" Click="btn3_Click" Visibility="Collapsed"/>
+        <Button x:Name="btn4" Content="显示隐藏" Width="120" Height="50" Click="btn4_Click" Visibility="Visible"/>
     </StackPanel>
 </Window>
