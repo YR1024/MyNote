@@ -34,5 +34,11 @@ namespace R_Auto_Task
             get { return GetProperty(() => ImgSource); }
             set { SetProperty(() => ImgSource, value); }
         }
+
+        public DoAction ActionType
+        {
+            get { return GetProperty(() => ActionType); }
+            set { SetProperty(() => ActionType, value); }
+        }
     }
 }

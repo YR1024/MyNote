@@ -55,7 +55,10 @@ namespace R_Auto_Task
 
         private void RemoveRow_Click(object sender, RoutedEventArgs e)
         {
-
+            if (gridControl.SelectedItem == null)
+                return;
+            ViewModel.OperationList.Remove(gridControl.SelectedItem as Operation);
+            gridControl.SelectedItem = null;
         }
     }
 }

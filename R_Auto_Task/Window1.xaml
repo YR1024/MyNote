@@ -4,7 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:R_Auto_Task"
-        xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors" xmlns:dx="clr-namespace:DevExpress.Xpf.Grid.ConditionalFormatting;assembly=DevExpress.Xpf.Grid.v19.2.Core" x:Class="R_Auto_Task.Window1"
+        xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+        xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors" 
+        xmlns:dx="clr-namespace:DevExpress.Xpf.Grid.ConditionalFormatting;assembly=DevExpress.Xpf.Grid.v19.2.Core" 
+        x:Class="R_Auto_Task.Window1"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="Window1" Height="450" Width="800">
     <Window.DataContext>
@@ -12,6 +16,12 @@
     </Window.DataContext>
 
     <Window.Resources>
+        <ObjectDataProvider MethodName="GetNames" ObjectType="{x:Type sys:Enum}" x:Key="localEnumTypes">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="local:DoAction"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        
         <Style TargetType="dxg:TableView" x:Key="grid1">
             <Setter Property="ShowGroupPanel" Value="False" />
             <!--<Setter Property="NavigationStyle" Value="Row" />-->
@@ -44,7 +54,7 @@
             <ColumnDefinition/>
             <ColumnDefinition Width="200"/>
         </Grid.ColumnDefinitions>
-        <dxg:GridControl Name="Sensors"
+        <dxg:GridControl x:Name="gridControl"
                          ItemsSource="{Binding OperationList}"
                          AutoPopulateColumns="True" 
                          AllowInitiallyFocusedRow="False">
@@ -79,11 +89,17 @@
                 </dxg:GridColumn>
 
                 <dxg:GridColumn FieldName="ActionType"   Header="操作动作"  AllowEditing="False">
-
+                    <dxg:GridColumn.CellEditTemplate>
+                        <DataTemplate>
+                            <ComboBox x:Name="ActionTypeCmb" ItemsSource="{Binding Source ={StaticResource localEnumTypes}}" 
+                                      >
+                            </ComboBox>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
-
-
+                <dxg:GridColumn FieldName="ActionType2"   Header="详细"  AllowEditing="False">
+                </dxg:GridColumn>
 
 
 
@@ -95,9 +111,9 @@
         </dxg:GridControl>
         <StackPanel Grid.Column="1">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBox Text="1920" Width="75" Height="25"/>
+                <TextBox Text="1920" Width="75" Height="25" VerticalContentAlignment="Center"/>
                 <TextBlock Text="×"/>
-                <TextBox Text="1080" Width="75" Height="25"/>
+                <TextBox Text="1080" Width="75" Height="25" VerticalContentAlignment="Center"/>
             </StackPanel>
             <Button Content="增加一行" Width="150" Height="40" Margin="0,5" Click="Button_Click"/>
             <Button Content="删除一行" Width="150" Height="40" Margin="0,5" Click="RemoveRow_Click"/>

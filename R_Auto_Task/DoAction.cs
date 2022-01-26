@@ -150,6 +150,18 @@ namespace R_Auto_Task
         RightCtrl,
 
 
+        /// <summary>
+        /// PrintScreen
+        /// </summary>
+        PrtSc,
+        /// <summary>
+        /// Scroll
+        /// </summary>
+        ScrollLock,
+        /// <summary>
+        /// Pause
+        /// </summary>
+        PauseBreak,
         Insert,
         Home,
         PageUp,
