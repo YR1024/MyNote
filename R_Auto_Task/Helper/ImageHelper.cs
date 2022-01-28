@@ -68,5 +68,51 @@ namespace R_Auto_Task.Helper
                 return bitmapImage;
             }
         }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="localFilePaht">要复制的文件路径</param>
+        /// <param name="saveFilePath">指定存储的路径</param>
+        public static void SaveImage(string localFilePaht, string saveFilePath)
+        {
+            if (File.Exists(localFilePaht))//必须判断要复制的文件是否存在
+            {
+                File.Copy(localFilePaht, saveFilePath, true);//三个参数分别是源文件路径，存储路径，若存储路径有相同文件是否替换
+            }
+        }
+
+
+
+        /// <summary>
+        /// 删除文件夹以及文件
+        /// </summary>
+        /// <param name="directoryPath"> 文件夹路径 </param>
+        /// <param name="fileName"> 文件名称 </param>
+        public static void DeleteImage(string directoryPath, string fileName)
+        {
+            if (fileName == null)
+                return;
+
+            //删除文件
+            for (int i = 0; i < Directory.GetFiles(directoryPath).ToList().Count; i++)
+            {
+                if (Directory.GetFiles(directoryPath)[i] == fileName)
+                {
+                    File.Delete(fileName);
+                }
+            }
+
+            ////删除文件夹
+            //for (int i = 0; i < Directory.GetDirectories(directoryPath).ToList().Count; i++)
+            //{
+            //    if (Directory.GetDirectories(directoryPath)[i] == fileName)
+            //    {
+            //        Directory.Delete(fileName, true);
+            //    }
+            //}
+        }
+
     }
 }

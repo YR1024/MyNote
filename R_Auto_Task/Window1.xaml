@@ -16,12 +16,12 @@
     </Window.DataContext>
 
     <Window.Resources>
-        <ObjectDataProvider MethodName="GetNames" ObjectType="{x:Type sys:Enum}" x:Key="localEnumTypes">
+        <ObjectDataProvider x:Key="EnumTypeProvider" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
             <ObjectDataProvider.MethodParameters>
                 <x:Type TypeName="local:DoAction"/>
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
-        
+
         <Style TargetType="dxg:TableView" x:Key="grid1">
             <Setter Property="ShowGroupPanel" Value="False" />
             <!--<Setter Property="NavigationStyle" Value="Row" />-->
@@ -88,17 +88,25 @@
                     </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
-                <dxg:GridColumn FieldName="ActionType"   Header="操作动作"  AllowEditing="False">
+                <dxg:GridColumn FieldName="ActionType"   Header="操作动作"  >
+                    <!--<dxg:GridColumn.CellDisplayTemplate>
+                        <DataTemplate>
+                            --><!--<ComboBox x:Name="ActionTypeCmb" ItemsSource="{Binding ActionEnumType}" />-->
+                            <!--<ComboBox x:Name="cboDmeo12" ItemsSource="{Binding Source={StaticResource EnumTypeProvider}}"/>--><!--
+                            <TextBlock Text="{Binding Value}"/>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellDisplayTemplate>-->
                     <dxg:GridColumn.CellEditTemplate>
                         <DataTemplate>
-                            <ComboBox x:Name="ActionTypeCmb" ItemsSource="{Binding Source ={StaticResource localEnumTypes}}" 
-                                      >
-                            </ComboBox>
-                        </DataTemplate>
+                            <ComboBox x:Name="ActionTypeCmb" Tag="{Binding RowData.Row}"
+                                      IsTextSearchEnabled="False"  IsEditable="True" 
+                                      KeyUp="ActionTypeCmb_KeyUp" SelectionChanged="ActionTypeCmb_SelectionChanged"
+                                      ItemsSource="{Binding Source={StaticResource EnumTypeProvider}}"/>
+                        </DataTemplate> 
                     </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
-                <dxg:GridColumn FieldName="ActionType2"   Header="详细"  AllowEditing="False">
+                <dxg:GridColumn FieldName="ActionType2" Header="详细"  AllowEditing="False">
                 </dxg:GridColumn>
 
 
@@ -112,12 +120,13 @@
         <StackPanel Grid.Column="1">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBox Text="1920" Width="75" Height="25" VerticalContentAlignment="Center"/>
-                <TextBlock Text="×"/>
+                <TextBlock Text="×" VerticalAlignment="Center"/>
                 <TextBox Text="1080" Width="75" Height="25" VerticalContentAlignment="Center"/>
             </StackPanel>
             <Button Content="增加一行" Width="150" Height="40" Margin="0,5" Click="Button_Click"/>
             <Button Content="删除一行" Width="150" Height="40" Margin="0,5" Click="RemoveRow_Click"/>
-            <Button Content="开始任务" Width="150" Height="40" Margin="0,5"/>
+            <Button Content="开始任务" Width="150" Height="40" Margin="0,5" Click="StartAutoTask"/>
+            <Button Content="保存" Width="150" Height="40" Margin="0,5" Click="SaveOperationList"/>
         </StackPanel>
     </Grid>
 </Window>
