@@ -32,6 +32,7 @@ namespace R_Auto_Task
             ViewModel = this.DataContext as MainViewModel;
         }
 
+        //添加行
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.OperationList.Add(new Operation());
@@ -132,8 +133,8 @@ namespace R_Auto_Task
                         }
                         Thread.Sleep(50);
                     }
-                    Thread.Sleep(100);
-                    t.Wait();
+                    //Thread.Sleep(100);
+                    t.Wait(100);
                 }
 
             });
@@ -147,6 +148,7 @@ namespace R_Auto_Task
         Task<OperationTaskResult> WorkTask;
 
         System.Drawing.Rectangle Rectangle;
+
 
         private void ParseOperation(Operation operation)
         {
@@ -260,6 +262,19 @@ namespace R_Auto_Task
         {
             ViewModel.SaveOperationList();
         }
+
+        private void OperationTypeCmb_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var comboBox = (sender as ComboBox);
+            if (comboBox.SelectedItem == null)
+            {
+                return;
+            }
+            var Operation = comboBox.Tag as Operation;
+            var operationType = (OperationType)comboBox.SelectedItem;
+
+            Operation.OpType = operationType;
+        }
     }
 
 
@@ -275,6 +290,5 @@ namespace R_Auto_Task
     {
         MatchImage,
         UnMatchImage,
-
     }
 }

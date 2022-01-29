@@ -22,6 +22,18 @@
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
 
+        <ObjectDataProvider x:Key="OperationTypeEnum" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="local:OperationType"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
+        <ObjectDataProvider x:Key="PostionEnum" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="local:Postion"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
         <Style TargetType="dxg:TableView" x:Key="grid1">
             <Setter Property="ShowGroupPanel" Value="False" />
             <!--<Setter Property="NavigationStyle" Value="Row" />-->
@@ -46,6 +58,10 @@
             </Setter>
 
         </Style>
+
+        <local:ContentDatatemplateConverter x:Key="ContentDatatemplateConverter"/>
+        <local:EnumToStringConverter x:Key="EnumToStringConverter"/>
+       
     </Window.Resources>
 
     <Grid>
@@ -65,7 +81,14 @@
             </dxg:GridControl.View>
 
             <dxg:GridControl.Columns>
-                <dxg:GridColumn FieldName="SensorName"  Header="名称"   >
+                <dxg:GridColumn FieldName="OpType"  Header="类型" >
+                    <dxg:GridColumn.CellEditTemplate>
+                        <DataTemplate>
+                            <ComboBox x:Name="OperationTypeCmb" Tag="{Binding RowData.Row}"
+                                      SelectionChanged="OperationTypeCmb_SelectionChanged"
+                                      ItemsSource="{Binding Source={StaticResource OperationTypeEnum}}"/>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
                 <dxg:GridColumn FieldName="ImgSource"  Header="图片"  >
@@ -106,7 +129,114 @@
                     </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
-                <dxg:GridColumn FieldName="ActionType2" Header="详细"  AllowEditing="False">
+                <dxg:GridColumn FieldName="Content" Header="详细">
+                    <!--<dxg:GridColumn.CellDisplayTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Value}"/>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellDisplayTemplate>-->
+                    <dxg:GridColumn.CellEditTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid x:Name="ImageTemplate" Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Text="相似度" Grid.Column="0"/>
+                                    <TextBlock Text="位置偏移" Grid.Column="1" Grid.ColumnSpan="2"/>
+
+                                    <TextBox Text="{Binding RowData.Row.Content.Similarity}" Grid.Row="1" Grid.Column="0"/>
+                                    <ComboBox Text="{Binding RowData.Row.Content.OperatPostion,Mode=TwoWay,Converter={StaticResource EnumToStringConverter},ConverterParameter='Postion'}" Grid.Row="1" Grid.Column="1">
+                                        <ComboBoxItem Content="Center"/>
+                                        <ComboBoxItem Content="LeftTop"/>
+                                        <ComboBoxItem Content="LeftBottom"/>
+                                        <ComboBoxItem Content="RightTop"/>
+                                        <ComboBoxItem Content="RightBottom"/>
+                                    </ComboBox>
+                                    <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="2">
+                                        <TextBlock Text="X:"/>
+                                        <TextBox Text="{Binding RowData.Row.Content.OffSetX}" Width="50"/>
+                                        <TextBlock Text="Y:"/>
+                                        <TextBox Text="{Binding RowData.Row.Content.OffSetY}" Width="50"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid x:Name="KeyTemplate" Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal">
+
+                                        <ComboBox x:Name="KeyTyCmb">
+                                            <ComboBoxItem Content="重复" IsSelected="True"/>
+                                            <ComboBoxItem Content="长按"/>
+                                        </ComboBox>
+                                        <StackPanel Orientation="Horizontal" Tag="{Binding ElementName=KeyTyCmb,Path=Text}">
+                                            <Label Content="重复次数"/>
+                                            <TextBox Text=""/>
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="Tag" Value="重复">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Tag="{Binding Text,ElementName=KeyTyCmb}">
+                                            <Label Content="持续时间"/>
+                                            <TextBox Text=""/>
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="Tag" Value="长按">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+
+
+                                <Grid x:Name="TextInputTemplate" Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="文本内容" Grid.Row="0"/>
+                                    <TextBox Text="" Grid.Row="1"/>
+                                </Grid>
+
+                                <Grid x:Name="SelectImageTemplate" Visibility="Collapsed">
+                                    
+                                </Grid>
+                            </Grid>
+
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding RowData.Row.OpType,Converter={StaticResource ContentDatatemplateConverter}}" Value="0">
+                                    <Setter Property="Visibility" TargetName="ImageTemplate" Value="Visible"></Setter>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding RowData.Row.OpType,Converter={StaticResource ContentDatatemplateConverter}}" Value="1">
+                                    <Setter Property="Visibility" TargetName="KeyTemplate" Value="Visible"></Setter>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding RowData.Row.OpType,Converter={StaticResource ContentDatatemplateConverter}}" Value="2">
+                                    <Setter Property="Visibility" TargetName="TextInputTemplate" Value="Visible"></Setter>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding RowData.Row.OpType,Converter={StaticResource ContentDatatemplateConverter}}" Value="3">
+                                    <Setter Property="Visibility" TargetName="SelectImageTemplate" Value="Visible"></Setter>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </dxg:GridColumn.CellEditTemplate>
                 </dxg:GridColumn>
 
 
@@ -127,6 +257,7 @@
             <Button Content="删除一行" Width="150" Height="40" Margin="0,5" Click="RemoveRow_Click"/>
             <Button Content="开始任务" Width="150" Height="40" Margin="0,5" Click="StartAutoTask"/>
             <Button Content="保存" Width="150" Height="40" Margin="0,5" Click="SaveOperationList"/>
+            <TextBox x:Name="TestLog" TextWrapping="Wrap" Height="180"/>
         </StackPanel>
     </Grid>
 </Window>

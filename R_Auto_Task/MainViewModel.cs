@@ -11,9 +11,10 @@ using System.Windows.Media.Imaging;
 
 namespace R_Auto_Task
 {
-    [Serializable]
     public class MainViewModel : ViewModelBase
     {
+
+      
 
         public ObservableCollection<Operation> OperationList
         {
@@ -59,6 +60,16 @@ namespace R_Auto_Task
     [Serializable]
     public class Operation : ViewModelBase
     {
+        public Operation()
+        {
+            Content = new OtherContent();
+        }
+
+        public OperationType OpType
+        {
+            get { return GetProperty(() => OpType); }
+            set { SetProperty(() => OpType, value); }
+        }
         public string ImageUrl { get; set; }
 
         [System.Xml.Serialization.XmlIgnore]
@@ -73,5 +84,44 @@ namespace R_Auto_Task
             get { return GetProperty(() => ActionType); }
             set { SetProperty(() => ActionType, value); }
         }
+
+        public OtherContent Content
+        {
+            get { return GetProperty(() => Content); }
+            set { SetProperty(() => Content, value); }
+        }
+    }
+
+    public class OtherContent : ViewModelBase
+    {
+       
+        public double Similarity { get; set; } = 0.98;
+
+        public Postion OperatPostion
+        {
+            get { return GetProperty(() => OperatPostion); }
+            set { SetProperty(() => OperatPostion, value); }
+        } 
+        public double OffSetX { get; set; } = 0;
+        public double OffSetY { get; set; } = 0;
+        public int RepeatNumber { get; set; } = 1;
+        public string PasteText { get; set; } = "";
+    }
+
+    public enum OperationType
+    {
+        SearchAndClickImage = 0,
+        Key = 1,
+        TextInput = 2,
+        SearchImage = 3,
+    }
+
+    public enum Postion
+    {
+        Center,
+        LeftTop,
+        LeftBottom,
+        RightTop,
+        RightBottom,
     }
 }
