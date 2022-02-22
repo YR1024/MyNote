@@ -77,8 +77,11 @@ namespace R_Auto_Task.Helper
         /// <param name="saveFilePath">指定存储的路径</param>
         public static void SaveImage(string localFilePaht, string saveFilePath)
         {
+           
             if (File.Exists(localFilePaht))//必须判断要复制的文件是否存在
             {
+                if (!Directory.Exists("Image"))
+                    Directory.CreateDirectory("Image");
                 File.Copy(localFilePaht, saveFilePath, true);//三个参数分别是源文件路径，存储路径，若存储路径有相同文件是否替换
             }
         }
