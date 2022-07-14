@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32616.157
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoQQSignIn", "AutoQQSignIn\AutoQQSignIn.csproj", "{DD5204CB-E36C-4D46-AC64-4A397467BAF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services", "Services\Services.csproj", "{3D9BA672-DA14-4E65-9BD4-06A0F4745710}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QQSignInByMyNugetPackage", "QQSignInByMyNugetPackage\QQSignInByMyNugetPackage.csproj", "{D10AB822-83A3-4B1C-BCFC-54F0C2746F66}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD5204CB-E36C-4D46-AC64-4A397467BAF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD5204CB-E36C-4D46-AC64-4A397467BAF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD5204CB-E36C-4D46-AC64-4A397467BAF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD5204CB-E36C-4D46-AC64-4A397467BAF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D9BA672-DA14-4E65-9BD4-06A0F4745710}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D9BA672-DA14-4E65-9BD4-06A0F4745710}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D9BA672-DA14-4E65-9BD4-06A0F4745710}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D9BA672-DA14-4E65-9BD4-06A0F4745710}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D10AB822-83A3-4B1C-BCFC-54F0C2746F66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D10AB822-83A3-4B1C-BCFC-54F0C2746F66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D10AB822-83A3-4B1C-BCFC-54F0C2746F66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D10AB822-83A3-4B1C-BCFC-54F0C2746F66}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2F87E26C-50ED-4C57-AB75-7A3822B2E000}
+	EndGlobalSection
+EndGlobal

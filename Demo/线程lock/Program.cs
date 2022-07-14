@@ -12,8 +12,6 @@ namespace 线程Lock
         public static List<int> array = new List<int>();
         static void Main(string[] args)
         {
-
-
             Task t1 = new Task(() =>
             {
 
@@ -50,4 +48,5 @@ namespace 线程Lock
 
 
     }
+
 }
