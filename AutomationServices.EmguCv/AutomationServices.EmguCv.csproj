@@ -6,7 +6,7 @@
 	  <!--<UseWPF>true</UseWPF>-->
 	  <!--<UseWindowsForms>true</UseWindowsForms>-->
 	  <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-	  <Version>1.1.4</Version>
+	  <Version>1.2.1</Version>
 	  <Authors>Rou yuan</Authors>
 	  <Product>AutomationServices</Product>
 	  <Company />
@@ -14,20 +14,13 @@
 	  <!--<PackageLicenseFile>F:\github\MyNote\AutomationServices.EmguCv\LICENSE.txt</PackageLicenseFile>-->
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="FakesAssemblies\**" />
-    <EmbeddedResource Remove="FakesAssemblies\**" />
-    <None Remove="FakesAssemblies\**" />
-  </ItemGroup>
-
-
     <ItemGroup>
 		<None Include="LICENSE.txt" Pack="true" PackagePath="$(PackageLicenseFile)" />
 	</ItemGroup>
 		
 	
   <ItemGroup>
-    <PackageReference Include="Emgu.CV" Version="4.5.5.4823" />
+    <PackageReference Include="Emgu.CV.runtime.windows" Version="4.5.5.4823" />
     <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
   </ItemGroup>
 
@@ -49,9 +42,4 @@
     </Reference>	
   </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalDesignTimeBuildInput Remove="FakesAssemblies\**" />
-  </ItemGroup>
-
- 
 </Project>

@@ -83,28 +83,20 @@ namespace AutomationServices.EmguCv.Helper
         }
 
 
-        private static Rectangle Test(string img2, out double Similarity, double threshold = 0.98)
+
+        public static Rectangle MatchPictureSimilarity(string img1, string img2, out double Similarity)
         {
-            //ImageHelper.GetSpecificScreenArea(matchOptions.WindowArea);
-            Mat Src = CvInvoke.Imread(PartialScreenImage, ImreadModes.Color);
+            Mat Src = CvInvoke.Imread(img1, ImreadModes.Color);
             Mat Template = CvInvoke.Imread(img2, ImreadModes.Color);
 
             Mat MatchResult = new Mat();//匹配结果
             CvInvoke.MatchTemplate(Src, Template, MatchResult, TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
-            //CvInvoke.Threshold(MatchResult, MatchResult, 0.8, 1.0, ThresholdType.ToZero);
             Point max_loc = new Point();
             Point min_loc = new Point();
             double max = 0, min = 0;
             CvInvoke.MinMaxLoc(MatchResult, ref min, ref max, ref min_loc, ref max_loc);//获得极值信息
             Similarity = max;
-            if (max > threshold)
-            {
-                return new Rectangle(max_loc, Template.Size);
-            }
-            else
-            {
-                return Rectangle.Empty;
-            }
+            return new Rectangle(max_loc, Template.Size);
         }
     }
 }
