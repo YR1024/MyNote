@@ -20,43 +20,6 @@ namespace TestNuget
             //QQSignIn.Start();
 
 
-            Task.Run(() =>
-            {
-                Quickspot.LoadImage1();
-                Quickspot.LoadImage2();
-            });
-
-            while (true)
-            {
-                if (Quickspot.IsImage1Loaded && Quickspot.IsImage2Loaded)
-                {
-                    break;
-                }
-            }
-
-            Task.Run(() =>
-            {
-                Quickspot.Compare();
-            });
-
-            while (true)
-            {
-                if (Quickspot.Result.Count == Quickspot.sourceImg.Count)
-                {
-                    break;
-                }
-            }
-
-            Thread t = new Thread(() =>
-            {
-                CompareResult compareResult = new CompareResult(Quickspot.Result);
-                compareResult.ShowCompareResult();
-                Dispatcher.Run();
-            });
-            t.SetApartmentState(ApartmentState.STA);
-            t.Start();
-
-
             //OCR ocr = new OCR();
             //ocr.Test();
             Console.ReadLine();

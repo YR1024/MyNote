@@ -69,8 +69,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QQSignIn.cs" />
-    <Compile Include="Quickspot.cs" />
-    <Compile Include="CompareResult.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

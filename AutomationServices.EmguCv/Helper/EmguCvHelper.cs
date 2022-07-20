@@ -84,12 +84,12 @@ namespace AutomationServices.EmguCv.Helper
 
 
 
-        public static Rectangle MatchPictureSimilarity(string img1, string img2, out double Similarity)
+        public static Rectangle MatchPictureSimilarity(string img1, string img2, out double Similarity, ImreadModes loadType = ImreadModes.Color)
         {
             try
             {
-                Mat Src = CvInvoke.Imread(img1, ImreadModes.Color);
-                Mat Template = CvInvoke.Imread(img2, ImreadModes.Color);
+                Mat Src = CvInvoke.Imread(img1, loadType);
+                Mat Template = CvInvoke.Imread(img2, loadType);
 
                 Mat MatchResult = new Mat();//匹配结果
                 CvInvoke.MatchTemplate(Src, Template, MatchResult, TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
