@@ -25,8 +25,13 @@ namespace Quickspot
             InitializeComponent();
         }
 
+        CompareResult compareResult = null;
+
         private void Compare_Click(object sender, RoutedEventArgs e)
         {
+            compareResult?.CloseWindow();
+
+            ImageParse.Init();
             Task.Run(() =>
             {
                 ImageParse.LoadImage1();
@@ -54,12 +59,16 @@ namespace Quickspot
                 }
             }
 
-            
-                CompareResult compareResult = new CompareResult(ImageParse.Result);
-                compareResult.ShowCompareResult();
-            //t.SetApartmentState(ApartmentState.STA);
-            //t.Start();
 
+            compareResult = new CompareResult(ImageParse.Result);
+            compareResult.ShowCompareResult();
+
+        }
+
+        private void Clear_Click(object sender, RoutedEventArgs e)
+        {
+            compareResult?.CloseWindow();
+            //ImageParse.Init();
         }
     }
 }

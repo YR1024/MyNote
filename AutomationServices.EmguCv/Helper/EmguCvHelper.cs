@@ -86,17 +86,25 @@ namespace AutomationServices.EmguCv.Helper
 
         public static Rectangle MatchPictureSimilarity(string img1, string img2, out double Similarity)
         {
-            Mat Src = CvInvoke.Imread(img1, ImreadModes.Color);
-            Mat Template = CvInvoke.Imread(img2, ImreadModes.Color);
+            try
+            {
+                Mat Src = CvInvoke.Imread(img1, ImreadModes.Color);
+                Mat Template = CvInvoke.Imread(img2, ImreadModes.Color);
 
-            Mat MatchResult = new Mat();//匹配结果
-            CvInvoke.MatchTemplate(Src, Template, MatchResult, TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
-            Point max_loc = new Point();
-            Point min_loc = new Point();
-            double max = 0, min = 0;
-            CvInvoke.MinMaxLoc(MatchResult, ref min, ref max, ref min_loc, ref max_loc);//获得极值信息
-            Similarity = max;
-            return new Rectangle(max_loc, Template.Size);
+                Mat MatchResult = new Mat();//匹配结果
+                CvInvoke.MatchTemplate(Src, Template, MatchResult, TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
+                Point max_loc = new Point();
+                Point min_loc = new Point();
+                double max = 0, min = 0;
+                CvInvoke.MinMaxLoc(MatchResult, ref min, ref max, ref min_loc, ref max_loc);//获得极值信息
+                Similarity = max;
+                return new Rectangle(max_loc, Template.Size);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+          
         }
     }
 }

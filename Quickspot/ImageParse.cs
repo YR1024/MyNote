@@ -18,14 +18,45 @@ namespace Quickspot
 
         public static string BaseDirectory = System.AppDomain.CurrentDomain.BaseDirectory;
 
-        public static int splitBlockSize = 20;
+        public static int splitBlockSize = 25;
 
-        static string BigImageFile = @"C:\Users\YR\Desktop\test1.png";
-        static Image BigImage = Image.FromFile(BigImageFile);
+        //static string BigImageFile = @"C:\Users\YR\Desktop\test1.png";
+        //static Image BigImage = Image.FromFile(BigImageFile);
+        static Image BigImage;
 
+        public static void Clear()
+        {
+            sourceImg.Clear();
+            targetImg.Clear();
+            Result.Clear(); 
+        }
 
         public static bool IsImage1Loaded = false;
         public static bool IsImage2Loaded = false;
+
+        public static void Init()
+        {
+            IsImage1Loaded = false;
+            IsImage2Loaded = false;
+            Clear();
+            DeleteDirectory();
+            BigImage = ImageHelper.CaptureImage(ImageHelper.GetFullScreen(), 448, 156, 1024, 768); ;
+        }
+
+
+        static void DeleteDirectory()
+        {
+            if (Directory.Exists("SourceImages"))
+            {
+                DirectoryInfo di = new DirectoryInfo(BaseDirectory + "SourceImages");
+                di.Delete(true);
+            }
+            if (Directory.Exists("TargetImages"))
+            {
+                DirectoryInfo di = new DirectoryInfo(BaseDirectory + "TargetImages");
+                di.Delete(true);
+            }
+        }
 
         public static void LoadImage1()
         {
@@ -100,8 +131,8 @@ namespace Quickspot
             for (int i = 0; i < sourceImg.Count; i++)
             {
                 int index = i;
-                Task.Run(() =>
-                {
+                //Task.Run(() =>
+                //{
                     try
                     {
                         var rect = EmguCvHelper.MatchPictureSimilarity(sourceImg[index].FileName, targetImg[index].FileName, out double r);
@@ -111,7 +142,7 @@ namespace Quickspot
                     {
                         throw e;
                     }
-                });
+                //});
             }
 
 

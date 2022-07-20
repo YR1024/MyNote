@@ -51,15 +51,32 @@ namespace Quickspot
         {
             foreach (var item in _CompareInfo)
             {
-                if (item.Similarity > 0.997)
+                if (item.Similarity > 0.995)
                     continue;
                 Color c = Colors.Yellow;
-                if (item.Similarity < 0.95)
+                double t = 0.5;
+                if (item.Similarity < 0.80)
                 {
                     c = Colors.Red;
+                    t = 1;
+                }
+                else if (item.Similarity >= 0.80 && item.Similarity < 0.90)
+                {
+                    c = Color.FromArgb(180,255,0,0);
+                    t = 0.8;
+                }
+                else if (item.Similarity >= 0.90 && item.Similarity < 0.95)
+                {
+                    c = Color.FromArgb(255, 255, 255, 0);
+                    t = 0.6;
+                }
+                else if (item.Similarity >= 0.95)
+                {
+                    c = Color.FromArgb(180, 255, 255, 0);
+                    t = 0.4;
                 }
                 Border border = new Border();
-                border.BorderThickness = new System.Windows.Thickness(1);
+                border.BorderThickness = new System.Windows.Thickness(t);
                 border.BorderBrush = new SolidColorBrush(c);
                 border.Width = ImageParse.splitBlockSize;
                 border.Height = ImageParse.splitBlockSize;
@@ -74,6 +91,11 @@ namespace Quickspot
         public void ShowCompareResult()
         {
             window.Show();
+        }
+
+        public void CloseWindow()
+        {
+            window.Close();
         }
     }
 }
