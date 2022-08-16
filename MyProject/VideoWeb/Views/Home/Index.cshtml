@@ -6,8 +6,9 @@
     List<string> Videos = new List<string>();
     foreach (var fi in FileInfoList)
     {
-        string vidoePath = fi.FullName.Remove(0, spath.Length);
-        Videos.Add("../Video/" + vidoePath);
+        string vidoePath = fi.FullName.Remove(0, spath.Length+1);
+        Videos.Add("../../Video/" + vidoePath);
+        //Videos.Add(fi.FullName);
     }
     //ViewBag.Videos = getFileName(path);
 

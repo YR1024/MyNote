@@ -21,9 +21,9 @@ namespace Quickspot
 
         public static int splitBlockSize = 25;
 
-        static string BigImageFile = @"C:\Users\YR\Desktop\test3.png";
-        static Image BigImage = Image.FromFile(BigImageFile);
-        //static Image BigImage;
+        //static string BigImageFile = @"C:\Users\YR\Desktop\test3.png";
+        //static Image BigImage = Image.FromFile(BigImageFile);
+        static Image BigImage;
 
         public static void Clear()
         {
@@ -41,7 +41,7 @@ namespace Quickspot
             IsImage2Loaded = false;
             Clear();
             DeleteDirectory();
-            //BigImage = ImageHelper.CaptureImage(ImageHelper.GetFullScreen(), 448, 156, 1024, 768); ;
+            BigImage = ImageHelper.CaptureImage(ImageHelper.GetFullScreen(), 448, 156, 1024, 768); ;
         }
 
 

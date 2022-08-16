@@ -1,0 +1,161 @@
+﻿@{
+    Layout = null;
+    List<FileInfo> FileInfoList = ViewBag.Videos;
+    string spath = ViewBag.ServerPath;
+
+    List<string> Videos = new List<string>();
+    foreach (var fi in FileInfoList)
+    {
+        string vidoePath = fi.FullName.Remove(0, spath.Length+1);
+        Videos.Add("../../Video/" + vidoePath);
+        //Videos.Add(fi.FullName);
+    }
+    //ViewBag.Videos = getFileName(path);
+
+    var i = 0;
+    var index = 0;
+}
+
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Index</title>
+     <link href="https://vjs.zencdn.net/7.20.1/video-js.css" rel="stylesheet" />
+    
+</head>
+<body>
+    @{
+        foreach (var path in Videos)
+        {
+            i++;
+            //<div style="margin:0 auto;width:550px;height:350px">
+            //    <div>
+            //        <video controls="controls" width="500" height="300">
+            //            <source src="@path" />
+            //        </video>
+                 
+            //    </div>
+            //</div>
+            //<div style="margin:0 auto;width:550px">
+            //    <button onclick="Delete(this,@i)">删除</button>
+            //    <a href="/Home/Delete?FilePath=@path" id="a_@i" style="display:none">确认</a>
+            //    @{index = path.IndexOf("\\") == -1 ? path.IndexOf("/") : path.IndexOf("\\");}
+            //    <a>@path.Substring(index + 1)</a>
+            //    &nbsp;&nbsp;&nbsp;&nbsp;
+            //    <a>@(Math.Round(Convert.ToDouble(Convert.ToDouble(FileInfoList[i - 1].Length) / (1024F * 1024F * 1024F)), 4)) GB</a>
+            //    <p>@FileInfoList[i-1].LastWriteTime</p>
+            //</div>
+
+            <div style="margin:0 auto;width:550px;height:350px">
+                   <video id="myvideo" class="video-js vjs-big-play-centered" controls data-setup="{}" width="550" preload="auto">
+                        <source src="@path"/>
+                    </video>
+            </div>
+           
+        }
+    }
+
+    <script src="https://vjs.zencdn.net/7.20.1/video.min.js"></script>
+
+</body>
+</html>
+<script>
+    function Delete(btn, index) {
+        var OkBtn = document.querySelector("#a_" + index);
+        OkBtn.style.display = "block";
+        btn.style.display = "none";
+    }
+</script>
+<script>
+   
+    //var myvideo = videojs("myvideo");
+    var myvideo = videojs('myvideo', { playbackRates: [0.1, 1, 1.5, 2]});
+    var maxTime;
+    var pro;
+
+    
+    //获取声音
+    console.log(myvideo.volume());
+
+    //设置声音
+    myvideo.volume(.5);
+
+    //myvideo.ready(function () {
+    //    console.log("已就绪");
+    //});
+
+    myvideo.ready(function () {
+        //缓冲
+        console.log(this.buffered());
+    });
+    myvideo.on("ended", function () {
+        console.log("视频播放结束");
+    })
+
+    myvideo.on("pause", function () {
+        console.log("点击暂停");
+    })
+
+    myvideo.on("play", function () {
+        console.log("点击播放");
+    })
+
+    myvideo.on("volumechange", function () {
+        console.log("声音改变");
+    })
+
+    myvideo.on("timeupdate", function () {
+       //    console.log("视频播放中");
+    })
+
+    myvideo.on("seeked", function () {
+       
+        console.log("视频跳转结束");
+    })
+
+    myvideo.on("seeking", function () {
+        
+           
+        
+    })
+   
+
+    var isMousedown = false;
+    var oldTime = 0;
+    //拖动进度条会先执行这个事件
+    $(".vjs-progress-holder").mouseup(function () {
+        isMousedown = true;
+        oldTime = myvideo.currentTime();
+    });
+    $(".vjs-progress-control").click(function () {
+        isMousedown = true;
+        oldTime = myvideo.currentTime();
+    });
+    //vid1就是videojs对象
+    myvideo.on('timeupdate', function () {
+        if (isMousedown) {
+            let a1 = myvideo.currentTime();
+            let b1 = maxTime;
+            let c1 = oldTime;
+            if (a1 > b1) {
+                myvideo.currentTime(oldTime);
+            }
+            isMousedown = false;
+        } else {
+            if (myvideo.currentTime() > maxTime) {
+                maxTime = myvideo.currentTime();
+            }
+        }
+    });
+    //绑定在window上，点击可获取当前时间进度
+    onclick = function () {
+        console.log(myvideo.currentTime());
+        var progress = Math.trunc(myvideo.currentTime() / myvideo.duration() * 100);
+        console.log(progress);
+
+    }
+  
+</script>

@@ -21,6 +21,19 @@ namespace VideoWeb.Controllers
             return View();
         }
 
+
+        public IActionResult Index2()
+        {
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+
+            Array FileInfoArray = GetFileHelper.GetFile(path, ".mp4.avi.mkv").ToArray();
+            Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
+            ViewBag.ServerPath = path;
+            ViewBag.Videos = new List<FileInfo>((IEnumerable<FileInfo>)FileInfoArray);
+            return View();
+        }
+
         public ActionResult Delete(string FilePath)
         {
             System.IO.File.Delete(path + FilePath);
