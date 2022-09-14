@@ -1,11 +1,14 @@
-﻿using Microsoft.Win32;
+﻿using ICSharpCode.SharpZipLib.Zip;
+using Microsoft.Win32;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -18,7 +21,7 @@ namespace Selenium
         private static Mutex mutex;
         static void Main(string[] args)
         {
-            if(SingleProcess())
+            if (SingleProcess())
                 return;
             //隐藏控制台窗口,TEST为控制台名称
             Console.Title = "QQ农场牧场自动化";
@@ -28,8 +31,7 @@ namespace Selenium
             Console.ReadLine();
         }
 
-
-
+ 
 
         static bool SingleProcess()
         {
@@ -94,6 +96,31 @@ namespace Selenium
                 throw ee;
             }
 
+        }
+    }
+
+    public class WebDownload : WebClient
+    {
+        /// <summary>
+        /// Time in milliseconds
+        /// </summary>
+        public int Timeout { get; set; }
+
+        public WebDownload() : this(5000) { }
+
+        public WebDownload(int timeout)
+        {
+            this.Timeout = timeout;
+        }
+
+        protected override WebRequest GetWebRequest(Uri address)
+        {
+            var request = base.GetWebRequest(address);
+            if (request != null)
+            {
+                request.Timeout = this.Timeout;
+            }
+            return request;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using ICSharpCode.SharpZipLib.Zip;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,7 @@ namespace Selenium
         {
             try
             {
+                CheckMsedgedriverVision();
                 Logger.WriteLog("开始执行农场任务");
                 StartEdge();
                 Login();
@@ -36,6 +38,104 @@ namespace Selenium
             }
         }
 
+        #region 检查msedgedriver版本
+        void CheckMsedgedriverVision()
+        {
+            Logger.WriteLog("检查msedgedriver.exe版本");
+            string currentEdge = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+            var EdgeFileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(currentEdge);
+
+            var msedgedriverPath = AppDomain.CurrentDomain.BaseDirectory + "msedgedriver.exe";
+            if (File.Exists(msedgedriverPath))
+            {
+                var MsedgedriverFileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(msedgedriverPath);
+                if (MsedgedriverFileVersionInfo.FileVersion == EdgeFileVersionInfo.FileVersion)
+                    return;
+                Logger.WriteLog($"msedgedriver.版本不一致 {MsedgedriverFileVersionInfo.FileVersion } => {EdgeFileVersionInfo.FileVersion}");
+                DownloadMsedgedriver(EdgeFileVersionInfo.FileVersion);
+
+            }
+            else
+            {
+                Logger.WriteLog("msedgedriver.exe文件不存在");
+                DownloadMsedgedriver(EdgeFileVersionInfo.FileVersion);
+            }
+        }
+
+        private static void DownloadMsedgedriver(string fileVersion)
+        {
+            //https://msedgedriver.azureedge.net/105.0.1343.33/edgedriver_win64.zip
+            var url = "https://msedgedriver.azureedge.net/" + fileVersion + "/edgedriver_win64.zip";
+            HttpDownload(url, AppDomain.CurrentDomain.BaseDirectory + "edgedriver_win64.zip");
+            // Set the method that will be called on each file before extraction but after the OverwritePrompt (if applicable)
+            //FastZipEvents events = new FastZipEvents();
+            //events.ProcessFile = ProcessFileMethod;
+            //FastZip fastZip = new FastZip(events);
+            FastZip fastZip = new FastZip();
+
+            // To conditionally extract files in FastZip, use the fileFilter and directoryFilter arguments.
+            // 过滤器是用分号分隔的正则表达式值列表。以-开头的条目是排除项。
+            // See the NameFilter class for more details.
+            // 以下表达式包括所有以“”结尾的名称。dat，但“dummy.dat”除外
+            //string fileFilter = @"+\.dat$;-^dummy\.dat$";
+            string fileFilter = "";
+            string directoryFilter = null;
+            bool restoreDateTime = true;
+
+            Logger.WriteLog("开始解压 edgedriver_win64.zip");
+            // Will prompt to overwrite if target filenames already exist
+            fastZip.ExtractZip(AppDomain.CurrentDomain.BaseDirectory + "edgedriver_win64.zip", AppDomain.CurrentDomain.BaseDirectory, FastZip.Overwrite.Prompt, OverwritePrompt,
+                               fileFilter, directoryFilter, restoreDateTime);
+            Logger.WriteLog("解压完成 edgedriver_win64.zip");
+
+
+            //System.IO.Compression.ZipFile.CreateFromDirectory(@"e:\test", @"e:\test\test.zip"); //压缩
+            //System.IO.Compression.ZipFile.ExtractToDirectory(@"E:\FarmSelenium\edgedriver_win64.zip", @"E:\FarmSelenium"); //解压
+
+        }
+
+        /// <summary>
+        /// http下载文件
+        /// </summary>
+        /// <param name="url">下载文件地址</param>
+        /// <returns></returns>
+        public static void HttpDownload(string url,string localFileAddr)
+        {
+            using (var client = new WebDownload())
+            {
+                Logger.WriteLog("开始下载：edgedriver_win64.zip");
+                Logger.WriteLog("下载URL："+ url);
+                client.DownloadFile(url, localFileAddr);//下载临时文件
+                Logger.WriteLog("下载完成：edgedriver_win64.zip");
+
+                //Console.WriteLine("Using " + tempFile);
+                //return FileToStream(tempFile, true);
+            }
+
+        }
+
+        /// <summary>
+        /// 覆盖提示
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        private static bool OverwritePrompt(string fileName)
+        {
+            //// In this method you can choose whether to overwrite a file.
+            //DialogResult dr = MessageBox.Show("Overwrite " + fileName, "Overwrite?", MessageBoxButtons.YesNoCancel);
+            //if (dr == DialogResult.Cancel)
+            //{
+            //    _stop = true;
+            //    // Must return true if we want to abort processing, so that the ProcessFileMethod will be called.
+            //    // When the ProcessFileMethod sets ContinueRunning false, processing will immediately stop.
+            //    return true;
+            //}
+            //return dr == DialogResult.Yes;
+            return true;
+        }
+      
+
+        #endregion
 
         /// <summary>
         /// 启动浏览器
@@ -141,6 +241,62 @@ namespace Selenium
                     }
                 }
             }
+            TryFindElement(By.LinkText("我的农场"), out IWebElement back4);
+            back4.Click();
+            while (TryFindElement(By.LinkText("播种"), out IWebElement sow2))
+            {
+                sow2.Click();
+                Logger.WriteLog("有可播种的土地，开始播种");
+                Thread.Sleep(1500);
+
+                if(TryFindElement(By.XPath("/html/body/div[2]/div[1]/div"),out IWebElement BackpackInfo))
+                {
+                    if (BackpackInfo.Text.Contains("你没有符合种植条件的种子"))
+                    {
+                        TryFindElement(By.LinkText("去商店购买种子"), out IWebElement GoStore);
+                        Logger.WriteLog("没有种子, 去商店购买");
+                        GoStore.Click();
+                        Thread.Sleep(1500);
+                        TryFindElement(By.LinkText("末页"), out IWebElement LastPage);
+                        LastPage.Click();
+                        Thread.Sleep(1500);
+                        ReadOnlyCollection<IWebElement> SeedsInfo = driver.FindElements(By.ClassName("padding-3-0"));
+                        IWebElement forageGrass = null;
+                        foreach (var item in SeedsInfo)
+                        {
+                            if (item.Text.Contains("牧草"))
+                            {
+                                forageGrass = item;
+                                break;
+                            }
+                        }
+                        if (forageGrass != null)
+                        {
+                            var purchase = forageGrass.FindElement(By.LinkText("购买"));
+                            purchase.Click();
+                            Thread.Sleep(1500);
+                            TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
+                            confirm.Click();
+                            Thread.Sleep(1500);
+                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                            TryFindElement(By.LinkText("去土地种植"), out IWebElement planting);
+                            planting.Click();
+                            Thread.Sleep(1500);
+
+                        }
+                    }
+                    else
+                    {
+                        while (TryFindElement(By.LinkText("种植"), out IWebElement plant2))
+                        {
+                            plant2.Click();
+                            Thread.Sleep(1500);
+                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                        }
+                    }
+                }
+                
+            }
             TryFindElement(By.LinkText("我的农场"), out IWebElement back3);
             back3.Click();
             Thread.Sleep(1500);
@@ -168,9 +324,9 @@ namespace Selenium
                         Thread.Sleep(1500);
                         Logger.WriteLog(GetInfo(By.XPath("/html/body/div[2]/div[2]/p")));
                         TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
-                            confirm.Click();
-                            Thread.Sleep(1500);
-                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                        confirm.Click();
+                        Thread.Sleep(1500);
+                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
                         TryFindElement(By.LinkText("去鱼塘养殖"), out IWebElement ToFishPond);
                         ToFishPond.Click();
                         Thread.Sleep(1500);
@@ -526,7 +682,7 @@ namespace Selenium
             TimerList.Add(CreateDailyScheduledTask(20, 0));
             TimerList.Add(CreateDailyScheduledTask(22, 0));
 
-            //TimerList.Add(CreateDailyScheduledTask(15, 14));
+            //TimerList.Add(CreateDailyScheduledTask(20, 3));
         }
 
 
