@@ -8,7 +8,7 @@ using System.Windows.Forms;
 
 namespace AutomationServices.EmguCv.Helper
 {
-    class WinIoHelper
+    public class WinIoHelper
     {
         private const int KBC_KEY_CMD = 0x64;
         private const int KBC_KEY_DATA = 0x60;
@@ -41,10 +41,20 @@ namespace AutomationServices.EmguCv.Helper
         public static extern int MapVirtualKey(uint Ucode, uint uMapType);
 
 
+
+        private static WinIoHelper winio;
+
         private WinIoHelper()
         {
-            IsInitialize = true;
+            Initialize(); // 注册
+            //IsInitialize = true;
         }
+
+        private static WinIoHelper GetWinIO()
+        {
+            return winio ?? (winio = new WinIoHelper());
+        }
+
         public static void Initialize()
         {
             if (InitializeWinIo())
@@ -76,9 +86,10 @@ namespace AutomationServices.EmguCv.Helper
         }
 
         /// 模拟键盘标按下
-        public static void KeyDown(Keys vKeyCoad)
+        private void Down(Keys vKeyCoad)
         {
-            if (!IsInitialize) return;
+            if (!IsInitialize) 
+                return;
 
             int btScancode = 0;
             btScancode = MapVirtualKey((uint)vKeyCoad, 0);
@@ -93,9 +104,10 @@ namespace AutomationServices.EmguCv.Helper
         }
 
         /// 模拟键盘弹出
-        public static void KeyUp(Keys vKeyCoad)
+        private void Up(Keys vKeyCoad)
         {
-            if (!IsInitialize) return;
+            if (!IsInitialize)
+                return;
 
             int btScancode = 0;
             btScancode = MapVirtualKey((uint)vKeyCoad, 0);
@@ -111,11 +123,29 @@ namespace AutomationServices.EmguCv.Helper
 
         public static void KeyDownUp(Keys vKeyCoad)
         {
-            Initialize(); // 注册
-            KeyDown(vKeyCoad);
-            System.Threading.Thread.Sleep(100);
-            KeyUp(vKeyCoad);
-            Shutdown(); // 用完后注销
+            //Initialize(); // 注册
+            GetWinIO().Down(vKeyCoad);
+            //System.Threading.Thread.Sleep(100);
+            GetWinIO().Up(vKeyCoad);
+            //Shutdown(); // 用完后注销
         }
+
+
+        public static void KeyDown(Keys vKeyCoad)
+        {
+            //Initialize(); // 注册
+            GetWinIO().Down(vKeyCoad);
+            //Shutdown(); // 用完后注销
+        }
+
+        public static void KeyUp(Keys vKeyCoad)
+        {
+            //Initialize(); // 注册
+            GetWinIO().Up(vKeyCoad);
+            //Shutdown(); // 用完后注销
+        }
+
+
+
     }
 }

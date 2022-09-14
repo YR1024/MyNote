@@ -6,11 +6,12 @@
 	  <!--<UseWPF>true</UseWPF>-->
 	  <!--<UseWindowsForms>true</UseWindowsForms>-->
 	  <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-	  <Version>1.2.1</Version>
+	  <Version>1.3.0</Version>
 	  <Authors>Rou yuan</Authors>
 	  <Product>AutomationServices</Product>
 	  <Company />
 	  <Description>基于EmguCv 的自动化，通过查找配置图片位置来实现点击按键等操作</Description>
+	  <PlatformTarget>AnyCPU</PlatformTarget>
 	  <!--<PackageLicenseFile>F:\github\MyNote\AutomationServices.EmguCv\LICENSE.txt</PackageLicenseFile>-->
   </PropertyGroup>
 

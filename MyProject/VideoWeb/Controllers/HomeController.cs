@@ -7,16 +7,29 @@ namespace VideoWeb.Controllers
 {
     public class HomeController : Controller
     {
-        string path = AppDomain.CurrentDomain.BaseDirectory + "Video";
+        string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video";
 
         public IActionResult Index()
         {
-            if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
-
-            Array FileInfoArray = GetFileHelper.GetFile(path, ".mp4.avi.mkv").ToArray();
+            string avpath = path + "\\AV";
+            if (!Directory.Exists(avpath))
+                Directory.CreateDirectory(avpath);
+            Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
             Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
-            ViewBag.ServerPath = path;
+            ViewBag.ServerPath = avpath;
+            ViewBag.Videos = new List<FileInfo>((IEnumerable<FileInfo>)FileInfoArray);
+            return View();
+        }
+
+
+        public IActionResult LOLVideo()
+        {
+            string LOLpath = path+ "\\League of Legends";
+            if (!Directory.Exists(LOLpath))
+                Directory.CreateDirectory(LOLpath);
+            Array FileInfoArray = GetFileHelper.GetFile(LOLpath, ".mp4.avi.mkv").ToArray();
+            Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
+            ViewBag.ServerPath = LOLpath;
             ViewBag.Videos = new List<FileInfo>((IEnumerable<FileInfo>)FileInfoArray);
             return View();
         }
@@ -34,17 +47,88 @@ namespace VideoWeb.Controllers
             return View();
         }
 
-        public ActionResult Delete(string FilePath)
+        //public Stream GetVideoStream(string filePath)
+        //{
+        //    string LOLpath = path + "\\League of Legends";
+        //    List<FileInfo> FileInfoArray = GetFileHelper.GetFile(LOLpath, ".mp4.avi.mkv");
+        //    FileInfoArray[0].
+        //    return File.OpenRead(filePath);
+        //}
+
+
+        public ActionResult Delete(string FilePath,string Type)
         {
-            System.IO.File.Delete(path + FilePath);
+            //string a = path + "/../";
+
+            System.IO.File.Delete(FilePath);
+            if(Type == "AV")
+            {
+                return Redirect("Index");
+            }
+            else if (Type == "LOL")
+            {
+                return Redirect("LOLVideo");
+            }
             return Redirect("Index");
         }
+
+        public void VideoClip(string FilePath, string Type, string startTime, string endTime)
+        {
+
+            if (Type == "AV")
+            {
+                //return Redirect("Index");
+            }
+            else if (Type == "LOL")
+            {
+                //return Redirect("LOLVideo");
+            }
+
+            string Highlights = path + "\\精彩集锦\\";
+            if (!Directory.Exists(Highlights))
+                Directory.CreateDirectory(Highlights);
+            var a = Path.GetFileNameWithoutExtension(FilePath);
+            var filename = Highlights + DateTime.Now.ToString("yyyy-MM-dd") + Path.GetFileName(FilePath);
+
+
+            var startTimeSpan = new TimeSpan();
+            var endTimeSpan = new TimeSpan();
+            var st = startTime.Split(":");
+            var et = endTime.Split(":");
+            if (st.Length == 2)
+            {
+                startTimeSpan = new TimeSpan(0, Convert.ToInt32(st[0]), Convert.ToInt32(st[1]));
+                endTimeSpan = new TimeSpan(0, Convert.ToInt32(et[0]), Convert.ToInt32(et[1]));
+            }
+            else if (st.Length == 3)
+            {
+                startTimeSpan = new TimeSpan(Convert.ToInt32(st[0]), Convert.ToInt32(st[1]), Convert.ToInt32(st[2]));
+                endTimeSpan = new TimeSpan(Convert.ToInt32(et[0]), Convert.ToInt32(et[1]), Convert.ToInt32(et[2]));
+            }
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    VideoHelper.Cut(FilePath, filename, startTimeSpan, endTimeSpan);
+                }
+                catch (Exception ex)
+                {
+
+                }
+
+            });
+
+        }
+
+
+
         /// <summary>
         /// 删除文件夹以及文件
         /// </summary>
         /// <param name="directoryPath"> 文件夹路径 </param>
         /// <param name="fileName"> 文件名称 </param>
-        public static void Delete(string directoryPath, string fileName)
+        public static void Delete2(string directoryPath, string fileName)
         {
 
             //删除文件
@@ -81,5 +165,16 @@ namespace VideoWeb.Controllers
             }
             return fileNames;
         }
+
+       // void aaa()
+       // {
+       //     string inputVideoFile = "input_path_goes_here",
+       //outputAudioFile = "output_path_goes_here";
+
+       //     new FFMpeg().ExtractAudio(
+       //             VideoInfo.FromPath(inputVideoFile),
+       //             new FileInfo(outputAudioFile)
+       //         );
+       // }
     }
 }

@@ -6,12 +6,9 @@
     List<string> Videos = new List<string>();
     foreach (var fi in FileInfoList)
     {
-        string vidoePath = fi.FullName.Remove(0, spath.Length+1);
-        Videos.Add("../../Video/" + vidoePath);
-        //Videos.Add(fi.FullName);
+        string vidoeName = fi.FullName.Remove(0, spath.Length+1);
+        Videos.Add("AV/" + vidoeName);
     }
-    //ViewBag.Videos = getFileName(path);
-
     var i = 0;
     var index = 0;
 }
@@ -32,14 +29,14 @@
             <div style="margin:0 auto;width:550px;height:350px">
                 <div>
                     <video controls="controls" width="500" height="300">
-                        <source src="@path" />
+                        <source src="../../Video/@path" />
                     </video>
 
                 </div>
             </div>
             <div style="margin:0 auto;width:550px">
                 <button onclick="Delete(this,@i)">删除</button>
-                <a href="/Home/Delete?FilePath=@path" id="a_@i" style="display:none">确认</a>
+                <a href="/Home/Delete?FilePath=@FileInfoList[i-1]&Type=AV" id="a_@i" style="display:none">确认</a>
                 @{index = path.IndexOf("\\") == -1 ? path.IndexOf("/") : path.IndexOf("\\");}
                 <a>@path.Substring(index + 1)</a>
                 &nbsp;&nbsp;&nbsp;&nbsp;

@@ -18,24 +18,35 @@ namespace AutomationServices.EmguCv.Helper
 
         public static void KeyDown(Keys key)
         {
-            Input[] myInput = new Input[1];
-            myInput[0].type = 1;//模拟键盘
-            myInput[0].ki.wVk = (short)key.GetHashCode();
-            myInput[0].ki.dwFlags = 0;//按下
-            SendInput(1u, myInput, Marshal.SizeOf((object)default(Input)));
+            //Input[] myInput = new Input[1];
+            //myInput[0].type = 1;//模拟键盘
+            //myInput[0].ki.wVk = (short)key.GetHashCode();
+            //myInput[0].ki.dwFlags = 0;//按下
+            //SendInput(1u, myInput, Marshal.SizeOf((object)default(Input)));
+
+
+            INPUT[] myInput = new INPUT[1];
+            myInput[0].Type = 1;//模拟键盘
+            myInput[0].U.ki.wVk = (short)key.GetHashCode();
+            myInput[0].U.ki.dwFlags = 0;//按下
+            SendInput(1u, myInput, Marshal.SizeOf((object)default(INPUT)));
+
         }
 
         public static void KeyUp(Keys key)
         {
-            Input[] myInput = new Input[1];
-            myInput[0].type = 1;//模拟键盘
-            myInput[0].ki.wVk = (short)key.GetHashCode();
-            myInput[0].ki.dwFlags = 2;//抬起
-            SendInput(1u, myInput, Marshal.SizeOf((object)default(Input)));
+            INPUT[] myInput = new INPUT[1];
+            myInput[0].Type = 1;//模拟键盘
+            myInput[0].U.ki.wVk = (short)key.GetHashCode();
+            myInput[0].U.ki.dwFlags = 2;//抬起
+            SendInput(1u, myInput, Marshal.SizeOf((object)default(INPUT)));
         }
 
+        //[DllImport("user32")]
+        //public static extern uint SendInput(uint nInputs, Input[] pInputs, int cbSize);
+
         [DllImport("user32")]
-        public static extern uint SendInput(uint nInputs, Input[] pInputs, int cbSize);
+        public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
 
         const int MouseEvent_Absolute = 0x8000;
@@ -147,21 +158,43 @@ namespace AutomationServices.EmguCv.Helper
 
 
 
-    [StructLayout(LayoutKind.Explicit)]
-    public struct Input
-    {
-        [FieldOffset(0)]
-        public Int32 type;
+    //[StructLayout(LayoutKind.Explicit)]
+    //public struct Input
+    //{
+    //    [FieldOffset(0)]
+    //    public Int32 type;
 
-        [FieldOffset(4)]
+    //    [FieldOffset(0)]
+    //    public MouseInput mi;
+
+    //    [FieldOffset(0)]
+    //    public KeyBdInput ki;
+
+    //    [FieldOffset(0)]
+    //    public HARDWAREINPUT hi;
+    //}
+
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct INPUT
+    {
+        [FieldOffset(0)] public uint Type;
+        [FieldOffset(8)] public InputUnion U;
+    }
+    [StructLayout(LayoutKind.Explicit)]
+    public struct InputUnion
+    {
+        [FieldOffset(0)] 
         public MouseInput mi;
 
-        [FieldOffset(4)]
-        public tagKEYBDINPUT ki;
+        [FieldOffset(0)]
+        public KeyBdInput ki;
 
-        [FieldOffset(4)]
-        public tagHARDWAREINPUT hi;
+        [FieldOffset(0)]
+        public HARDWAREINPUT hi;
     }
+    
+
 
     [StructLayout(LayoutKind.Sequential)]
     public struct MouseInput
@@ -173,9 +206,8 @@ namespace AutomationServices.EmguCv.Helper
         public Int32 time;
         public IntPtr dwExtraInfo;
     }
-
     [StructLayout(LayoutKind.Sequential)]
-    public struct tagKEYBDINPUT
+    public struct KeyBdInput
     {
         public Int16 wVk;
         public Int16 wScan;
@@ -185,7 +217,7 @@ namespace AutomationServices.EmguCv.Helper
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct tagHARDWAREINPUT
+    public struct HARDWAREINPUT
     {
         Int32 uMsg;
         Int16 wParamL;

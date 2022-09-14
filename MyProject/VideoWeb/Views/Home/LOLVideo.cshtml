@@ -1,0 +1,92 @@
+﻿@{
+    Layout = null;
+    List<FileInfo> FileInfoList = ViewBag.Videos;
+    string spath = ViewBag.ServerPath;
+
+    List<string> Videos = new List<string>();
+    foreach (var fi in FileInfoList)
+    {
+        string vidoePath = fi.FullName.Remove(0, spath.Length+1);
+        Videos.Add("League of Legends/" + vidoePath);
+    }
+
+    var i = 0;
+    var index = 0;
+}
+
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Index</title>
+</head>
+<body>
+    @{
+        foreach (var path in Videos)
+        {
+            i++;
+            <div style="margin:0 auto;width:550px;height:350px">
+                <div>
+                    <video controls="controls" width="500" height="300" >
+                        <source src="../../Video/@path" />
+                    </video>
+
+                </div>
+            </div>
+            <div style="margin:0 auto;width:550px">
+                <button onclick="Delete(this,@i)">删除</button>
+                <a href="/Home/Delete?FilePath=@FileInfoList[i-1]&Type=LOL" id="a_@i" style="display:none">确认</a>
+
+
+                @{index = path.IndexOf("\\") == -1 ? path.IndexOf("/") : path.IndexOf("\\");}
+                <a>@path.Substring(index + 1)</a>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <a>@(Math.Round(Convert.ToDouble(Convert.ToDouble(FileInfoList[i - 1].Length) / (1024F * 1024F * 1024F)), 4)) GB</a>
+                <p>@FileInfoList[i-1].LastWriteTime</p>
+            </div>
+
+             <div style="margin:0 auto;width:550px">
+                <button onclick="Clip(this,@i)">裁剪</button>
+                <input type="text" id="start_@i" style="display:none"/>
+                <input type="text" id="end_@i" style="display:none"/>
+                <input type="text"  value="@FileInfoList[i-1]" id="fileName_@i" style="display:none"/>
+                <button onclick="VideoClip(this,@i)" id="sub_@i" style="display:none">确认</button>
+
+                <a href="/Home/VideoClip?FilePath=@FileInfoList[i-1]&Type=LOL" id="c_@i" style="display:none">确认</a>
+            </div>
+        }
+    }
+
+
+</body>
+</html>
+<script>
+    function Delete(btn, index) {
+        var OkBtn = document.querySelector("#a_" + index);
+        OkBtn.style.display = "block";
+        btn.style.display = "none";
+    }
+
+     function Clip(btn, index) {
+        var OkBtn = document.querySelector("#sub_" + index);
+        var S_Input = document.querySelector("#start_" + index);
+        var E_Input = document.querySelector("#end_" + index);
+        OkBtn.style.display = "block";
+        S_Input.style.display = "block";
+        E_Input.style.display = "block";
+        btn.style.display = "none";
+    }
+
+     function VideoClip(btn, index) {
+        var S_Input = document.querySelector("#start_" + index).value;
+        var E_Input = document.querySelector("#end_" + index).value;
+        var Filename = document.querySelector("#fileName_" + index).value;
+        //var path = location.pathname+"?pc="+page;
+        var path = "/Home/VideoClip?FilePath="+ Filename +"&Type=LOL" + "&startTime="+ S_Input +"&endTime=" + E_Input;
+        location.assign(path);//提交URL
+    }
+</script>
+
+
