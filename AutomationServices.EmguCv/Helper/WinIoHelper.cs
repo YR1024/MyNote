@@ -65,7 +65,7 @@ namespace AutomationServices.EmguCv.Helper
             else
                 System.Windows.MessageBox.Show("Load WinIO Failed!");
         }
-        public static void Shutdown()
+        static void Shutdown()
         {
             if (IsInitialize)
                 ShutdownWinIo();
@@ -125,7 +125,7 @@ namespace AutomationServices.EmguCv.Helper
         {
             //Initialize(); // 注册
             GetWinIO().Down(vKeyCoad);
-            //System.Threading.Thread.Sleep(100);
+            System.Threading.Thread.Sleep(100);
             GetWinIO().Up(vKeyCoad);
             //Shutdown(); // 用完后注销
         }

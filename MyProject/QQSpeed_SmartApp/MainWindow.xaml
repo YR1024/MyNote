@@ -16,6 +16,7 @@
             <Button Content="执行" Margin="5" Click="excute_Click"/>
             <Button Content="跑图" Margin="5" Click="Paotu_Click"/>
             <Button Content="秒杀雷诺" Margin="5" Click="祝我好运_Click"/>
+            <Button Content="安装钩子" Margin="5" Click="Hook_Click"/>
         </StackPanel>
         <Grid HorizontalAlignment="Left" Margin="170,25,0,-25">
             <CheckBox x:Name="petFlatCheck"  Content="宠物对战" IsChecked="True"/>
@@ -23,8 +24,8 @@
             <CheckBox x:Name="FleetCheck"  Content="车队福利" IsChecked="True" Margin="0,50,0,-50"/>
             <CheckBox x:Name="ExitCheck"  Content="结束后退出" IsChecked="True" Margin="0,75,0,-75"/>
         </Grid>
-        <Grid HorizontalAlignment="Left" Margin="260,25,0,-25">
-            <TextBox x:Name="InfoBox" Width="150" TextWrapping="Wrap"/>
+        <Grid HorizontalAlignment="Left" Margin="260,25,0, 25">
+            <TextBox x:Name="InfoBox" Width="200" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible"/>
         </Grid>
     </Grid>
 </Window>

@@ -23,6 +23,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using WpfApp;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using Window = System.Windows.Window;
 
@@ -39,7 +40,10 @@ namespace QQSpeed_SmartApp
         public MainWindow()
         {
             InitializeComponent();
+            Closing += MainWindow_Closing;
         }
+
+      
 
         private void Login_Click(object sender, RoutedEventArgs e)
         {
@@ -478,46 +482,144 @@ namespace QQSpeed_SmartApp
 
         private void Paotu_Click(object sender, RoutedEventArgs e)
         {
-            Task.Run(() => { 
-                Thread.Sleep(3000);
-                for (int i = 0; i < 10; i++)
+            Task.Run(() => {
+                //for (int i = 0; i < 10; i++)
+                //{
+                //    WinIoHelper.KeyDown(Keys.W);
+                //    Thread.Sleep(10_000);
+                //    WinIoHelper.KeyDownUp(Keys.R);
+                //    Thread.Sleep(50);
+                //    WinIoHelper.KeyUp(Keys.W);
+                //}
+
+                foreach (var keylog in KeyLogList)
                 {
-                    KeyBoardHelper.KeyDown(Keys.W);
-                    Thread.Sleep(10_000);
-                    KeyBoardHelper.KeyDownUp(Keys.R);
-                    KeyBoardHelper.KeyUp(Keys.W);
+                    Thread.Sleep(keylog.Delay);
+                    if (keylog.DownUp == 256)
+                    {
+                        WinIoHelper.KeyDown(keylog.Key);
+                    }
+                    else
+                    {
+                        WinIoHelper.KeyUp(keylog.Key);
+                    }
                 }
             });
         }
 
+        List<KeyLog> KeyLogList = new List<KeyLog>();
+
         private void 祝我好运_Click(object sender, RoutedEventArgs e)
         {
+            (sender as System.Windows.Controls.Button).IsEnabled = false;
+
             StartUpQQSpeed();
             Login();
             InitQQSpeedWindow();
-            //金丝篓
-            Action action = () => {
+
+            DateTimeSynchronization();
+            ScheduledTask scheduledTask = new ScheduledTask();
+
+
+            Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(995, 235, 2000);
-                    MyHelper.Click(405, 170, 2000);
-                    MyHelper.Click(85, 420, 500); //捕捉
+                    MyHelper.Click(455, 485, 1000); //确定
+                    for (int i = 0; i < 4; i++)
+                    {
+                        MyHelper.Click(565, 520, 750); //继续开启
+                    }
+                    //Thread.Sleep(10000);
+                    //QQSpeedProcess.Kill();
                 });
             };
-            new ScheduledTask().StartExecuteTask(23, 59, 00 , action);
 
             Action action2 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(455, 485, 2000); //确定
-                    for (int i = 0; i < 4; i++)
-                    {
-                        MyHelper.Click(565, 520, 2000); //继续开启
-                    }
-                    Thread.Sleep(10000);
-                    QQSpeedProcess.Kill();
+                    MyHelper.Click(85, 420, 500); //捕捉
+
+                    DateTimeSynchronization();
+                    scheduledTask.StartExecuteTask(23, 59, 58, action3);
                 });
             };
-            new ScheduledTask().StartExecuteTask(23, 59, 56, action2);
+
+            Action action = () => {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                    MyHelper.Click(995, 235, 2000); //装备
+                    MyHelper.Click(405, 170, 2000); //星标
+
+                    DateTimeSynchronization();
+                    scheduledTask.StartExecuteTask(23, 59, 40, action2);
+                });
+            };
+            scheduledTask.StartExecuteTask(23, 47, 00, action);
         }
+
+        void DateTimeSynchronization()
+        {
+            InfoBox.Text += "ntp时间同步\n";
+            DateTime dt = DateTime.Now;
+            InfoBox.Text += $"现在本地时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
+            string errorMessage = "";
+            TimerHelper.Synchronization("ntp.aliyun.com", out dt, out errorMessage);
+            if (string.IsNullOrWhiteSpace(errorMessage))
+            {
+                InfoBox.Text += $"同步时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
+            }
+        }
+
+
+        #region 键盘钩子
+
+        bool IsInstallHook = false;
+        private void Hook_Click(object sender, RoutedEventArgs e)
+        {
+            if (!IsInstallHook)
+            {
+                PreTime = DateTime.Now;
+                InterceptKeys.SetHook();
+                InterceptKeys.KeyInfo += KeyInfo;
+                (sender as System.Windows.Controls.Button).Content = "卸载钩子";
+            }
+            else
+            {
+                InterceptKeys.UnHook();
+                (sender as System.Windows.Controls.Button).Content = "安装钩子";
+
+            }
+            IsInstallHook = !IsInstallHook;
+
+        }
+        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            InterceptKeys.UnHook();
+        }
+        public string Info = "";
+        public DateTime PreTime= DateTime.MaxValue;
+
+        private void KeyInfo(Keys k, int downup)
+        {
+            lock (KeyLogList)
+            {
+                KeyLogList.Add(new KeyLog() { Key = k, DownUp = downup, Delay = CalculateTimeSpan() });
+            }
+            //Info += $"{k.ToString()},{downup}\n";
+            //System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            //{
+            //    InfoBox.Text += $"间隔：{CalculateTimeSpan().TotalMilliseconds}\n";
+            //    InfoBox.Text += $"按键：{k.ToString()},上/下：{downup}\n";
+            //    InfoBox.ScrollToLine(InfoBox.LineCount - 1);
+            //});
+        }
+
+        TimeSpan CalculateTimeSpan()
+        {
+            DateTime time = PreTime;
+            PreTime = DateTime.Now;
+            return DateTime.Now - time;
+        }
+
+        #endregion
+
     }
 
 
@@ -617,5 +719,13 @@ namespace QQSpeed_SmartApp
             KeyBoardHelper.KeyDownUp(keys);
             Thread.Sleep(time);
         }
+    }
+
+
+    public class KeyLog
+    {
+        public Keys Key { get; set; }
+        public int DownUp { get; set; }
+        public TimeSpan Delay { get; set; }
     }
 }
