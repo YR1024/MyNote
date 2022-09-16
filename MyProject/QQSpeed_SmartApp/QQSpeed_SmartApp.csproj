@@ -67,6 +67,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Helper\InterceptKeys.cs" />
+    <Compile Include="Helper\MapManager.cs" />
     <Compile Include="Helper\ScheduledTask.cs" />
     <Compile Include="Helper\TimerHelper.cs" />
     <Compile Include="Helper\Win32Helper.cs" />

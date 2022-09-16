@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -124,11 +125,11 @@ namespace QQSpeed_SmartApp
 
             var accountInput = new System.Drawing.Point(450, 423);
             MouseHelper.MouseDownUp(accountInput.X, accountInput.Y);
-            MyHelper.StrInputKey("193589375");
+            MyHelper.StrInputKey(accountTb.Text);
             Thread.Sleep(500);
             var pwdInput = new System.Drawing.Point(450, 460);
             MouseHelper.MouseDownUp(pwdInput.X, pwdInput.Y);
-            MyHelper.StrInputKey("yr18723750041..");
+            MyHelper.StrInputKey(passwordTb.Password);
 
             var loginBtn = new System.Drawing.Point(750, 435);
             MouseHelper.MouseDownUp(loginBtn.X, loginBtn.Y);
@@ -507,7 +508,7 @@ namespace QQSpeed_SmartApp
             });
         }
 
-        List<KeyLog> KeyLogList = new List<KeyLog>();
+        List<KeyLogInfo> KeyLogList = new List<KeyLogInfo>();
 
         private void 祝我好运_Click(object sender, RoutedEventArgs e)
         {
@@ -575,9 +576,7 @@ namespace QQSpeed_SmartApp
         {
             if (!IsInstallHook)
             {
-                PreTime = DateTime.Now;
                 InterceptKeys.SetHook();
-                InterceptKeys.KeyInfo += KeyInfo;
                 (sender as System.Windows.Controls.Button).Content = "卸载钩子";
             }
             else
@@ -593,14 +592,41 @@ namespace QQSpeed_SmartApp
         {
             InterceptKeys.UnHook();
         }
-        public string Info = "";
-        public DateTime PreTime= DateTime.MaxValue;
+        #endregion
+
+
+        #region 录制/保存
+        bool IsRecording = false; //是否正在 录制按键信息
+        public DateTime PreTime = DateTime.MaxValue; //上次按键的触发时间 
+        private void LogKey_Click(object sender, RoutedEventArgs e)
+        {
+            if (!IsRecording)
+            {
+                PreTime = DateTime.Now;
+                InterceptKeys.KeyInfo += KeyInfo;
+                (sender as System.Windows.Controls.Button).Content = "保存";
+                IsRecording = !IsRecording;
+
+            }
+            else
+            {
+                InterceptKeys.KeyInfo -= KeyInfo;
+                if (string.IsNullOrWhiteSpace(filenameTb.Text))
+                {
+                    System.Windows.MessageBox.Show("地图（文件）名不能为空");
+                    return;
+                }
+                MapManager.SaveToMapConfig(KeyLogList, filenameTb.Text);
+                (sender as System.Windows.Controls.Button).Content = "录制";
+                IsRecording = !IsRecording;
+            }
+        }
 
         private void KeyInfo(Keys k, int downup)
         {
             lock (KeyLogList)
             {
-                KeyLogList.Add(new KeyLog() { Key = k, DownUp = downup, Delay = CalculateTimeSpan() });
+                KeyLogList.Add(new KeyLogInfo() { Key = k, DownUp = downup, Delay = CalculateTimeSpan() });
             }
             //Info += $"{k.ToString()},{downup}\n";
             //System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -617,9 +643,25 @@ namespace QQSpeed_SmartApp
             PreTime = DateTime.Now;
             return DateTime.Now - time;
         }
-
         #endregion
+      
 
+        private void GetAllMapFile_Click(object sender, RoutedEventArgs e)
+        {
+            var mFiles = System.IO.Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory + "Maps");
+            List<string> files = new List<string>();
+            foreach (var f in mFiles)
+            {
+                files.Add(System.IO.Path.GetFileName(f));
+            }
+            mapFileListBox.ItemsSource = files;
+        }
+
+        private void LoadMapConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var filename = (sender as System.Windows.Controls.Button).Tag.ToString();
+            MapManager.ReadMapConfig(AppDomain.CurrentDomain.BaseDirectory + "Maps\\" + filename);
+        }
     }
 
 
@@ -722,10 +764,5 @@ namespace QQSpeed_SmartApp
     }
 
 
-    public class KeyLog
-    {
-        public Keys Key { get; set; }
-        public int DownUp { get; set; }
-        public TimeSpan Delay { get; set; }
-    }
+  
 }
