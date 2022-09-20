@@ -28,7 +28,7 @@ namespace QQSpeed_SmartApp.Helper
         /// 打开窗体方法，fileName是的窗体名称，包含路径
         /// </summary>
         /// <param name="fileName"></param>
-        public static void OpenAndSetWindow(IntPtr pHandle,int windowWidth = 840, int windowHeight = 641, int x = 0, int y = 0)
+        public static void OpenAndSetWindow(IntPtr pHandle,int windowWidth = 800, int windowHeight = 600, int x = 0, int y = 0)
         {
             //Process p = new Process();//新建进程 
 

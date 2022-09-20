@@ -115,14 +115,8 @@ namespace QQSpeed_SmartApp.Helper
 
         public TimeSpan Delay { get; set; }
 
-        public long Ticks
-        {
-            get { return Delay.Ticks; }
-            set
-            {
-                Delay = new TimeSpan(value);
-            }
-        }
+        public long Ticks { get; set; }
+        
     }
 
     public class MapFile

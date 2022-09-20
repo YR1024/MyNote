@@ -10,8 +10,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -42,6 +44,7 @@ namespace QQSpeed_SmartApp
         {
             InitializeComponent();
             Closing += MainWindow_Closing;
+            RefershTimeTask().Start();
         }
 
       
@@ -49,7 +52,6 @@ namespace QQSpeed_SmartApp
         private void Login_Click(object sender, RoutedEventArgs e)
         {
 
-            //Win32Helper.SetWindowNotBorder(QQSpeedProcess.MainWindowHandle);
             StartUpQQSpeed();
             Login();
             InitQQSpeedWindow();
@@ -65,10 +67,12 @@ namespace QQSpeed_SmartApp
             {
                 Fleet();
             }
-            if(ExitCheck.IsChecked == true)
+            if (ExitCheck.IsChecked == true)
             {
-              QQSpeedProcess.Kill();
+                QQSpeedProcess.Kill();
             }
+
+          
         }
 
         private void excute_Click(object sender, RoutedEventArgs e)
@@ -103,9 +107,10 @@ namespace QQSpeed_SmartApp
             info.Arguments = "";
             info.WindowStyle = ProcessWindowStyle.Minimized;
             Process pro = Process.Start(info);
-            pro.WaitForInputIdle();
+            //pro.WaitForInputIdle();
+           
             Thread.Sleep(2000);
-            string pName = "QQSpeed_loader";//要启动的进程名称，可以在任务管理器里查看，一般是不带.exe后缀的;
+            string pName = "QQSpeed_loader_New";//要启动的进程名称，可以在任务管理器里查看，一般是不带.exe后缀的;
             Process[] temp = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
             foreach (var p in temp)
             {
@@ -119,19 +124,19 @@ namespace QQSpeed_SmartApp
         void Login()
         {
             Thread.Sleep(1000);
-            MyHelper.Click(645, 565, 300);
-            MyHelper.Click(645, 660, 300);
-            MyHelper.Click(540, 635, 300);
+            MyHelper.Click(525, 545, 500);
+            MyHelper.Click(610, 640, 300);
+            MyHelper.Click(500, 613, 300);
 
-            var accountInput = new System.Drawing.Point(450, 423);
+            var accountInput = new System.Drawing.Point(590, 282);
             MouseHelper.MouseDownUp(accountInput.X, accountInput.Y);
             MyHelper.StrInputKey(accountTb.Text);
             Thread.Sleep(500);
-            var pwdInput = new System.Drawing.Point(450, 460);
+            var pwdInput = new System.Drawing.Point(590, 310);
             MouseHelper.MouseDownUp(pwdInput.X, pwdInput.Y);
             MyHelper.StrInputKey(passwordTb.Password);
 
-            var loginBtn = new System.Drawing.Point(750, 435);
+            var loginBtn = new System.Drawing.Point(620, 430);
             MouseHelper.MouseDownUp(loginBtn.X, loginBtn.Y);
 
 
@@ -142,27 +147,17 @@ namespace QQSpeed_SmartApp
         /// </summary>
         void InitQQSpeedWindow()
         {
-            string pName = "QQSpeedCefProcess";//要启动的进程名称，可以在任务管理器里查看，一般是不带.exe后缀的;
-            Process[] temp;
-            while (true)
-            {
-                temp = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
-                if (temp.Length > 0)
-                {
-                    break;
-                }
-                Thread.Sleep(1000);
-            }
-            pName = "GameApp";
+            string pName = "GameApp";
             Process[] temp2;
             while (true)
             {
                 temp2 = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
-                if (temp.Length > 0)
+                if (temp2.Length > 0 && temp2[0].MainWindowHandle != IntPtr.Zero)
                 {
+                    //System.Windows.MessageBox.Show("窗口出现");
                     break;
                 }
-                Thread.Sleep(1000);
+                Thread.Sleep(300);
             }
 
             //Win32Helper.SetWindowNotBorder(temp2[0].MainWindowHandle);
@@ -481,35 +476,13 @@ namespace QQSpeed_SmartApp
 
         }
 
-        private void Paotu_Click(object sender, RoutedEventArgs e)
-        {
-            Task.Run(() => {
-                //for (int i = 0; i < 10; i++)
-                //{
-                //    WinIoHelper.KeyDown(Keys.W);
-                //    Thread.Sleep(10_000);
-                //    WinIoHelper.KeyDownUp(Keys.R);
-                //    Thread.Sleep(50);
-                //    WinIoHelper.KeyUp(Keys.W);
-                //}
-
-                foreach (var keylog in KeyLogList)
-                {
-                    Thread.Sleep(keylog.Delay);
-                    if (keylog.DownUp == 256)
-                    {
-                        WinIoHelper.KeyDown(keylog.Key);
-                    }
-                    else
-                    {
-                        WinIoHelper.KeyUp(keylog.Key);
-                    }
-                }
-            });
-        }
+     
 
         List<KeyLogInfo> KeyLogList = new List<KeyLogInfo>();
 
+
+        #region 抽奖
+      
         private void 祝我好运_Click(object sender, RoutedEventArgs e)
         {
             (sender as System.Windows.Controls.Button).IsEnabled = false;
@@ -524,13 +497,16 @@ namespace QQSpeed_SmartApp
 
             Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(455, 485, 1000); //确定
+                    MyHelper.Click(455, 485, 2000); //确定
                     for (int i = 0; i < 4; i++)
                     {
-                        MyHelper.Click(565, 520, 750); //继续开启
+                        MyHelper.Click(565, 520, 1000); //继续开启
                     }
-                    //Thread.Sleep(10000);
-                    //QQSpeedProcess.Kill();
+                    if (ExitCheck.IsChecked == true)
+                    {
+                        Thread.Sleep(10000);
+                        QQSpeedProcess.Kill();
+                    }
                 });
             };
 
@@ -539,7 +515,7 @@ namespace QQSpeed_SmartApp
                     MyHelper.Click(85, 420, 500); //捕捉
 
                     DateTimeSynchronization();
-                    scheduledTask.StartExecuteTask(23, 59, 58, action3);
+                    scheduledTask.StartExecuteTask(23, 59, 56, action3);
                 });
             };
 
@@ -552,8 +528,55 @@ namespace QQSpeed_SmartApp
                     scheduledTask.StartExecuteTask(23, 59, 40, action2);
                 });
             };
-            scheduledTask.StartExecuteTask(23, 47, 00, action);
+            scheduledTask.StartExecuteTask(23, 50, 00, action);
         }
+
+        void WaitStartTask()
+        {
+            Task t1 = new Task(() =>
+            {
+
+                while (true)
+                {
+                    var datetime = GetNetDateTime();
+                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(30))
+                    {
+                        MyHelper.Click(995, 235, 2000); //装备
+                        MyHelper.Click(405, 170, 2000); //星标
+                        MyHelper.Click(85, 420, 500); //捕捉
+                        break;
+                    }
+                    Thread.Sleep(500);
+                }
+            });
+            t1.Start();
+
+            Task t2 = new Task(() =>
+            {
+
+                while (true)
+                {
+                    var datetime = GetNetDateTime();
+                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(57))
+                    {
+                        MyHelper.Click(455, 485, 2000); //确定
+                        for (int i = 0; i < 4; i++)
+                        {
+                            MyHelper.Click(565, 520, 1000); //继续开启
+                        }
+                        if (ExitCheck.IsChecked == true)
+                        {
+                            Thread.Sleep(10000);
+                            QQSpeedProcess.Kill();
+                        }
+                        break;
+                    }
+                    Thread.Sleep(500);
+                }
+            });
+            t2.Start();
+        }
+
 
         void DateTimeSynchronization()
         {
@@ -567,6 +590,101 @@ namespace QQSpeed_SmartApp
                 InfoBox.Text += $"同步时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
             }
         }
+
+
+        Task RefershTimeTask()
+        {
+            Task t = new Task(() =>
+            {
+
+                while (true)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        BjTimeTxt.Text = GetNetDateTime().ToString();
+                        SysTimeTxt.Text = DateTime.Now.ToString();
+                    });
+                    Thread.Sleep(2000);
+                }
+            });
+            return t;
+        }
+
+
+        public static DateTime GMT2Local(string gmt)
+        {
+            DateTime dt = DateTime.MinValue;
+            try
+            {
+                string pattern = "";
+                if (gmt.IndexOf("+0") != -1)
+                {
+                    gmt = gmt.Replace("GMT", "");
+                    pattern = "ddd, dd MMM yyyy HH':'mm':'ss zzz";
+                }
+                if (gmt.ToUpper().IndexOf("GMT") != -1)
+                {
+                    pattern = "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'";
+                }
+                if (pattern != "")
+                {
+                    dt = DateTime.ParseExact(gmt, pattern, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+                    dt = dt.ToLocalTime();
+                }
+                else
+                {
+                    dt = Convert.ToDateTime(gmt);
+                }
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return dt;
+        }
+
+
+        public static DateTime GetNetDateTime()
+        {
+            WebRequest request = null;
+            WebResponse response = null;
+            WebHeaderCollection headerCollection = null;
+            string datetimeStr = string.Empty;
+            DateTime dt = DateTime.Now;
+            try
+            {
+                request = WebRequest.Create("http://www.baidu.com");
+                request.Timeout = 500;
+                request.Credentials = CredentialCache.DefaultCredentials;
+                response = (WebResponse)request.GetResponse();
+                headerCollection = response.Headers;
+                foreach (var h in headerCollection.AllKeys)
+                {
+                    if (h == "Date")
+                    {
+                        datetimeStr = headerCollection[h];
+                        dt = GMT2Local(datetimeStr);
+                    }
+                }
+                return dt;
+            }
+            catch (Exception)
+            {
+                return dt;
+            }
+            finally
+            {
+                if (request != null)
+                { request.Abort(); }
+                if (response != null)
+                { response.Close(); }
+                if (headerCollection != null)
+                { headerCollection.Clear(); }
+            }
+        }
+      
+        #endregion
+
 
 
         #region 键盘钩子
@@ -603,6 +721,7 @@ namespace QQSpeed_SmartApp
             if (!IsRecording)
             {
                 PreTime = DateTime.Now;
+                KeyLogList.Clear();
                 InterceptKeys.KeyInfo += KeyInfo;
                 (sender as System.Windows.Controls.Button).Content = "保存";
                 IsRecording = !IsRecording;
@@ -626,7 +745,7 @@ namespace QQSpeed_SmartApp
         {
             lock (KeyLogList)
             {
-                KeyLogList.Add(new KeyLogInfo() { Key = k, DownUp = downup, Delay = CalculateTimeSpan() });
+                KeyLogList.Add(new KeyLogInfo() { Key = k, DownUp = downup, Ticks = CalculateTimeSpan() });
             }
             //Info += $"{k.ToString()},{downup}\n";
             //System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -637,14 +756,54 @@ namespace QQSpeed_SmartApp
             //});
         }
 
-        TimeSpan CalculateTimeSpan()
+        long CalculateTimeSpan()
         {
             DateTime time = PreTime;
             PreTime = DateTime.Now;
-            return DateTime.Now - time;
+            return (DateTime.Now - time).Ticks;
+        }
+        
+
+        static void PreciseSleep(int ms)
+        {
+          
+            //var sw = Stopwatch.StartNew();
+            //var sleepMs = ms - 16;
+            //if (sleepMs > 0)
+            //{
+            //    Thread.Sleep(sleepMs);
+            //}
+            //while (sw.ElapsedMilliseconds < ms)
+            //{
+            //    Thread.Sleep(0);
+            //}
+
+            MM_BeginPeriod((uint)ms);
+            Thread.Sleep(ms);
+            MM_EndPeriod((uint)ms);
+        }
+
+
+        [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
+        public static extern uint MM_BeginPeriod(uint uMilliseconds);
+        [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
+        public static extern uint MM_EndPeriod(uint uMilliseconds);
+
+
+        static void SpinWait( int duration)
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            var current = sw.ElapsedMilliseconds;
+            while ((sw.ElapsedMilliseconds - current) < duration)
+            {
+                Thread.SpinWait(10);
+            }
+            sw.Stop();
+
         }
         #endregion
-      
+
 
         private void GetAllMapFile_Click(object sender, RoutedEventArgs e)
         {
@@ -661,6 +820,46 @@ namespace QQSpeed_SmartApp
         {
             var filename = (sender as System.Windows.Controls.Button).Tag.ToString();
             MapManager.ReadMapConfig(AppDomain.CurrentDomain.BaseDirectory + "Maps\\" + filename);
+            KeyLogList = MapManager.KeyLogList;
+            foreach (var item in KeyLogList)
+            {
+                item.Delay = new TimeSpan(item.Ticks);
+            }
+            InfoBox.Text += "地图按键数据加载：" + filename;
+        }
+
+
+        const long TicksPhase = 3000 ; //50ms
+        private void Paotu_Click(object sender, RoutedEventArgs e)
+        {
+
+            //Task.Run(() => {
+            //    PreciseSleep(10000);
+            //    System.Windows.MessageBox.Show("1111");
+            //    return;
+            //});
+            //Task.Run(() => {
+            //    Thread.Sleep(10000);
+            //    System.Windows.MessageBox.Show("22222222222");
+            //    return;
+            //});
+            //return;
+            Task.Run(() => {
+                foreach (var keylog in KeyLogList)
+                {
+                    //Thread.Sleep(keylog.Delay);
+                    //PreciseSleep((int)keylog.Delay.TotalMilliseconds);
+                    SpinWait((int)keylog.Delay.TotalMilliseconds - 1);
+                    if (keylog.DownUp == 256)
+                    {
+                        WinIoHelper.KeyDown(keylog.Key);
+                    }
+                    else
+                    {
+                        WinIoHelper.KeyUp(keylog.Key);
+                    }
+                }
+            });
         }
     }
 

@@ -6,45 +6,56 @@
         xmlns:local="clr-namespace:QQSpeed_SmartApp"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        <StackPanel Width="200" HorizontalAlignment="Left">
-            <Label>账号：</Label>
-            <TextBox x:Name="accountTb" Text="193589375" Width="100"/>
-            <Label>密码：</Label>
-            <PasswordBox x:Name="passwordTb" Password="yr18723750041.." Width="100"/>
-            <Button Content="登录并执行" Margin="5" Click="Login_Click"/>
-            <Button Content="执行" Margin="5" Click="excute_Click"/>
-            <Button Content="跑图" Margin="5" Click="Paotu_Click"/>
-            <Button Content="秒杀雷诺" Margin="5" Click="祝我好运_Click"/>
-            <Button Content="安装钩子" Margin="5" Click="Hook_Click"/>
-            <Button Content="录制" Margin="5" Click="LogKey_Click"/>
-            <StackPanel Orientation="Horizontal">
-                <Label FontSize="10">地图(文件)名称:</Label>
-                <TextBox x:Name="filenameTb" Text="" Width="110" Height="25"  Margin="0,0,0,0"/>
-            </StackPanel>
-        </StackPanel>
-        <Grid HorizontalAlignment="Left" Margin="200,25,0,25" Width="95">
-            <CheckBox x:Name="petFlatCheck"  Content="宠物对战" IsChecked="True"/>
-            <CheckBox x:Name="GhostWorldCheck"  Content="精灵世界" IsChecked="True" Margin="0,25,0,-25"/>
-            <CheckBox x:Name="FleetCheck"  Content="车队福利" IsChecked="True" Margin="0,50,0,-50"/>
-            <CheckBox x:Name="ExitCheck"  Content="结束后退出" IsChecked="True" Margin="0,75,0,-75"/>
-        </Grid>
-        <Grid HorizontalAlignment="Left" Margin="300,25,0, 25">
-            <TextBox x:Name="InfoBox" Width="200" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible"/>
-        </Grid>
-        <Grid HorizontalAlignment="Left" Margin="520,25,0, 25">
-            <ListBox x:Name="mapFileListBox" Width="200" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,39">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding }"/>
-                            <Button Content="加载" Tag="{Binding}"  Click="LoadMapConfig_Click" HorizontalAlignment="Right"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <Button Margin="30,335,30,0" Content="刷新" Click="GetAllMapFile_Click"/>
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
+            <TextBlock Text="         北京时间： " />
+            <TextBlock x:Name="BjTimeTxt" Text="" />
 
+            <TextBlock Text="系统时间： " Margin="100 0 0 0" />
+            <TextBlock x:Name="SysTimeTxt" Text="" />
+        </StackPanel>
+        <Grid>
+
+            <StackPanel Width="200" HorizontalAlignment="Left">
+                <Label>账号：</Label>
+                <TextBox x:Name="accountTb" Text="193589375" Width="100"/>
+                <Label>密码：</Label>
+                <PasswordBox x:Name="passwordTb" Password="yr18723750041.." Width="100"/>
+                <Button Content="登录并执行" Margin="5" Click="Login_Click"/>
+                <Button Content="执行" Margin="5" Click="excute_Click"/>
+                <Button Content="跑图" Margin="5" Click="Paotu_Click"/>
+                <Button Content="秒杀雷诺" Margin="5" Click="祝我好运_Click"/>
+                <Button Content="安装钩子" Margin="5" Click="Hook_Click"/>
+                <Button Content="录制" Margin="5" Click="LogKey_Click"/>
+                <StackPanel Orientation="Horizontal">
+                    <Label FontSize="10">地图(文件)名称:</Label>
+                    <TextBox x:Name="filenameTb" Text="" Width="110" Height="25"  Margin="0,0,0,0"/>
+                </StackPanel>
+            </StackPanel>
+            <Grid HorizontalAlignment="Left" Margin="200,25,0,25" Width="95">
+                <CheckBox x:Name="petFlatCheck"  Content="宠物对战" IsChecked="True"/>
+                <CheckBox x:Name="GhostWorldCheck"  Content="精灵世界" IsChecked="True" Margin="0,25,0,-25"/>
+                <CheckBox x:Name="FleetCheck"  Content="车队福利" IsChecked="True" Margin="0,50,0,-50"/>
+                <CheckBox x:Name="ExitCheck"  Content="结束后退出" IsChecked="True" Margin="0,75,0,-75"/>
+            </Grid>
+            <Grid HorizontalAlignment="Left" Margin="300,25,0, 25">
+                <TextBox x:Name="InfoBox" Width="200" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible"/>
+            </Grid>
+            <Grid HorizontalAlignment="Left" Margin="520,25,0, 25">
+                <ListBox x:Name="mapFileListBox" Width="200" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,39">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding }"/>
+                                <Button Content="加载" Tag="{Binding}"  Click="LoadMapConfig_Click" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Margin="30,335,30,0" Content="刷新" Click="GetAllMapFile_Click"/>
+
+            </Grid>
         </Grid>
-    </Grid>
+    </DockPanel>
+   
 </Window>
