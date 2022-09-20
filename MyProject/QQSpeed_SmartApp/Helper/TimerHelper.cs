@@ -101,15 +101,13 @@ namespace QQSpeed_SmartApp.Helper
                 DateTime dt = webTime.ToLocalTime();
                 bool isSuccess = SetLocalDateTime(dt);
                 syncDateTime = dt;
-
+                return isSuccess;
             }
             catch (Exception ex)
             {
                 message = ex.Message;
                 return false;
             }
-            return true;
-
         }
 
        

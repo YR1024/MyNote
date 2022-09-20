@@ -7,13 +7,13 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <DockPanel>
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-            <TextBlock Text="         北京时间： " />
-            <TextBlock x:Name="BjTimeTxt" Text="" />
+        <Grid DockPanel.Dock="Bottom">
+            <TextBlock Text="    北京时间： " />
+            <TextBlock x:Name="BjTimeTxt" Text=""  Margin="75 0 0 0"/>
 
-            <TextBlock Text="系统时间： " Margin="100 0 0 0" />
-            <TextBlock x:Name="SysTimeTxt" Text="" />
-        </StackPanel>
+            <TextBlock Text="    系统时间： " Margin="0 15 0 0" />
+            <TextBlock x:Name="SysTimeTxt" Text=""  Margin="75 15 0 0" />
+        </Grid>
         <Grid>
 
             <StackPanel Width="200" HorizontalAlignment="Left">

@@ -485,13 +485,24 @@ namespace QQSpeed_SmartApp
       
         private void 祝我好运_Click(object sender, RoutedEventArgs e)
         {
+
+            //wpfKey = KeyInterop.KeyFromVirtualKey((int)formsKey);
+            //formsKey = (Keys)KeyInterop.VirtualKeyFromKey(wpfKey);
+            //Keys.Control;
+            //Keys.ControlKey;
+            //Keys.LControlKey;
+            //Keys.RControlKey;
+            //Key.LeftCtrl
+            DateTimeSynchronization();
             (sender as System.Windows.Controls.Button).IsEnabled = false;
+            WaitStartTask();
+            return;
+
 
             StartUpQQSpeed();
             Login();
             InitQQSpeedWindow();
 
-            DateTimeSynchronization();
             ScheduledTask scheduledTask = new ScheduledTask();
 
 
@@ -539,11 +550,19 @@ namespace QQSpeed_SmartApp
                 while (true)
                 {
                     var datetime = GetNetDateTime();
-                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(30))
+                    //if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(30))
+                    //{
+                    //    MyHelper.Click(995, 235, 2000); //装备
+                    //    MyHelper.Click(405, 170, 2000); //星标
+                    //    MyHelper.Click(85, 420, 500); //捕捉
+                    //    break;
+                    //}
+
+                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(10).AddMinutes(40).AddSeconds(59))
                     {
-                        MyHelper.Click(995, 235, 2000); //装备
-                        MyHelper.Click(405, 170, 2000); //星标
-                        MyHelper.Click(85, 420, 500); //捕捉
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                            InfoBox.Text += $"当前时间{datetime.ToString()},任务1开始";
+                        });
                         break;
                     }
                     Thread.Sleep(500);
@@ -554,25 +573,25 @@ namespace QQSpeed_SmartApp
             Task t2 = new Task(() =>
             {
 
-                while (true)
-                {
-                    var datetime = GetNetDateTime();
-                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(57))
-                    {
-                        MyHelper.Click(455, 485, 2000); //确定
-                        for (int i = 0; i < 4; i++)
-                        {
-                            MyHelper.Click(565, 520, 1000); //继续开启
-                        }
-                        if (ExitCheck.IsChecked == true)
-                        {
-                            Thread.Sleep(10000);
-                            QQSpeedProcess.Kill();
-                        }
-                        break;
-                    }
-                    Thread.Sleep(500);
-                }
+                //while (true)
+                //{
+                //    var datetime = GetNetDateTime();
+                //    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(57))
+                //    {
+                //        MyHelper.Click(455, 485, 2000); //确定
+                //        for (int i = 0; i < 4; i++)
+                //        {
+                //            MyHelper.Click(565, 520, 1000); //继续开启
+                //        }
+                //        if (ExitCheck.IsChecked == true)
+                //        {
+                //            Thread.Sleep(10000);
+                //            QQSpeedProcess.Kill();
+                //        }
+                //        break;
+                //    }
+                //    Thread.Sleep(500);
+                //}
             });
             t2.Start();
         }
@@ -582,12 +601,16 @@ namespace QQSpeed_SmartApp
         {
             InfoBox.Text += "ntp时间同步\n";
             DateTime dt = DateTime.Now;
-            InfoBox.Text += $"现在本地时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
+            InfoBox.Text += $"当前本地时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
             string errorMessage = "";
-            TimerHelper.Synchronization("ntp.aliyun.com", out dt, out errorMessage);
-            if (string.IsNullOrWhiteSpace(errorMessage))
+            var r = TimerHelper.Synchronization("ntp.aliyun.com", out DateTime dt2, out errorMessage);
+            if (r && string.IsNullOrWhiteSpace(errorMessage))
             {
-                InfoBox.Text += $"同步时间：{dt.ToString("yyyy-MM-dd HH:mm:ss")} \n";
+                InfoBox.Text += $"同步后本地时间：{dt2.ToString("yyyy-MM-dd HH:mm:ss")} \n";
+            }
+            else
+            {
+                InfoBox.Text += $"同步时间失败, 返回r{r},\n";
             }
         }
 
@@ -604,7 +627,7 @@ namespace QQSpeed_SmartApp
                         BjTimeTxt.Text = GetNetDateTime().ToString();
                         SysTimeTxt.Text = DateTime.Now.ToString();
                     });
-                    Thread.Sleep(2000);
+                    Thread.Sleep(500);
                 }
             });
             return t;
@@ -668,7 +691,7 @@ namespace QQSpeed_SmartApp
                 }
                 return dt;
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 return dt;
             }
