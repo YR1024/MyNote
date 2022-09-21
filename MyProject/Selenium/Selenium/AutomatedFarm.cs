@@ -18,7 +18,7 @@ namespace Selenium
     class AutomatedSelenium
     {
         private EdgeDriver driver;
-
+        private EdgeDriverService driverService;
         public void StartTask()
         {
             try
@@ -29,12 +29,15 @@ namespace Selenium
                 Login();
                 Farm();
                 Pasture();
-                Close();
             }
             catch(Exception e) 
             {
                 Logger.WriteLog("发生错误异常：" + e.Message + e);
                 //throw e;
+            }
+            finally
+            {
+                Close();
             }
         }
 
@@ -610,7 +613,14 @@ namespace Selenium
         private void Close()
         {
             //driver.Dispose();
-            driver.Close();
+            if (driver != null)
+            {
+                driver.Close();
+            }
+            if (driverService != null)
+            {
+                driverService.Dispose();
+            }
             Logger.WriteLog("任务结束，关闭浏览器\n");
         }
 

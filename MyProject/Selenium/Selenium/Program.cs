@@ -115,6 +115,8 @@ namespace Selenium
 
         protected override WebRequest GetWebRequest(Uri address)
         {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;// https证书
+            //ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3;
             var request = base.GetWebRequest(address);
             if (request != null)
             {
