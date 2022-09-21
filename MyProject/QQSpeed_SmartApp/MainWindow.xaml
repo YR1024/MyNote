@@ -27,7 +27,7 @@
                 <Button Content="秒杀雷诺" Margin="5" Click="祝我好运_Click"/>
                 <Button Content="安装钩子" Margin="5" Click="Hook_Click"/>
                 <Button Content="录制" Margin="5" Click="LogKey_Click"/>
-                <Button Content="开始截图" Margin="5" Click="Screenshot_Click"/>
+                <Button Content="开始截图" x:Name="ScreenshotBtn" Margin="5" Click="Screenshot_Click"/>
                 <StackPanel Orientation="Horizontal">
                     <Label FontSize="10">地图(文件)名称:</Label>
                     <TextBox x:Name="filenameTb" Text="" Width="110" Height="25"  Margin="0,0,0,0"/>

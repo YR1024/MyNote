@@ -509,7 +509,7 @@ namespace QQSpeed_SmartApp
         bool IsScreenshoting = false;
         int i = 0;
         System.Drawing.Rectangle WndArea = new System.Drawing.Rectangle(0, 0, 1010, 760);
-
+        List<System.Drawing.Image> ScreenshotImage = new List<System.Drawing.Image>();
         private void Screenshot_Click(object sender, RoutedEventArgs e)
         {
 
@@ -534,11 +534,37 @@ namespace QQSpeed_SmartApp
 
         Task ScreenshotTask()
         {
+
             Task t = new Task(()=> {
                 while (IsScreenshoting)
                 {
                     var filename = AppDomain.CurrentDomain.BaseDirectory + "舞蹈\\";
-                    ImageHelper.GetSpecificScreenArea(filename + (i++) + ".png", WndArea);
+                    //ImageHelper.GetAndSaveSpecificScreenArea(filename + (i++) + ".png", WndArea);
+                    //ScreenshotImage.Add(ImageHelper.GetSpecificScreenArea(WndArea));
+
+                    var img = ImageHelper.GetSpecificScreenArea(WndArea);
+                    Task.Run(() => {
+                        img.Save(filename + (i++) + ".png");
+                    });
+
+                    //if(ImageHelper.ScreenshotByDx("", out System.Drawing.Image img))
+                    //{
+                    //    ScreenshotImage.Add(img);
+                    //    img.Save(filename + (i++) + ".png");
+
+                    //    if (ScreenshotImage.Count > 10)
+                    //        {
+                    //        IsScreenshoting = !IsScreenshoting;
+                    //        ScreenshotBtn.Dispatcher.Invoke(() =>
+                    //        {
+                    //            ScreenshotBtn.Content = "开始截图";
+                    //        });
+                    //    }
+                    //}
+                    //else
+                    //{
+
+                    //}
                 }
             });
             return t;

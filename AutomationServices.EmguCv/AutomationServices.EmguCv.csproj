@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+	  <LangVersion>8.0</LangVersion>
 	  <!--<Nullable>enable</Nullable>-->
 	  <!--<UseWPF>true</UseWPF>-->
 	  <!--<UseWindowsForms>true</UseWindowsForms>-->
@@ -15,6 +16,14 @@
 	  <!--<PackageLicenseFile>F:\github\MyNote\AutomationServices.EmguCv\LICENSE.txt</PackageLicenseFile>-->
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
     <ItemGroup>
 		<None Include="LICENSE.txt" Pack="true" PackagePath="$(PackageLicenseFile)" />
 	</ItemGroup>
@@ -22,6 +31,7 @@
 	
   <ItemGroup>
     <PackageReference Include="Emgu.CV.runtime.windows" Version="4.5.5.4823" />
+    <PackageReference Include="SharpDX.Direct3D12" Version="4.2.0" />
     <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
   </ItemGroup>
 

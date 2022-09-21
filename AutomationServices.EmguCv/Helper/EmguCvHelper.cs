@@ -55,7 +55,7 @@ namespace AutomationServices.EmguCv.Helper
             }
             else
             {
-                ImageHelper.GetSpecificScreenArea(PartialScreenImage, matchOptions.WindowArea);
+                ImageHelper.GetAndSaveSpecificScreenArea(PartialScreenImage, matchOptions.WindowArea);
                 Src = CvInvoke.Imread(PartialScreenImage, matchOptions.ImreadModes);
             }
 
