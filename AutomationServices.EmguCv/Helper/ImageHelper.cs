@@ -147,12 +147,20 @@ namespace AutomationServices.EmguCv.Helper
         /// <returns>屏幕位图</returns>
         public static Image GetSpecificScreenArea(string filename, Rectangle RectArea)
         {
-            Image screen = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height);
-            Graphics g = Graphics.FromImage(screen);
-            g.CopyFromScreen(new Point(0, 0), new Point(0, 0), Screen.PrimaryScreen.Bounds.Size);
-            var PartialScreenImage = CaptureImage(screen, RectArea.X, RectArea.Y, RectArea.Width, RectArea.Height);
-            PartialScreenImage.Save(filename);
-            return screen;
+            //Image screen = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height);
+            //Graphics g = Graphics.FromImage(screen);
+            //g.CopyFromScreen(new Point(0, 0), new Point(0, 0), Screen.PrimaryScreen.Bounds.Size);
+            //var PartialScreenImage = CaptureImage(screen, RectArea.X, RectArea.Y, RectArea.Width, RectArea.Height);
+            //PartialScreenImage.Save(filename);
+            //return screen;
+
+            Image partialScreen = new Bitmap(RectArea.Width, RectArea.Height);
+            Graphics g = Graphics.FromImage(partialScreen);
+            g.CopyFromScreen(RectArea.X, RectArea.Y, 0, 0, RectArea.Size);
+
+            partialScreen.Save(filename);
+            //PartialScreenImage.Save(filename);
+            return partialScreen;
         }
 
         /// <summary>

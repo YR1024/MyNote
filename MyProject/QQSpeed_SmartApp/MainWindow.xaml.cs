@@ -67,6 +67,10 @@ namespace QQSpeed_SmartApp
             {
                 Fleet();
             }
+            if (DanceCheck.IsChecked == true)
+            {
+                Dacnce();
+            }
             if (ExitCheck.IsChecked == true)
             {
                 QQSpeedProcess.Kill();
@@ -88,6 +92,10 @@ namespace QQSpeed_SmartApp
             if (FleetCheck.IsChecked == true)
             {
                 Fleet();
+            }
+            if (DanceCheck.IsChecked == true)
+            {
+                Dacnce();
             }
             if (ExitCheck.IsChecked == true)
             {
@@ -164,7 +172,7 @@ namespace QQSpeed_SmartApp
 
             //Win32Helper.OpenAndSetWindow(temp2[0].MainWindowHandle,1280,768);
             QQSpeedProcess = temp2[0];
-            Win32Helper.OpenAndSetWindow(QQSpeedProcess.MainWindowHandle, 1026, 800, -1, -32);
+            Win32Helper.OpenAndSetWindow(QQSpeedProcess.MainWindowHandle, 1026, 800, -6, -32);
             var WindowRect = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
             Thread.Sleep(15000);
             BackInitPage();
@@ -335,6 +343,7 @@ namespace QQSpeed_SmartApp
 
 
         }
+
         void BackInitPage()
         {
             MouseHelper.MouseDownUp(1000, 15);
@@ -476,7 +485,66 @@ namespace QQSpeed_SmartApp
 
         }
 
-     
+
+        #region 自动 舞蹈
+
+        void Dacnce()
+        {
+            //BackInitPage();
+            MyHelper.Click(61, 23, 1500); //多人游戏
+            MyHelper.Click(395, 104, 1500); //舞蹈
+            MyHelper.Click(193, 23, 1000); //创建房间
+            MyHelper.Click(530, 322, 300); 
+            MyHelper.Click(535, 405, 300); //传统模式
+            MyHelper.KeyPress(Keys.Enter, 4000); //确定
+            MyHelper.Click(370, 23, 1000); //更换歌曲
+            MyHelper.Click(387, 210, 1000); //新歌
+            MyHelper.Click(387, 262, 1000); //第一个
+            MyHelper.KeyPress(Keys.Enter, 1000); //确定
+            MyHelper.KeyPress(Keys.F5, 1000); //开
+
+        }
+
+
+        bool IsScreenshoting = false;
+        int i = 0;
+        System.Drawing.Rectangle WndArea = new System.Drawing.Rectangle(0, 0, 1010, 760);
+
+        private void Screenshot_Click(object sender, RoutedEventArgs e)
+        {
+
+            IsScreenshoting = !IsScreenshoting;
+            if (IsScreenshoting)
+            {
+                var _Path = AppDomain.CurrentDomain.BaseDirectory + "舞蹈\\";
+                if (!Directory.Exists(_Path))
+                {
+                    Directory.CreateDirectory(_Path);
+                }
+                ScreenshotTask().Start();
+                (sender as System.Windows.Controls.Button).Content = "结束截图";
+            }
+            else
+            {
+                (sender as System.Windows.Controls.Button).Content = "开始截图";
+            }
+
+        }
+        //74s 2273 32.55ms/张
+
+        Task ScreenshotTask()
+        {
+            Task t = new Task(()=> {
+                while (IsScreenshoting)
+                {
+                    var filename = AppDomain.CurrentDomain.BaseDirectory + "舞蹈\\";
+                    ImageHelper.GetSpecificScreenArea(filename + (i++) + ".png", WndArea);
+                }
+            });
+            return t;
+        }
+
+        #endregion
 
         List<KeyLogInfo> KeyLogList = new List<KeyLogInfo>();
 
@@ -488,23 +556,18 @@ namespace QQSpeed_SmartApp
 
             //wpfKey = KeyInterop.KeyFromVirtualKey((int)formsKey);
             //formsKey = (Keys)KeyInterop.VirtualKeyFromKey(wpfKey);
-            //Keys.Control;
-            //Keys.ControlKey;
-            //Keys.LControlKey;
-            //Keys.RControlKey;
-            //Key.LeftCtrl
-            DateTimeSynchronization();
-            (sender as System.Windows.Controls.Button).IsEnabled = false;
-            WaitStartTask();
-            return;
 
+            (sender as System.Windows.Controls.Button).IsEnabled = false;
 
             StartUpQQSpeed();
             Login();
             InitQQSpeedWindow();
 
-            ScheduledTask scheduledTask = new ScheduledTask();
+            DateTimeSynchronization();
+            WaitStartTask();
+            return;
 
+            ScheduledTask scheduledTask = new ScheduledTask();
 
             Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
@@ -546,52 +609,42 @@ namespace QQSpeed_SmartApp
         {
             Task t1 = new Task(() =>
             {
-
                 while (true)
                 {
-                    var datetime = GetNetDateTime();
-                    //if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(30))
-                    //{
-                    //    MyHelper.Click(995, 235, 2000); //装备
-                    //    MyHelper.Click(405, 170, 2000); //星标
-                    //    MyHelper.Click(85, 420, 500); //捕捉
-                    //    break;
-                    //}
-
-                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(10).AddMinutes(40).AddSeconds(59))
+                    var datetime = DateTime.Now;
+                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(00))
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                            InfoBox.Text += $"当前时间{datetime.ToString()},任务1开始";
-                        });
+                        MyHelper.Click(990, 235, 2000); //装备
+                        MyHelper.Click(400, 170, 2000); //星标
+                        MyHelper.Click(80, 420, 500); //捕捉
                         break;
                     }
-                    Thread.Sleep(500);
+                    Thread.Sleep(300);
                 }
             });
             t1.Start();
 
             Task t2 = new Task(() =>
             {
-
-                //while (true)
-                //{
-                //    var datetime = GetNetDateTime();
-                //    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(57))
-                //    {
-                //        MyHelper.Click(455, 485, 2000); //确定
-                //        for (int i = 0; i < 4; i++)
-                //        {
-                //            MyHelper.Click(565, 520, 1000); //继续开启
-                //        }
-                //        if (ExitCheck.IsChecked == true)
-                //        {
-                //            Thread.Sleep(10000);
-                //            QQSpeedProcess.Kill();
-                //        }
-                //        break;
-                //    }
-                //    Thread.Sleep(500);
-                //}
+                while (true)
+                {
+                    var datetime = DateTime.Now;
+                    if (datetime > new DateTime(datetime.Year, datetime.Month, datetime.Day).AddHours(23).AddMinutes(59).AddSeconds(57))
+                    {
+                        MyHelper.Click(450, 485, 1500); //确定
+                        for (int i = 0; i < 4; i++)
+                        {
+                            MyHelper.Click(560, 520, 1000); //继续开启
+                        }
+                        if (ExitCheck.IsChecked == true)
+                        {
+                            Thread.Sleep(10000);
+                            QQSpeedProcess.Kill();
+                        }
+                        break;
+                    }
+                    Thread.Sleep(300);
+                }
             });
             t2.Start();
         }
@@ -884,6 +937,8 @@ namespace QQSpeed_SmartApp
                 }
             });
         }
+
+     
     }
 
 
