@@ -253,13 +253,27 @@ namespace QQSpeed_SmartApp
                 Thread.Sleep(300);
                 string image = BaseDirectory + "对战币.png";
                 var matOptions = new MatchOptions();
-                matOptions.MaxTimes = 0;
+                matOptions.MaxTimes = 45;
                 matOptions.DelayInterval = 2000;
                 matOptions.Threshold = 0.99;
                 matOptions.MatchMode = MatchMode.Absolutely;
                 //matchOptions.WindowArea = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
                 matOptions.ImreadModesConvert = ImreadModesConvert.Color;
-                MyHelper.WaitFind(image, matOptions);
+
+                if(!MyHelper.WaitFind(image, matOptions))
+                {
+                    //挑战失败
+                    string image2 = BaseDirectory + "失败.png";
+                    var matOptions2 = new MatchOptions();
+                    matOptions2.MaxTimes = 10;
+                    matOptions2.DelayInterval = 2000;
+                    matOptions2.Threshold = 0.99;
+                    matOptions2.MatchMode = MatchMode.Absolutely;
+                    matOptions2.ImreadModesConvert = ImreadModesConvert.Color;
+                    MyHelper.WaitFind(image2, matOptions2);
+                    KeyBoardHelper.KeyDownUp(Keys.Enter);
+                    i--;
+                }
                 KeyBoardHelper.KeyDownUp(Keys.Enter);
                 Thread.Sleep(100);
             }
@@ -572,7 +586,6 @@ namespace QQSpeed_SmartApp
 
         #endregion
 
-        List<KeyLogInfo> KeyLogList = new List<KeyLogInfo>();
 
 
         #region 抽奖
@@ -590,18 +603,22 @@ namespace QQSpeed_SmartApp
             InitQQSpeedWindow();
 
             DateTimeSynchronization();
-            WaitStartTask();
-            return;
+            //WaitStartTask();
+            //return;
 
             ScheduledTask scheduledTask = new ScheduledTask();
 
             Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(455, 485, 2000); //确定
-                    for (int i = 0; i < 4; i++)
+                    MyHelper.Click(455, 485, 1500); //确定
+                    while (DuringTimeSpan())
                     {
-                        MyHelper.Click(565, 520, 1000); //继续开启
+                        MyHelper.Click(565, 520, 50); //继续开启
                     }
+                    //for (int i = 0; i < 4; i++)
+                    //{
+                    //    MyHelper.Click(565, 520, 1000); //继续开启
+                    //}
                     if (ExitCheck.IsChecked == true)
                     {
                         Thread.Sleep(10000);
@@ -610,25 +627,36 @@ namespace QQSpeed_SmartApp
                 });
             };
 
-            Action action2 = () => {
+            Action action = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(85, 420, 500); //捕捉
+                    MyHelper.Click(995, 235, 10000); //装备
+                    MyHelper.Click(405, 170, 10000); //星标
+                    MyHelper.Click(85, 420, 1000); //捕捉
 
-                    DateTimeSynchronization();
                     scheduledTask.StartExecuteTask(23, 59, 56, action3);
                 });
             };
+            scheduledTask.StartExecuteTask(23, 58, 00, action);
+        }
 
-            Action action = () => {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(995, 235, 2000); //装备
-                    MyHelper.Click(405, 170, 2000); //星标
-
-                    DateTimeSynchronization();
-                    scheduledTask.StartExecuteTask(23, 59, 40, action2);
-                });
-            };
-            scheduledTask.StartExecuteTask(23, 50, 00, action);
+        bool DuringTimeSpan()
+        {
+            var time = DateTime.Now;
+            if (time.Hour == 23)
+            {
+                return true;
+            }
+            else/* if (time.Hour == 0)*/
+            {
+                if(time.Second < 6)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
         }
 
         void WaitStartTask()
@@ -816,6 +844,9 @@ namespace QQSpeed_SmartApp
 
 
         #region 录制/保存
+
+        List<KeyLogInfo> KeyLogList = new List<KeyLogInfo>();
+
         bool IsRecording = false; //是否正在 录制按键信息
         public DateTime PreTime = DateTime.MaxValue; //上次按键的触发时间 
         private void LogKey_Click(object sender, RoutedEventArgs e)
