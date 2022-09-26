@@ -44,7 +44,7 @@ namespace QQSpeed_SmartApp
         {
             InitializeComponent();
             Closing += MainWindow_Closing;
-            RefershTimeTask().Start();
+            RefershTimeTask();
         }
 
       
@@ -55,36 +55,21 @@ namespace QQSpeed_SmartApp
             StartUpQQSpeed();
             Login();
             InitQQSpeedWindow();
-            if (petFlatCheck.IsChecked == true)
-            {
-                PetFight();
-            }
-            if (GhostWorldCheck.IsChecked == true)
-            {
-                GhostWorld();
-            }
-            if (FleetCheck.IsChecked == true)
-            {
-                Fleet();
-            }
-            if (DanceCheck.IsChecked == true)
-            {
-                Dacnce();
-            }
-            if (ExitCheck.IsChecked == true)
-            {
-                QQSpeedProcess.Kill();
-            }
 
-          
+            ExcuteTask();
+
         }
 
-        private void excute_Click(object sender, RoutedEventArgs e)
+        void ExcuteTask()
         {
             if (petFlatCheck.IsChecked == true)
             {
                 PetFight();
             }
+            if (GloryRoadCheck.IsChecked == true)
+            {
+                GloryRoad();
+            }
             if (GhostWorldCheck.IsChecked == true)
             {
                 GhostWorld();
@@ -101,6 +86,13 @@ namespace QQSpeed_SmartApp
             {
                 QQSpeedProcess.Kill();
             }
+        }
+        
+
+
+        private void excute_Click(object sender, RoutedEventArgs e)
+        {
+            ExcuteTask();
         }
         
         /// <summary>
@@ -176,6 +168,48 @@ namespace QQSpeed_SmartApp
             var WindowRect = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
             Thread.Sleep(15000);
             BackInitPage();
+        }
+
+        void ResetQQSpeedWindow()
+        {
+            if(QQSpeedProcess == null)
+            {
+                string pName = "GameApp";
+                Process[] temp2;
+                while (true)
+                {
+                    temp2 = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
+                    if (temp2.Length > 0 && temp2[0].MainWindowHandle != IntPtr.Zero)
+                    {
+                        break;
+                    }
+                    Thread.Sleep(300);
+                }
+
+                QQSpeedProcess = temp2[0];
+            }
+            //Win32Helper.OpenAndSetWindow(QQSpeedProcess.MainWindowHandle, 1026, 800, -6, -32);
+            Win32Helper.OpenAndSetWindow(QQSpeedProcess.MainWindowHandle, 1026, 800, -6, -32);
+
+        }
+
+
+        /// <summary>
+        /// 初始化页面
+        /// </summary>
+        void BackInitPage()
+        {
+            MouseHelper.MouseDownUp(1000, 15);
+            for (int i = 0; i < 10; i++)
+            {
+                KeyBoardHelper.KeyDownUp(Keys.Back);
+                KeyBoardHelper.KeyDownUp(Keys.Escape);
+                Thread.Sleep(1000);
+            }
+            MouseHelper.MouseDownUp(70, 35);
+            Thread.Sleep(1000);
+            KeyBoardHelper.KeyDownUp(Keys.Back);
+
         }
 
         /// <summary>
@@ -358,21 +392,28 @@ namespace QQSpeed_SmartApp
 
         }
 
-        void BackInitPage()
+        /// <summary>
+        /// 荣耀之路
+        /// </summary>
+        void GloryRoad()
         {
-            MouseHelper.MouseDownUp(1000, 15);
-            for (int i = 0; i < 10; i++)
+            //ResetQQSpeedWindow();
+            BackInitPage();
+            MyHelper.Click(725, 710, 1000); //第一页
+            MyHelper.Click(725, 710, 1000); //第一页
+            MyHelper.Click(720, 666, 2000); //荣耀之路
+            for (int i = 0; i < 4; i++) //膜拜
             {
-                KeyBoardHelper.KeyDownUp(Keys.Back);
-                KeyBoardHelper.KeyDownUp(Keys.Escape);
-                Thread.Sleep(1000);
+                //MyHelper.Click(265, 360 + i * 34, 500);
+                MyHelper.Click(265, 360 , 500);
+                MyHelper.Click(510, 470, 1000);
             }
-            MouseHelper.MouseDownUp(70, 35);
-            Thread.Sleep(1000);
-            KeyBoardHelper.KeyDownUp(Keys.Back);
-
+            Thread.Sleep(500);
         }
 
+        /// <summary>
+        /// 精灵世界
+        /// </summary>
         void GhostWorld()
         {
 
@@ -504,6 +545,7 @@ namespace QQSpeed_SmartApp
 
         void Dacnce()
         {
+            return;
             //BackInitPage();
             MyHelper.Click(61, 23, 1500); //多人游戏
             MyHelper.Click(395, 104, 1500); //舞蹈
@@ -610,10 +652,16 @@ namespace QQSpeed_SmartApp
 
             Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    MyHelper.Click(455, 485, 1500); //确定
+                    MyHelper.Click(455, 485, 500); //确定
                     while (DuringTimeSpan())
                     {
-                        MyHelper.Click(565, 520, 50); //继续开启
+                        MyHelper.Click(565, 520, 200); //继续开启
+                    }
+                    int i = 0;
+                    while (i < 3)
+                    {
+                        MyHelper.Click(565, 520, 1000); //继续开启
+                        i++;
                     }
                     //for (int i = 0; i < 4; i++)
                     //{
@@ -633,27 +681,31 @@ namespace QQSpeed_SmartApp
                     MyHelper.Click(405, 170, 10000); //星标
                     MyHelper.Click(85, 420, 1000); //捕捉
 
-                    scheduledTask.StartExecuteTask(23, 59, 56, action3);
+                    DateTimeSynchronization();
+                    scheduledTask.StartExecuteTask(23, 59, 58, action3);
                 });
             };
-            scheduledTask.StartExecuteTask(23, 58, 00, action);
+            scheduledTask.StartExecuteTask(23, 59, 00, action);
         }
 
         bool DuringTimeSpan()
         {
             var time = DateTime.Now;
-            if (time.Hour == 23)
+            if (time.Hour == 23 /*&& time.Minute = 9*/)
             {
+                Console.WriteLine($"Hour:{time.Hour}");
                 return true;
             }
             else/* if (time.Hour == 0)*/
             {
-                if(time.Second < 6)
+                if(time.Second < 3)
                 {
+                    Console.WriteLine($"Second:{time.Second}");
                     return true;
                 }
                 else
                 {
+                    Console.WriteLine($"Second:{time.Second}");
                     return false;
                 }
             }
@@ -722,9 +774,9 @@ namespace QQSpeed_SmartApp
         }
 
 
-        Task RefershTimeTask()
+        void RefershTimeTask()
         {
-            Task t = new Task(() =>
+            Task t1 = new Task(() =>
             {
 
                 while (true)
@@ -732,12 +784,24 @@ namespace QQSpeed_SmartApp
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         BjTimeTxt.Text = GetNetDateTime().ToString();
+                    });
+                    Thread.Sleep(500);
+                }
+            });
+            t1.Start();
+            Task t2 = new Task(() =>
+            {
+
+                while (true)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
                         SysTimeTxt.Text = DateTime.Now.ToString();
                     });
                     Thread.Sleep(500);
                 }
             });
-            return t;
+            t2.Start();
         }
 
 

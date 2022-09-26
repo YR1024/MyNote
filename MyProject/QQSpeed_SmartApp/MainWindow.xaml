@@ -35,6 +35,7 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Left" Margin="200,25,0,25" Width="95">
                 <CheckBox x:Name="petFlatCheck"  Content="宠物对战" IsChecked="True" Margin="0,5"/>
+                <CheckBox x:Name="GloryRoadCheck"  Content="辉煌之路" IsChecked="True" Margin="0,5"/>
                 <CheckBox x:Name="GhostWorldCheck"  Content="精灵世界" IsChecked="True" Margin="0,5"/>
                 <CheckBox x:Name="FleetCheck"  Content="车队福利" IsChecked="True"    Margin="0,5"/>
                 <CheckBox x:Name="DanceCheck"  Content="New舞蹈" IsChecked="True"       Margin="0,5"/>

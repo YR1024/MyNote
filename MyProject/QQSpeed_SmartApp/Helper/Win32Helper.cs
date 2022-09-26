@@ -40,7 +40,7 @@ namespace QQSpeed_SmartApp.Helper
 
             //p.Start();
 
-            MoveWindow(pHandle, x, y, windowWidth, windowHeight, true);
+            MoveWindow(pHandle, x, y, windowWidth, windowHeight, false);
 
             //p.MainWindowHandle是你要移动的窗口的句柄；
             //200,300是移动后窗口左上角的横纵坐标；
