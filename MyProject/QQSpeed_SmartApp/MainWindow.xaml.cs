@@ -546,21 +546,36 @@ namespace QQSpeed_SmartApp
         void Dacnce()
         {
             return;
+            test();
             //BackInitPage();
-            MyHelper.Click(61, 23, 1500); //多人游戏
-            MyHelper.Click(395, 104, 1500); //舞蹈
-            MyHelper.Click(193, 23, 1000); //创建房间
-            MyHelper.Click(530, 322, 300); 
-            MyHelper.Click(535, 405, 300); //传统模式
-            MyHelper.KeyPress(Keys.Enter, 4000); //确定
-            MyHelper.Click(370, 23, 1000); //更换歌曲
-            MyHelper.Click(387, 210, 1000); //新歌
-            MyHelper.Click(387, 262, 1000); //第一个
-            MyHelper.KeyPress(Keys.Enter, 1000); //确定
-            MyHelper.KeyPress(Keys.F5, 1000); //开
-
+            //MyHelper.Click(61, 23, 1500); //多人游戏
+            //MyHelper.Click(395, 104, 1500); //舞蹈
+            //MyHelper.Click(193, 23, 1000); //创建房间
+            //MyHelper.Click(530, 322, 300); 
+            //MyHelper.Click(535, 405, 300); //传统模式
+            //MyHelper.KeyPress(Keys.Enter, 4000); //确定
+            //MyHelper.Click(370, 23, 1000); //更换歌曲
+            //MyHelper.Click(387, 210, 1000); //新歌
+            //MyHelper.Click(387, 262, 1000); //第一个
+            //MyHelper.KeyPress(Keys.Enter, 1000); //确定
+            //MyHelper.KeyPress(Keys.F5, 1000); //开
         }
 
+        void test()
+        {
+            string image = BaseDirectory + "Right.png";
+            var matOptions = new MatchOptions();
+            matOptions.MaxTimes = 0;
+            matOptions.DelayInterval = 0;
+            matOptions.Threshold = 0.98;
+            matOptions.MatchMode = MatchMode.Absolutely;
+            //matchOptions.WindowArea = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
+            matOptions.ImreadModesConvert = ImreadModesConvert.Grayscale;
+
+            System.Drawing.Rectangle rect;
+            MyHelper.WaitFind(image, out rect, matOptions);
+
+        }
 
         bool IsScreenshoting = false;
         int i = 0;
@@ -1089,6 +1104,31 @@ namespace QQSpeed_SmartApp
                 }
                 if (MatOptions.DelayInterval != 0)
                     Thread.Sleep(MatOptions.DelayInterval);
+            }
+        }
+
+        public static bool WaitFind(string Picture, out System.Drawing.Rectangle rectangle, MatchOptions MatOptions = null)
+        {
+            if (MatOptions == null)
+                MatOptions = new MatchOptions();
+            int executeTimes = 0;
+            while (true)
+            {
+                rectangle = EmguCvHelper.GetMatchPos(Picture, out double Similarity, MatOptions);
+                if (rectangle != System.Drawing.Rectangle.Empty)
+                {
+                    //Console.WriteLine("找到图片" + Picture);
+                    //Console.WriteLine("相似度" + Similarity);
+                    return true;
+                }
+                executeTimes++;
+                if (executeTimes >= MatOptions.MaxTimes && MatOptions.MaxTimes != 0)
+                {
+                    //Console.WriteLine("在限定次数内没有找到图片" + Picture + "相似度：" + Similarity);
+                    return false;
+                }
+                //if (MatOptions.DelayInterval != 0)
+                Thread.Sleep(MatOptions.DelayInterval);
             }
         }
 

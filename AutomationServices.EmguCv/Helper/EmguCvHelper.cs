@@ -65,12 +65,23 @@ namespace AutomationServices.EmguCv.Helper
 
             Mat MatchResult = new Mat();//匹配结果
             CvInvoke.MatchTemplate(Src, Template, MatchResult, TemplateMatchingType.CcorrNormed);//使用相关系数法匹配
+
+            var a = MatchResult.GetData() ;
+            //Array.Sort(a);
+            //float[,] bb = ((float[,])(a));
+            //var c = bb[0][1]; 
+            //List<(,)> n
             //CvInvoke.Threshold(MatchResult, MatchResult, 0.8, 1.0, ThresholdType.ToZero);
             Point max_loc = new Point();
             Point min_loc = new Point();
             double max = 0, min = 0;
             CvInvoke.MinMaxLoc(MatchResult, ref min, ref max, ref min_loc, ref max_loc);//获得极值信息
 
+            //int[] MinIdx = new int[10];
+            //int[] MaxIdx = new int[10];
+            //CvInvoke.MinMaxIdx(MatchResult, out double min1, out double max1, MinIdx, MaxIdx);//获得极值信息
+
+            //MatchResult.MinMax(out double[] minValues, out double[] maxValues, out Point[] minLocations, out Point[] maxLocations);
             Similarity = max;
             if (max > matchOptions.Threshold)
             {
