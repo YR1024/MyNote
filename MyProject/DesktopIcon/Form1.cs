@@ -20,6 +20,7 @@ namespace DesktopIcon
         {
 
             InitializeComponent();
+            Visible = false;
             Helper.StartUp();
 
             this.ShowInTaskbar = false;
@@ -62,6 +63,10 @@ namespace DesktopIcon
                     }
                     ShowDesktopIcon = false;
                     ShowHiddenIcon(ShowDesktopIcon); //隐藏
+                    if (IsHiddenTaskBar)
+                    {
+                        ShowTaskbar(ShowDesktopIcon);
+                    }
                     Thread.Sleep(30);
                 }
 
@@ -72,6 +77,7 @@ namespace DesktopIcon
         int curTimes = 0;
         readonly int Times = 10; 
         bool AlwaysShowIcon = false;
+        bool IsHiddenTaskBar = false;
 
         public void MousePointChange()
         {
@@ -87,6 +93,10 @@ namespace DesktopIcon
             {
                 ShowDesktopIcon = true;
                 ShowHiddenIcon(ShowDesktopIcon);//显示
+                if (IsHiddenTaskBar)
+                {
+                    ShowTaskbar(ShowDesktopIcon);
+                }
             }
         }
 
@@ -119,6 +129,21 @@ namespace DesktopIcon
 
         }
 
+        /// summary 
+        /// 隐藏任务栏和桌面图标
+        /// /summary 
+        private static void ShowTaskbar(bool Taskbar)
+        {
+            IntPtr trayHwnd = FindWindow("Shell_TrayWnd", null);
+            if (trayHwnd != IntPtr.Zero)
+            {
+                //ShowWindow(desktopPtr, );//隐藏桌面图标 （0是隐藏，1是显示）
+                ShowWindow(trayHwnd, Taskbar ? 1 : 0);//隐藏任务栏（0是隐藏，1是显示）
+                //ShowWindow(hStar, );//隐藏windows 按钮
+            }
+        }
+
+      
 
 
         [DllImport("User32.dll", EntryPoint = "FindWindow")]
@@ -152,6 +177,19 @@ namespace DesktopIcon
             }
         }
 
+
+        private void 隐藏任务栏ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
+            {
+                IsHiddenTaskBar = true;
+            }
+            else
+            {
+                IsHiddenTaskBar = false;
+            }
+        }
+
         private void 开机启动ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
@@ -162,7 +200,6 @@ namespace DesktopIcon
             {
                 Helper.CancelStartUp();
             }
-            //WindowState = FormWindowState.Minimized;
         }
 
         private void 关闭ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -170,6 +207,7 @@ namespace DesktopIcon
             this.Dispose();
             this.Close();
         }
+
     }
 
     public class Helper

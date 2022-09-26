@@ -35,6 +35,7 @@
             this.显示ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.隐藏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.关闭ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.隐藏任务栏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.NotMenuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -42,17 +43,18 @@
             // 
             this.NotIcon.ContextMenuStrip = this.NotMenuStrip;
             this.NotIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("NotIcon.Icon")));
-            this.NotIcon.Text = "notifyIcon1";
+            this.NotIcon.Text = "DesktopIconTool";
             this.NotIcon.Visible = true;
             // 
             // NotMenuStrip
             // 
             this.NotMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.隐藏任务栏ToolStripMenuItem,
             this.显示ToolStripMenuItem,
             this.隐藏ToolStripMenuItem,
             this.关闭ToolStripMenuItem});
             this.NotMenuStrip.Name = "NotMenuStrip";
-            this.NotMenuStrip.Size = new System.Drawing.Size(181, 92);
+            this.NotMenuStrip.Size = new System.Drawing.Size(181, 114);
             this.NotMenuStrip.Text = "桌面图标自动隐藏工具";
             // 
             // 显示ToolStripMenuItem
@@ -82,6 +84,14 @@
             this.关闭ToolStripMenuItem.Text = "退出";
             this.关闭ToolStripMenuItem.Click += new System.EventHandler(this.关闭ToolStripMenuItem_Click);
             // 
+            // 隐藏任务栏ToolStripMenuItem
+            // 
+            this.隐藏任务栏ToolStripMenuItem.CheckOnClick = true;
+            this.隐藏任务栏ToolStripMenuItem.Name = "隐藏任务栏ToolStripMenuItem";
+            this.隐藏任务栏ToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.隐藏任务栏ToolStripMenuItem.Text = "隐藏任务栏";
+            this.隐藏任务栏ToolStripMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -102,6 +112,7 @@
         private System.Windows.Forms.ToolStripMenuItem 显示ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 隐藏ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 关闭ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 隐藏任务栏ToolStripMenuItem;
     }
 }
 
