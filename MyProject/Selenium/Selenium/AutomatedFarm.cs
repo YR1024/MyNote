@@ -15,10 +15,13 @@ namespace Selenium
     /// <summary>
     /// 自动化操作类
     /// </summary>
-    class AutomatedSelenium
+    class AutomatedSelenium :IDisposable
     {
         private EdgeDriver driver;
         private EdgeDriverService driverService;
+
+        private bool ShowBrowserWnd = false;
+
         public void StartTask()
         {
             try
@@ -148,7 +151,10 @@ namespace Selenium
             var msedgedriverPath = AppDomain.CurrentDomain.BaseDirectory;
             EdgeDriverService driverService = EdgeDriverService.CreateDefaultService(msedgedriverPath); //此处为msedgedriver.exe的存放路径
             EdgeOptions options = new EdgeOptions();
-            options.AddArgument("--headless"); //浏览器静默模式启动
+            if (!ShowBrowserWnd)
+            {
+                options.AddArgument("--headless"); //浏览器静默模式启动
+            }
             driver = new EdgeDriver(driverService, options);
             Logger.WriteLog("浏览器已启动");
         }
@@ -236,12 +242,39 @@ namespace Selenium
                     Logger.WriteLog("有可播种的土地，开始播种");
                     Thread.Sleep(1500);
 
-                    while (TryFindElement(By.LinkText("种植"), out IWebElement plant))
+
+
+                    while (TryFindElement(By.LinkText("种植"), out _))
                     {
-                        plant.Click();
-                        Thread.Sleep(1500);
-                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                        if (TryFindElements(By.ClassName("bg-alter"), out ReadOnlyCollection<IWebElement> zhongzis))
+                        {
+                            IWebElement zhongzi = zhongzis[0];
+                            foreach (var item in zhongzis)
+                            {
+                                if (item.FindElement(By.ClassName("txt-fade")).Text.Contains("金"))
+                                {
+                                    continue;
+                                }
+                                else
+                                {
+                                    zhongzi = item;
+                                    break;
+                                }
+                            }
+
+                            zhongzi.FindElement(By.LinkText("种植")).Click();
+                            Thread.Sleep(1500);
+                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                        }
                     }
+               
+
+                    //while (TryFindElement(By.LinkText("种植"), out IWebElement plant))
+                    //{
+                    //    plant.Click();
+                    //    Thread.Sleep(1500);
+                    //    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                    //}
                 }
             }
             TryFindElement(By.LinkText("我的农场"), out IWebElement back4);
@@ -645,6 +678,25 @@ namespace Selenium
             }
         }
 
+        /// <summary>
+        /// 寻找第一个匹配的节点
+        /// </summary>
+        /// <param name="by"></param>
+        /// <param name="element">找到节点并赋值给该对象，没有则为null</param>
+        /// <returns>true，成功找到节点；反之为 false</returns>
+        public bool TryFindElements(By by, out ReadOnlyCollection<IWebElement> elements)
+        {
+            elements = driver.FindElements(by);
+            if (elements.Count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
 
         public string GetInfo(By by, IWebElement parentElement = null)
         {
@@ -666,6 +718,10 @@ namespace Selenium
                 }
             }
             return info;
+        }
+
+        public void Dispose()
+        {
         }
     }
 
@@ -728,6 +784,7 @@ namespace Selenium
             //执行功能...
             AutomatedSelenium selenium = new AutomatedSelenium();
             selenium.StartTask();
+            selenium = null;
 
             //再次设定
             var timeState = state as TimeState;

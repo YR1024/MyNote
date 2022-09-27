@@ -21,13 +21,23 @@ namespace Selenium
         private static Mutex mutex;
         static void Main(string[] args)
         {
+            //单例程序
             if (SingleProcess())
                 return;
-            //隐藏控制台窗口,TEST为控制台名称
-            Console.Title = "QQ农场牧场自动化";
+
+            //定时任务
             new ScheduledTask().StartExecuteTask();
+
+            //立即执行 Debug
+            //AutomatedSelenium selenium = new AutomatedSelenium();
+            //selenium.StartTask();
+
+            //隐藏控制台窗口
+            Console.Title = "QQ农场牧场自动化";
             ShowWindow(FindWindow(null, "QQ农场牧场自动化"), 0);
-            StartUp();
+
+            //开机启动
+            StartUp(); 
             Console.ReadLine();
         }
 
