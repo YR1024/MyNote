@@ -27,6 +27,8 @@ namespace DesktopIcon
             this.WindowState = FormWindowState.Minimized;
             MouseMoveTask();
             MousePointChanged += MousePointChange;
+
+            SwitchIconTask();
         }
 
 
@@ -206,6 +208,31 @@ namespace DesktopIcon
         {
             this.Dispose();
             this.Close();
+        }
+
+        List<Icon> icons = new List<Icon>();
+
+        void SwitchIconTask()
+        {
+            for (int i = 0; i < 18; i++)
+            {
+                icons.Add(new Icon(AppDomain.CurrentDomain.BaseDirectory + "icons\\" + (i + 1) + ".ico"));
+            }
+
+            Task.Run(() =>
+            {
+                int i = 0;
+                while (true)
+                {
+                    if(i >= icons.Count)
+                    {
+                        i = 0;
+                    }
+                    NotIcon.Icon = icons[i];
+                    i++;
+                    Thread.Sleep(100);
+                }
+            });
         }
 
     }
