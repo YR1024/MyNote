@@ -4,6 +4,7 @@ using OpenQA.Selenium.Edge;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -654,6 +655,14 @@ namespace Selenium
             {
                 driverService.Dispose();
             }
+
+            string pName = "msedgedriver";
+            Process[] processes = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
+            foreach (var p in processes)
+            {
+                p.Kill();
+            }
+
             Logger.WriteLog("任务结束，关闭浏览器\n");
         }
 
