@@ -1,8 +1,10 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
+using System.Resources;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -16,6 +18,7 @@ namespace DesktopIconTool
     {
         private static Mutex mutex;
 
+        [STAThread]
         static void Main(string[] args)
         {
 
@@ -23,12 +26,25 @@ namespace DesktopIconTool
             if (SingleProcess())
                 return;
 
-            //隐藏控制台窗口
             Console.Title = "DesktopIconTool";
-            ShowWindow(FindWindow(null, "DesktopIconTool"), 0);
+            while(!ShowWindow(FindWindow(null, "DesktopIconTool"), 0)){
 
-            IconTool iconTool = new IconTool();
-            Console.ReadLine();
+            }
+
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new IconTool());
+
+
+
+            //隐藏控制台窗口
+            //while (!ShowWindow(FindWindow(null, "DesktopIconTool"), 0))
+            //{
+
+            //}
+            //Console.ReadLine();
+            
+            mutex.ReleaseMutex();
         }
           
 
@@ -52,11 +68,18 @@ namespace DesktopIconTool
 
 
 
-    public partial class IconTool
+    public partial class IconTool : ApplicationContext
     {
+
+        ResourceManager rm;
         public IconTool()
         {
+
             InitializeComponent();
+
+            // Create a resource manager. 
+            rm = Resources.ResourceManager;
+
             Helper.StartUp();
             MouseMoveTask();
             MousePointChanged += MousePointChange;
@@ -236,10 +259,10 @@ namespace DesktopIconTool
             }
         }
 
-        private void 关闭ToolStripMenuItem_Click(object sender, EventArgs e)
+        private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             //this.Dispose();
-            //this.Close();
+            Application.Exit();
         }
 
         List<Icon> icons = new List<Icon>();
@@ -248,7 +271,8 @@ namespace DesktopIconTool
         {
             for (int i = 0; i < 18; i++)
             {
-                icons.Add(new Icon(AppDomain.CurrentDomain.BaseDirectory + "icons\\" + (i + 1) + ".ico"));
+                //icons.Add(new Icon(AppDomain.CurrentDomain.BaseDirectory + "icons\\" + (i + 1) + ".ico"));
+                icons.Add((Icon)rm.GetObject($"_{i + 1}"));
             }
 
             Task.Run(() =>
@@ -282,86 +306,59 @@ namespace DesktopIconTool
         private void InitializeComponent()
         {
 
-           
-            this.显示ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.隐藏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.关闭ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.隐藏任务栏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            RunMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            StartUpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            HiddenTaskBarMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
-          
-        
-            // 
-            // 显示ToolStripMenuItem
-            // 
-            this.显示ToolStripMenuItem.Checked = true;
-            this.显示ToolStripMenuItem.CheckOnClick = true;
-            this.显示ToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.显示ToolStripMenuItem.Name = "显示ToolStripMenuItem";
-            this.显示ToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.显示ToolStripMenuItem.Text = "运行";
-            this.显示ToolStripMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
-            // 
-            // 隐藏ToolStripMenuItem
-            // 
-            this.隐藏ToolStripMenuItem.Checked = true;
-            this.隐藏ToolStripMenuItem.CheckOnClick = true;
-            this.隐藏ToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.隐藏ToolStripMenuItem.Name = "隐藏ToolStripMenuItem";
-            this.隐藏ToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.隐藏ToolStripMenuItem.Text = "开机启动";
-            this.隐藏ToolStripMenuItem.Click += new System.EventHandler(this.开机启动ToolStripMenuItem_Click);
-            // 
-            // 关闭ToolStripMenuItem
-            // 
-            this.关闭ToolStripMenuItem.Name = "关闭ToolStripMenuItem";
-            this.关闭ToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.关闭ToolStripMenuItem.Text = "退出";
-            this.关闭ToolStripMenuItem.Click += new System.EventHandler(this.关闭ToolStripMenuItem_Click);
-            // 
-            // 隐藏任务栏ToolStripMenuItem
-            // 
-            this.隐藏任务栏ToolStripMenuItem.CheckOnClick = true;
-            this.隐藏任务栏ToolStripMenuItem.Name = "隐藏任务栏ToolStripMenuItem";
-            this.隐藏任务栏ToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.隐藏任务栏ToolStripMenuItem.Text = "隐藏任务栏";
-            this.隐藏任务栏ToolStripMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
-
-            this.NotMenuStrip = new System.Windows.Forms.ContextMenuStrip();
-            this.NotMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.隐藏任务栏ToolStripMenuItem,
-            this.显示ToolStripMenuItem,
-            this.隐藏ToolStripMenuItem,
-            this.关闭ToolStripMenuItem});
-            // 
-            // NotMenuStrip
-            // 
-            this.NotMenuStrip.Name = "NotMenuStrip";
-            this.NotMenuStrip.Size = new System.Drawing.Size(181, 114);
-            this.NotMenuStrip.Text = "桌面图标自动隐藏工具";
-
-            this.NotIcon = new System.Windows.Forms.NotifyIcon();
-            ContextMenu menu = new ContextMenu();
-            //MenuItem item = new MenuItem();
-            //item.Text = "右键菜单，还没有添加事件";
-            //item.Index = 0;
-            //menu.MenuItems.Add(item);
-            //NotIcon.ContextMenu = menu;
-            //NotIcon.MouseDoubleClick += new MouseEventHandler(_NotifyIcon_MouseDoubleClick);
-
+            RunMenuItem.Checked = true;
+            RunMenuItem.CheckOnClick = true;
+            RunMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            RunMenuItem.Text = "运行";
+            RunMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
+       
+            StartUpMenuItem.Checked = true;
+            StartUpMenuItem.CheckOnClick = true;
+            StartUpMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            StartUpMenuItem.Text = "开机启动";
+            StartUpMenuItem.Click += new System.EventHandler(this.开机启动ToolStripMenuItem_Click);
+       
+            ExitMenuItem.Text = "退出";
+            ExitMenuItem.Click += new System.EventHandler(this.退出ToolStripMenuItem_Click);
       
-            this.NotIcon.ContextMenuStrip = this.NotMenuStrip;
-            this.NotIcon.Text = "DesktopIconTool";
-            this.NotIcon.Visible = true;
+            HiddenTaskBarMenuItem.CheckOnClick = true;
+            HiddenTaskBarMenuItem.Text = "隐藏任务栏";
+            HiddenTaskBarMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
+
+            contextMenu = new ContextMenuStrip(new Container());
+            contextMenu.Items.AddRange(new ToolStripItem[] 
+            {
+                HiddenTaskBarMenuItem,
+                RunMenuItem,
+                StartUpMenuItem,
+                ExitMenuItem
+            });
+            contextMenu.Text = "桌面图标自动隐藏工具";
+
+
+            NotIcon = new NotifyIcon()
+            {
+                //Icon = new Icon(AppDomain.CurrentDomain.BaseDirectory + "icons\\1.ico"),
+                ContextMenuStrip = contextMenu,
+                Text = "DesktopIconTool",
+                Visible = true
+            };
+
         }
 
         #endregion
 
-        private System.Windows.Forms.NotifyIcon NotIcon;
-        private System.Windows.Forms.ContextMenuStrip NotMenuStrip;
-        private System.Windows.Forms.ToolStripMenuItem 显示ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 隐藏ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 关闭ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 隐藏任务栏ToolStripMenuItem;
+        private NotifyIcon NotIcon { get; set; }
+        private ContextMenuStrip contextMenu;
+        private ToolStripMenuItem RunMenuItem;
+        private ToolStripMenuItem StartUpMenuItem;
+        private ToolStripMenuItem ExitMenuItem;
+        private ToolStripMenuItem HiddenTaskBarMenuItem;
     }
 
 
