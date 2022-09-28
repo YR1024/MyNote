@@ -401,7 +401,10 @@ namespace QQSpeed_SmartApp
             BackInitPage();
             MyHelper.Click(725, 710, 1000); //第一页
             MyHelper.Click(725, 710, 1000); //第一页
-            MyHelper.Click(720, 666, 2000); //荣耀之路
+            MyHelper.Click(725, 710, 1000); //第一页
+            MyHelper.Click(720, 666, 1000); //荣耀之路
+            MyHelper.Click(720, 666, 1000); //荣耀之路
+            MyHelper.Click(720, 666, 1000); //荣耀之路
             for (int i = 0; i < 4; i++) //膜拜
             {
                 //MyHelper.Click(265, 360 + i * 34, 500);

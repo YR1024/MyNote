@@ -7,19 +7,46 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using static DesktopIconTool.Helper;
 
 namespace DesktopIconTool
 {
     class Program
     {
+        private static Mutex mutex;
+
         static void Main(string[] args)
         {
+
+            //单例程序
+            if (SingleProcess())
+                return;
+
+            //隐藏控制台窗口
+            Console.Title = "DesktopIconTool";
+            ShowWindow(FindWindow(null, "DesktopIconTool"), 0);
+
             IconTool iconTool = new IconTool();
-            Console.Readine();
+            Console.ReadLine();
         }
+          
 
 
+        [DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
+        static extern bool ShowWindow(IntPtr hWnd, uint nCmdShow);
+        [DllImport("user32.dll", EntryPoint = "FindWindow", SetLastError = true)]
+        public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        static bool SingleProcess()
+        {
+            mutex = new Mutex(true, "DesktopIconTool");
+            if (!mutex.WaitOne(0, false))
+            {
+                return true;
+            }
+            return false;
+        }
 
     }
 
@@ -254,30 +281,15 @@ namespace DesktopIconTool
         /// </summary>
         private void InitializeComponent()
         {
-            this.NotIcon = new System.Windows.Forms.NotifyIcon();
-            this.NotMenuStrip = new System.Windows.Forms.ContextMenuStrip();
+
+           
             this.显示ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.隐藏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.关闭ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.隐藏任务栏ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-         
-            // 
-            // NotIcon
-            // 
-            this.NotIcon.ContextMenuStrip = this.NotMenuStrip;
-            this.NotIcon.Text = "DesktopIconTool";
-            this.NotIcon.Visible = true;
-            // 
-            // NotMenuStrip
-            // 
-            this.NotMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.隐藏任务栏ToolStripMenuItem,
-            this.显示ToolStripMenuItem,
-            this.隐藏ToolStripMenuItem,
-            this.关闭ToolStripMenuItem});
-            this.NotMenuStrip.Name = "NotMenuStrip";
-            this.NotMenuStrip.Size = new System.Drawing.Size(181, 114);
-            this.NotMenuStrip.Text = "桌面图标自动隐藏工具";
+
+          
+        
             // 
             // 显示ToolStripMenuItem
             // 
@@ -314,6 +326,32 @@ namespace DesktopIconTool
             this.隐藏任务栏ToolStripMenuItem.Text = "隐藏任务栏";
             this.隐藏任务栏ToolStripMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
 
+            this.NotMenuStrip = new System.Windows.Forms.ContextMenuStrip();
+            this.NotMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.隐藏任务栏ToolStripMenuItem,
+            this.显示ToolStripMenuItem,
+            this.隐藏ToolStripMenuItem,
+            this.关闭ToolStripMenuItem});
+            // 
+            // NotMenuStrip
+            // 
+            this.NotMenuStrip.Name = "NotMenuStrip";
+            this.NotMenuStrip.Size = new System.Drawing.Size(181, 114);
+            this.NotMenuStrip.Text = "桌面图标自动隐藏工具";
+
+            this.NotIcon = new System.Windows.Forms.NotifyIcon();
+            ContextMenu menu = new ContextMenu();
+            //MenuItem item = new MenuItem();
+            //item.Text = "右键菜单，还没有添加事件";
+            //item.Index = 0;
+            //menu.MenuItems.Add(item);
+            //NotIcon.ContextMenu = menu;
+            //NotIcon.MouseDoubleClick += new MouseEventHandler(_NotifyIcon_MouseDoubleClick);
+
+      
+            this.NotIcon.ContextMenuStrip = this.NotMenuStrip;
+            this.NotIcon.Text = "DesktopIconTool";
+            this.NotIcon.Visible = true;
         }
 
         #endregion
@@ -390,5 +428,80 @@ namespace DesktopIconTool
                 //throw ee;
             }
         }
+    }
+
+
+
+    class ConsoleWin32Helper
+    {
+        static ConsoleWin32Helper()
+        {
+            _NotifyIcon.Icon = new Icon(@"G:\BruceLi Test\ConsoleAppTest\ConsoleApps\Tray\small.ico");
+            _NotifyIcon.Visible = false;
+            _NotifyIcon.Text = "tray";
+
+            ContextMenu menu = new ContextMenu();
+            MenuItem item = new MenuItem();
+            item.Text = "右键菜单，还没有添加事件";
+            item.Index = 0;
+
+            menu.MenuItems.Add(item);
+            _NotifyIcon.ContextMenu = menu;
+
+            _NotifyIcon.MouseDoubleClick += new MouseEventHandler(_NotifyIcon_MouseDoubleClick);
+
+        }
+
+        static void _NotifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            Console.WriteLine("托盘被双击.");
+        }
+
+        #region 禁用关闭按钮
+        [DllImport("User32.dll", EntryPoint = "FindWindow")]
+        static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", EntryPoint = "GetSystemMenu")]
+        static extern IntPtr GetSystemMenu(IntPtr hWnd, IntPtr bRevert);
+
+        [DllImport("user32.dll", EntryPoint = "RemoveMenu")]
+        static extern IntPtr RemoveMenu(IntPtr hMenu, uint uPosition, uint uFlags);
+
+        /// <summary>
+        /// 禁用关闭按钮
+        /// </summary>
+        /// <param name="consoleName">控制台名字</param>
+        public static void DisableCloseButton(string title)
+        {
+            //线程睡眠，确保closebtn中能够正常FindWindow，否则有时会Find失败。。
+            Thread.Sleep(100);
+
+            IntPtr windowHandle = FindWindow(null, title);
+            IntPtr closeMenu = GetSystemMenu(windowHandle, IntPtr.Zero);
+            uint SC_CLOSE = 0xF060;
+            RemoveMenu(closeMenu, SC_CLOSE, 0x0);
+        }
+        public static bool IsExistsConsole(string title)
+        {
+            IntPtr windowHandle = FindWindow(null, title);
+            if (windowHandle.Equals(IntPtr.Zero)) return false;
+
+            return true;
+        }
+        #endregion
+
+        #region 托盘图标
+        static NotifyIcon _NotifyIcon = new NotifyIcon();
+        public static void ShowNotifyIcon()
+        {
+            _NotifyIcon.Visible = true;
+            _NotifyIcon.ShowBalloonTip(3000, "", "我是托盘图标，用右键点击我试试，还可以双击看看。", ToolTipIcon.None);
+        }
+        public static void HideNotifyIcon()
+        {
+            _NotifyIcon.Visible = false;
+        }
+
+        #endregion
     }
 }

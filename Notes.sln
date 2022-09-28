@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31911.196
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32819.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notes", "Notes\Notes.csproj", "{7C363587-050B-42AA-9DA4-4F056D6CC97E}"
 EndProject
@@ -69,7 +69,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DesktopIconTool", "DesktopI
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopIcon", "MyProject\DesktopIcon\DesktopIcon.csproj", "{29502734-6F3C-4C01-9715-038C0AA75908}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopIconTool", "DesktopIconTool\DesktopIconTool.csproj", "{1EA1F9A0-9AC1-460C-8919-8F183920F0BF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopIconTool", "MyProject\DesktopIconTool\DesktopIconTool.csproj", "{1EA1F9A0-9AC1-460C-8919-8F183920F0BF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
