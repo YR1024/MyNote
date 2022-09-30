@@ -548,8 +548,8 @@ namespace QQSpeed_SmartApp
 
         void Dacnce()
         {
-            return;
             test();
+            return;
             //BackInitPage();
             //MyHelper.Click(61, 23, 1500); //多人游戏
             //MyHelper.Click(395, 104, 1500); //舞蹈
@@ -573,7 +573,7 @@ namespace QQSpeed_SmartApp
             matOptions.Threshold = 0.98;
             matOptions.MatchMode = MatchMode.Absolutely;
             //matchOptions.WindowArea = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
-            matOptions.ImreadModesConvert = ImreadModesConvert.Grayscale;
+            matOptions.ImreadModesConvert = ImreadModesConvert.ReducedGrayscale2;
 
             System.Drawing.Rectangle rect;
             MyHelper.WaitFind(image, out rect, matOptions);
