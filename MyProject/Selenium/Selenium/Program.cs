@@ -29,7 +29,10 @@ namespace Selenium
             new ScheduledTask().StartExecuteTask();
 
             //立即执行 Debug
-            //AutomatedSelenium selenium = new AutomatedSelenium();
+            //AutomatedSelenium selenium = new AutomatedSelenium()
+            //{
+            //    ShowBrowserWnd = true,
+            //};
             //selenium.StartTask();
 
             //隐藏控制台窗口

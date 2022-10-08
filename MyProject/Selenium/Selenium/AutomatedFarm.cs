@@ -21,7 +21,7 @@ namespace Selenium
         private EdgeDriver driver;
         private EdgeDriverService driverService;
 
-        private bool ShowBrowserWnd = false;
+        public bool ShowBrowserWnd = false;
 
         public void StartTask()
         {
@@ -288,28 +288,40 @@ namespace Selenium
 
                 if(TryFindElement(By.XPath("/html/body/div[2]/div[1]/div"),out IWebElement BackpackInfo))
                 {
+                    var a = BackpackInfo.Text;
                     if (BackpackInfo.Text.Contains("你没有符合种植条件的种子"))
                     {
                         TryFindElement(By.LinkText("去商店购买种子"), out IWebElement GoStore);
                         Logger.WriteLog("没有种子, 去商店购买");
                         GoStore.Click();
                         Thread.Sleep(1500);
+                        IWebElement forageGrassSeeds = null;
                         TryFindElement(By.LinkText("末页"), out IWebElement LastPage);
                         LastPage.Click();
-                        Thread.Sleep(1500);
-                        ReadOnlyCollection<IWebElement> SeedsInfo = driver.FindElements(By.ClassName("padding-3-0"));
-                        IWebElement forageGrass = null;
-                        foreach (var item in SeedsInfo)
+                        Thread.Sleep(1000);
+                        while (true)
                         {
-                            if (item.Text.Contains("牧草"))
+                            ReadOnlyCollection<IWebElement> SeedsInfos = driver.FindElements(By.ClassName("padding-3-0"));
+                            foreach (var item in SeedsInfos)
                             {
-                                forageGrass = item;
+                                if (item.Text.Contains("牧草"))
+                                {
+                                    forageGrassSeeds = item;
+                                    break;
+                                }
+                            }
+                            if (forageGrassSeeds != null)
+                            {
                                 break;
                             }
+                            TryFindElement(By.LinkText("上页"), out IWebElement PrevPage);
+                            PrevPage.Click();
+                            Thread.Sleep(1000);
                         }
-                        if (forageGrass != null)
+                     
+                        if (forageGrassSeeds != null)
                         {
-                            var purchase = forageGrass.FindElement(By.LinkText("购买"));
+                            var purchase = forageGrassSeeds.FindElement(By.LinkText("购买"));
                             purchase.Click();
                             Thread.Sleep(1500);
                             TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
@@ -324,15 +336,35 @@ namespace Selenium
                     }
                     else
                     {
-                        while (TryFindElement(By.LinkText("种植"), out IWebElement plant2))
+                        while (TryFindElement(By.LinkText("种植"), out _))
                         {
-                            plant2.Click();
-                            Thread.Sleep(1500);
-                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                            if (TryFindElements(By.ClassName("bg-alter"), out ReadOnlyCollection<IWebElement> zhongzis))
+                            {
+                                IWebElement zhongzi = zhongzis[0];
+                                foreach (var item in zhongzis)
+                                {
+                                    if (item.FindElement(By.ClassName("txt-fade")).Text.Contains("金"))
+                                    {
+                                        continue;
+                                    }
+                                    else
+                                    {
+                                        zhongzi = item;
+                                        break;
+                                    }
+                                }
+
+                                zhongzi.FindElement(By.LinkText("种植")).Click();
+                                Thread.Sleep(1500);
+                                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                            }
                         }
                     }
                 }
-                
+
+                TryFindElement(By.LinkText("我的农场"), out IWebElement back);
+                back.Click();
+
             }
             TryFindElement(By.LinkText("我的农场"), out IWebElement back3);
             back3.Click();
@@ -385,6 +417,12 @@ namespace Selenium
                 SignIn.Click();
                 Thread.Sleep(1500);
                 Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                if (GetInfo(By.ClassName("txt-warning")).Contains("错误代码"))
+                {
+                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning")));
+                    TryFindElement(By.LinkText("我的农场"), out IWebElement back);
+                    back.Click();
+                }
             }
         }
 
