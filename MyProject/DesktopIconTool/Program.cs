@@ -2,14 +2,20 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Resources;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml;
+using System.Xml.Serialization;
 using static DesktopIconTool.Helper;
 
 namespace DesktopIconTool
@@ -72,18 +78,31 @@ namespace DesktopIconTool
     {
 
         ResourceManager rm;
+
+        Config _config;
         public IconTool()
         {
 
+            //string serverIP = ConfigurationManager.AppSettings["StartUp"];
+            //string dataBase = ConfigurationManager.AppSettings["IsRun"];
+            //string user = ConfigurationManager.AppSettings["HiddenToolBar"];
+            //string password = ConfigurationManager.AppSettings["GifSpeed"];
+
+            Helper.rm = rm = Resources.ResourceManager;
+            //Helper.LoadConfig(rm.GetObject($"config").ToString());
+            Helper.LoadConfig();
+            _config = Helper.config;
+
+            if (_config.StartUp)
+            {
+                Helper.StartUp();
+            }
+
             InitializeComponent();
-
-            // Create a resource manager. 
-            rm = Resources.ResourceManager;
-
-            Helper.StartUp();
             MouseMoveTask();
             MousePointChanged += MousePointChange;
             SwitchIconTask();
+            UpDateCpuUsageTask();
         }
 
 
@@ -120,7 +139,7 @@ namespace DesktopIconTool
                     }
                     ShowDesktopIcon = false;
                     ShowHiddenIcon(ShowDesktopIcon); //隐藏
-                    if (IsHiddenTaskBar)
+                    if (_config.HiddenToolBar)
                     {
                         ShowTaskbar(ShowDesktopIcon);
                     }
@@ -133,33 +152,29 @@ namespace DesktopIconTool
 
         int curTimes = 0;
         readonly int Times = 10;
-        bool AlwaysShowIcon = false;
-        bool IsHiddenTaskBar = false;
 
         public void MousePointChange()
         {
-            if (AlwaysShowIcon)
+            if (_config.IsRun)
             {
-                curTimes = 9999999;
+                curTimes = 0;
             }
             else
             {
-                curTimes = 0;
+                curTimes = 9999999;
             }
             if (ShowDesktopIcon == false) //如果是隐藏则立马显现，如果是显示则不做操作
             {
                 ShowDesktopIcon = true;
                 ShowHiddenIcon(ShowDesktopIcon);//显示
-                if (IsHiddenTaskBar)
+                if (_config.HiddenToolBar)
                 {
                     ShowTaskbar(ShowDesktopIcon);
                 }
             }
         }
 
-
         public Action MousePointChanged = delegate { };
-
 
         private static void ShowHiddenIcon(bool isShow)
         {
@@ -201,8 +216,6 @@ namespace DesktopIconTool
         }
 
 
-
-
         [DllImport("User32.dll", EntryPoint = "FindWindow")]
         public extern static IntPtr FindWindow(string lpClassName, string lpWindowName);
 
@@ -217,34 +230,31 @@ namespace DesktopIconTool
         [DllImport("user32.dll")]
         private static extern int EnumWindows(EnumWindowsCallback callPtr, int lParam);
 
-
-
-
         private void 运行ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
-                AlwaysShowIcon = false;
-
+                _config.IsRun = true;
             }
             else
             {
-                AlwaysShowIcon = true;
-
+                _config.IsRun = false;
             }
-        }
+            Helper.SaveConfig();
 
+        }
 
         private void 隐藏任务栏ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
-                IsHiddenTaskBar = true;
+                _config.HiddenToolBar = true;
             }
             else
             {
-                IsHiddenTaskBar = false;
+                _config.HiddenToolBar = false;
             }
+            Helper.SaveConfig();
         }
 
         private void 开机启动ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -252,11 +262,14 @@ namespace DesktopIconTool
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
                 Helper.StartUp();
+                _config.StartUp = true;
             }
             else
             {
                 Helper.CancelStartUp();
+                _config.StartUp = false;
             }
+            Helper.SaveConfig();
         }
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -303,23 +316,86 @@ namespace DesktopIconTool
             if (item.Text == "起飞")
             {
                 IconRefreshTimeSpan = 5;
+                _config.GifSpeed = 3;
             }
             if (item.Text == "快")
             {
                 IconRefreshTimeSpan = 35;
+                _config.GifSpeed = 2;
             }
             if (item.Text == "正常")
             {
                 IconRefreshTimeSpan = 100;
+                _config.GifSpeed = 1;
             }
             if (item.Text == "慢")
             {
                 IconRefreshTimeSpan = 200;
+                _config.GifSpeed = 0;
             }
+            Helper.SaveConfig();
         }
 
 
+        void UpDateCpuUsageTask() 
+        {
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    var cpuUsage = Helper.GetCpuUsage();
+                    Console.Write(cpuUsage);
+                    if (0<= cpuUsage && cpuUsage <= 10)
+                    {
+                        IconRefreshTimeSpan = 150;
+                    }
+                    else if (10 < cpuUsage && cpuUsage <= 20)
+                    {
+                        IconRefreshTimeSpan = 120;
+                    }
+                    else if (20 < cpuUsage && cpuUsage <= 30)
+                    {
+                        IconRefreshTimeSpan = 100;
+                    }
+                    else if (30 < cpuUsage && cpuUsage <= 40)
+                    {
+                        IconRefreshTimeSpan = 85;
+                    }
+                    else if (40 < cpuUsage && cpuUsage <= 50)
+                    {
+                        IconRefreshTimeSpan = 70;
+                    }
+                    else if (50 < cpuUsage && cpuUsage <= 60)
+                    {
+                        IconRefreshTimeSpan = 55;
+                    }
+                    else if (60 < cpuUsage && cpuUsage <= 70)
+                    {
+                        IconRefreshTimeSpan = 40;
+                    }
+                    else if (70 < cpuUsage && cpuUsage <= 80)
+                    {
+                        IconRefreshTimeSpan = 30;
+                    }
+                    else if (80 < cpuUsage && cpuUsage <= 90)
+                    {
+                        IconRefreshTimeSpan = 20;
+                    }
+                    else if (90 < cpuUsage && cpuUsage <= 100)
+                    {
+                        IconRefreshTimeSpan = 10;
+                    }
+                    else
+                    {
+                        IconRefreshTimeSpan = 5;
+                    }
+
+                    Thread.Sleep(1000);
+                }
+            });
+        }
     }
+
 
     public partial class IconTool
     {
@@ -340,15 +416,21 @@ namespace DesktopIconTool
             HiddenTaskBarMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             SpeedMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
-            RunMenuItem.Checked = true;
+            if (_config.IsRun)
+            {
+                RunMenuItem.Checked = true;
+            }
             RunMenuItem.CheckOnClick = true;
-            RunMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            //RunMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             RunMenuItem.Text = "运行";
             RunMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
-       
-            StartUpMenuItem.Checked = true;
+
+            if (_config.StartUp)
+            {
+                StartUpMenuItem.Checked = true;
+            }
             StartUpMenuItem.CheckOnClick = true;
-            StartUpMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            //StartUpMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             StartUpMenuItem.Text = "开机启动";
             StartUpMenuItem.Click += new System.EventHandler(this.开机启动ToolStripMenuItem_Click);
        
@@ -368,7 +450,8 @@ namespace DesktopIconTool
                 new System.Windows.Forms.ToolStripMenuItem()
                 {
                     Text = "正常",
-                    Checked = true,
+
+                    //Checked = true,
                 },
                 new System.Windows.Forms.ToolStripMenuItem()
                 {
@@ -378,9 +461,20 @@ namespace DesktopIconTool
             SpeedMenuItem.DropDownItems[0].Click += Speend_Click; 
             SpeedMenuItem.DropDownItems[1].Click += Speend_Click; 
             SpeedMenuItem.DropDownItems[2].Click += Speend_Click; 
-            SpeedMenuItem.DropDownItems[3].Click += Speend_Click; 
-           
+            SpeedMenuItem.DropDownItems[3].Click += Speend_Click;
+            switch (_config.GifSpeed)
+            {
+                case 0: (SpeedMenuItem.DropDownItems[3] as ToolStripMenuItem).Checked = true; break;
+                case 1: (SpeedMenuItem.DropDownItems[2] as ToolStripMenuItem).Checked = true; break;
+                case 2: (SpeedMenuItem.DropDownItems[1] as ToolStripMenuItem).Checked = true; break;
+                case 3: (SpeedMenuItem.DropDownItems[0] as ToolStripMenuItem).Checked = true; break;
+            }
 
+
+            if (_config.HiddenToolBar)
+            {
+                HiddenTaskBarMenuItem.Checked = true;
+            }
             HiddenTaskBarMenuItem.CheckOnClick = true;
             HiddenTaskBarMenuItem.Text = "隐藏任务栏";
             HiddenTaskBarMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
@@ -422,7 +516,6 @@ namespace DesktopIconTool
 
 
 
-
     public class Helper
     {
         [DllImport("user32.dll")]
@@ -440,12 +533,13 @@ namespace DesktopIconTool
             }
         }
 
-
-
+        /// <summary>
+        /// 开机启动
+        /// </summary>
         public static void StartUp()
         {
             //获取程序执行路径..
-            string starupPath = AppDomain.CurrentDomain.BaseDirectory + "DesktopIcon.exe";
+            string starupPath = AppDomain.CurrentDomain.BaseDirectory + Assembly.GetExecutingAssembly().GetName().Name + ".exe";
             //class Micosoft.Win32.RegistryKey. 表示Window注册表中项级节点,此类是注册表装.
             //RegistryKey loca = Registry.LocalMachine;
             RegistryKey loca = Registry.CurrentUser;
@@ -463,11 +557,13 @@ namespace DesktopIconTool
             }
         }
 
-
+        /// <summary>
+        /// 取消开机启动
+        /// </summary>
         public static void CancelStartUp()
         {
             //获取程序执行路径..
-            string starupPath = AppDomain.CurrentDomain.BaseDirectory + "DesktopIcon.exe";
+            string starupPath = AppDomain.CurrentDomain.BaseDirectory + Assembly.GetExecutingAssembly().GetName().Name + ".exe";
             //class Micosoft.Win32.RegistryKey. 表示Window注册表中项级节点,此类是注册表装.
             //RegistryKey loca = Registry.LocalMachine;
             RegistryKey loca = Registry.CurrentUser;
@@ -485,5 +581,169 @@ namespace DesktopIconTool
             }
         }
 
+
+
+        static PerformanceCounter cpuCounter = new PerformanceCounter("Processor Information", "% Processor Utility", "_Total");
+
+        /// <summary>
+        /// 获取CPU使用率
+        /// </summary>
+        /// <returns></returns>
+        public static int GetCpuUsage()
+        {
+            //PerformanceCounter cpuCounter;
+            //PerformanceCounter ramCounter;
+            //cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+            //cpuCounter = new PerformanceCounter("Processor Information", "% Processor Utility", "_Total");
+            //ramCounter = new PerformanceCounter("Memory", "Available MBytes");
+            //return ramCounter.NextValue() + "MB";
+            return (int)cpuCounter.NextValue();
+        }
+     
+        private static string _configPath = AppDomain.CurrentDomain.BaseDirectory + "config.config";
+        public static Config config;
+        public static ResourceManager rm;
+        public static void SaveConfig()
+        {
+            //using (XmlTextWriter xw = new XmlTextWriter(_configPath, Encoding.Default))
+            //{
+            //    xw.Formatting = Formatting.Indented;
+            //    xw.IndentChar = '\t';
+            //    xw.Indentation = 1;
+            //    try
+            //    {
+            //        XmlSerializer seriesr = new XmlSerializer(config.GetType());
+            //        seriesr.Serialize(xw, config);
+            //    }
+            //    catch (Exception e)
+            //    {
+            //        throw e.InnerException;
+            //    }
+            //}
+
+
+            /*
+            Stream sm = new MemoryStream();
+            using (XmlTextWriter xw = new XmlTextWriter(sm, Encoding.Default))
+            {
+                xw.Formatting = Formatting.Indented;
+                xw.IndentChar = '\t';
+                xw.Indentation = 1;
+                try
+                {
+                    XmlSerializer seriesr = new XmlSerializer(config.GetType());
+                    seriesr.Serialize(xw, config);
+                }
+                catch (Exception e)
+                {
+                    throw e.InnerException;
+                }
+
+                var value = StreamToStr(sm);
+                UpdateResource(value);
+            }
+            */
+         
+            Properties.Settings.Default.StartUp = config.StartUp;
+            Properties.Settings.Default.IsRun = config.IsRun;
+            Properties.Settings.Default.HiddenToolBar = config.HiddenToolBar;
+            Properties.Settings.Default.GifSpeed = config.GifSpeed;
+            Properties.Settings.Default.Save();
+
+        }
+
+        static void UpdateResource(string value)
+        {
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.Load(rm.BaseName);
+            XmlNodeList xnlist = xmlDoc.GetElementsByTagName("data");//这个data是固定
+            foreach (XmlNode node in xnlist)
+            {
+                if (node.Attributes != null)
+                {
+                    if (node.Attributes["xml:space"].Value == "preserve")//这个preserve也是固定的
+                    {
+                        if (node.Attributes["name"].Value == "config")//String1是你想要编辑的
+                        {
+                            node.InnerText = value;//给他赋值就OK了
+                        }
+                    }
+                }
+            }
+            xmlDoc.Save(rm.BaseName);//别忘记保存
+        }
+
+        public static void LoadConfig()
+        {
+            //try
+            //{
+            //    //rm.GetObject($"config");
+            //    var serializer = new XmlSerializer(typeof(Config));
+            //    //var fs = new FileStream(_configPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            //    var stm = strToStream(configStr);
+            //    config = (Config)serializer.Deserialize(stm);
+            //    stm.Close();
+            //}
+            //catch (Exception e)
+            //{
+            //    Console.WriteLine(e);
+            //    config = Config.Instacnce;
+            //}
+
+            config = new Config()
+            {
+                StartUp = Properties.Settings.Default.StartUp,
+                IsRun = Properties.Settings.Default.IsRun,
+                HiddenToolBar = Properties.Settings.Default.HiddenToolBar,
+                GifSpeed = Properties.Settings.Default.GifSpeed
+            };
+          
+        }
+
+        static Stream strToStream(string xml)
+        {
+            //string test = “This is string″;
+
+            // convert string to stream
+            MemoryStream stream = new MemoryStream();
+            StreamWriter writer = new StreamWriter(stream);
+            writer.Write(xml);
+            writer.Flush();
+
+            stream.Position = 0;
+            //or 
+            //stream.Seek(0, SeekOrigin.Begin);
+            return stream;
+
+            //// convert stream to string
+            //stream.Position = 0;
+            //StreamReader reader = new StreamReader(stream);
+            //string text = reader.ReadToEnd();
+        }
+
+        static string StreamToStr(Stream stream)
+        {
+            //// convert stream to string
+            stream.Position = 0;
+            StreamReader reader = new StreamReader(stream);
+            string xmlStr = reader.ReadToEnd();
+            return xmlStr;
+        }
+
+    }
+
+    [Serializable]
+    public class Config
+    {
+
+        public static Config Instacnce = new Config();
+
+        public bool StartUp { get; set; } = true;
+
+        public bool IsRun { get; set; } = true;
+
+        public bool HiddenToolBar { get; set; } = false;
+
+        public int GifSpeed { get; set; } = 1;
     }
 }

@@ -239,5 +239,20 @@ namespace DesktopIconTool {
                 return ((System.Drawing.Icon)(obj));
             }
         }
+        
+        /// <summary>
+        ///   查找类似 &lt;?xml version=&quot;1.0&quot; encoding=&quot;gb2312&quot;?&gt;
+        ///&lt;Config xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xmlns:xsd=&quot;http://www.w3.org/2001/XMLSchema&quot;&gt;
+        ///	&lt;StartUp&gt;true&lt;/StartUp&gt;
+        ///	&lt;IsRun&gt;true&lt;/IsRun&gt;
+        ///	&lt;HiddenToolBar&gt;false&lt;/HiddenToolBar&gt;
+        ///	&lt;GifSpeed&gt;1&lt;/GifSpeed&gt;
+        ///&lt;/Config&gt; 的本地化字符串。
+        /// </summary>
+        internal static string config {
+            get {
+                return ResourceManager.GetString("config", resourceCulture);
+            }
+        }
     }
 }
