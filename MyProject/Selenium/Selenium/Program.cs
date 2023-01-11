@@ -1,4 +1,6 @@
-﻿using ICSharpCode.SharpZipLib.Zip;
+﻿using AutomationServices.EmguCv;
+using AutomationServices.EmguCv.Helper;
+using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Win32;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
@@ -6,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -21,19 +25,27 @@ namespace Selenium
         private static Mutex mutex;
         static void Main(string[] args)
         {
+            Test(); return;
             //单例程序
             if (SingleProcess())
                 return;
 
+
+#if DEBUG
+            //立即执行 Debug
+            AutomatedSelenium selenium = new AutomatedSelenium()
+            {
+                ShowBrowserWnd = true,
+            };
+            selenium.StartTask();
+#else
             //定时任务
             new ScheduledTask().StartExecuteTask();
+#endif
 
-            //立即执行 Debug
-            //AutomatedSelenium selenium = new AutomatedSelenium()
-            //{
-            //    ShowBrowserWnd = true,
-            //};
-            //selenium.StartTask();
+
+
+
 
             //隐藏控制台窗口
             Console.Title = "QQ农场牧场自动化";
@@ -44,7 +56,43 @@ namespace Selenium
             Console.ReadLine();
         }
 
- 
+
+        public static void Test()
+        {
+            //aaa();
+            string minImg = AppDomain.CurrentDomain.BaseDirectory + "min.png";
+            string maxImg = AppDomain.CurrentDomain.BaseDirectory + "max.png";
+
+            //EmguCvHelper.GetMatchPos(maxImg, @"C:\Users\YR\Desktop\r.png" );
+            EmguCvHelper.SliderVerifi(maxImg, @"C:\Users\YR\Desktop\r.png" );
+        }
+
+
+        static void aaa()
+        {
+            string minImg = AppDomain.CurrentDomain.BaseDirectory + "min.png";
+            //读入原图，这张原图尺寸为533*300
+            Bitmap src_jpg = new Bitmap(minImg);
+
+            //原图中的要抠出的一小块图，这一小块的左上角的坐标为(50, 0)，长为300，高为300
+            Rectangle srcRect = new Rectangle(145, 488, 110, 95);
+
+            //新图在画布上的左上角坐标为(0, 0)，新图长300，高300
+            Rectangle destRect = new Rectangle(0, 0, 110, 95);
+
+            //放置新图的画布，照搬新图的的大小
+            Bitmap new_jpg = new Bitmap(destRect.Width, destRect.Height);
+
+            //g就像一只画笔，准备在new_jpg上作画
+            Graphics g = Graphics.FromImage(new_jpg);                        
+            g.DrawImage(src_jpg, destRect, srcRect, GraphicsUnit.Pixel);
+
+            //保存图片
+            new_jpg.Save(@"C:\Users\YR\Desktop\r.png");
+
+            //类似于关闭文件流，否则程序不终止，"pikachu.jpg"就处于被占用的状态
+            src_jpg.Dispose();                       
+        }
 
         static bool SingleProcess()
         {
@@ -138,4 +186,9 @@ namespace Selenium
             return request;
         }
     }
+
+
+
+
+ 
 }

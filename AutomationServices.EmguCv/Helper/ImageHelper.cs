@@ -208,13 +208,15 @@ namespace AutomationServices.EmguCv.Helper
         public static System.Drawing.Image CaptureImage(System.Drawing.Image fromImage, int offsetX, int offsetY, int width, int height)
         {
             //创建新图位图
-            Bitmap bitmap = new Bitmap(width, height);
+            Bitmap bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             //创建作图区域
             Graphics graphic = Graphics.FromImage(bitmap);
+            SolidBrush brush = new SolidBrush(Color.FromArgb(0, 255, 0, 0));  //A为透明度
+            graphic.FillRectangle(brush, new Rectangle(0, 0, width, height));
             //截取原图相应区域写入作图区
             graphic.DrawImage(fromImage, 0, 0, new Rectangle(offsetX, offsetY, width, height), GraphicsUnit.Pixel);
             //从作图区生成新图
-            System.Drawing.Image saveImage = System.Drawing.Image.FromHbitmap(bitmap.GetHbitmap());
+            System.Drawing.Image saveImage = System.Drawing.Image.FromHbitmap(bitmap.GetHbitmap(Color.Transparent));
             //保存图片
             //saveImage.Save(toImagePath, ImageFormat.Png);
             //释放资源   

@@ -1,6 +1,7 @@
 ﻿using ICSharpCode.SharpZipLib.Zip;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
+using OpenQA.Selenium.Interactions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -20,6 +21,9 @@ namespace Selenium
     {
         private EdgeDriver driver;
         private EdgeDriverService driverService;
+        private IWebDriver LoginFrame;
+        private IWebDriver VCodeFrame;
+
 
         public bool ShowBrowserWnd = false;
 
@@ -30,7 +34,10 @@ namespace Selenium
                 CheckMsedgedriverVision();
                 Logger.WriteLog("开始执行农场任务");
                 StartEdge();
-                Login();
+                if (!Login())
+                {
+                    return;
+                }
                 Farm();
                 Pasture();
             }
@@ -150,7 +157,7 @@ namespace Selenium
         private void StartEdge()
         {
             var msedgedriverPath = AppDomain.CurrentDomain.BaseDirectory;
-            EdgeDriverService driverService = EdgeDriverService.CreateDefaultService(msedgedriverPath); //此处为msedgedriver.exe的存放路径
+            driverService = EdgeDriverService.CreateDefaultService(msedgedriverPath); //此处为msedgedriver.exe的存放路径
             EdgeOptions options = new EdgeOptions();
             if (!ShowBrowserWnd)
             {
@@ -163,25 +170,86 @@ namespace Selenium
         /// <summary>
         /// 登录
         /// </summary>
-        private void Login()
+        /// <returns>true,登录成功，false失败</returns>
+        private bool Login()
         {
-            driver.Navigate().GoToUrl("https://ui.ptlogin2.qq.com/cgi-bin/login?style=9&appid=1600000084&daid=0&s_url=http%3A%2F%2Fmcapp.z.qq.com%2Fnc%2Fcgi-bin%2Fwap_farm_index%3Fg_ut%3D3&low_login=0"); //此处为校园网登录的网址
-            Thread.Sleep(2000);
-            IWebElement username = driver.FindElement(By.Id("u")); //用户名控件ID
-            IWebElement password = driver.FindElement(By.Id("p")); //密码控件ID
-            IWebElement login = driver.FindElement(By.Id("go")); //登录控件ID
+            for (int i = 0; i < 2; i++)
+            {
+                driver.Navigate().GoToUrl("https://ui.ptlogin2.qq.com/cgi-bin/login?style=9&appid=1600000084&daid=0&s_url=http%3A%2F%2Fmcapp.z.qq.com%2Fnc%2Fcgi-bin%2Fwap_farm_index%3Fg_ut%3D3&low_login=0"); //网址
+                Thread.Sleep(2000);
 
-            username.SendKeys("1642963395"); //填入账号
-            Thread.Sleep(1500);
-            password.SendKeys("yr18723750041.."); //填入密码
-            Thread.Sleep(1500);
-            login.Click(); //点击登录按钮
-            Thread.Sleep(1500);
-            Logger.WriteLog("登录成功");
+                IWebElement username = driver.FindElement(By.Id("u")); //用户名控件ID
+                IWebElement password = driver.FindElement(By.Id("p")); //密码控件ID
+                IWebElement login = driver.FindElement(By.Id("go")); //登录控件ID
+
+                username.SendKeys("1642963395"); //填入账号
+                Thread.Sleep(1500);
+                password.SendKeys("yr18723750041.."); //填入密码
+                Thread.Sleep(1500);
+                login.Click(); //点击登录按钮
+                Thread.Sleep(1500);
+
+
+                if (TryFindElement(By.LinkText("个人中心"), out IWebElement personalCenter))
+                {
+                    Logger.WriteLog("登录成功");
+                    return true;
+                }
+                try
+                {
+
+                    LoginFrame = driver.SwitchTo().Frame(driver.FindElement(By.Id("tcaptcha_iframe_dy")));
+                    //driver.SwitchTo().DefaultContent(); 
+                    //var phoneVerifyFrame = driver.SwitchTo().Frame(driver.FindElement(By.Id("verify")));
+                    if (TryFindElementInFrame(By.Id("instructionText"), out IWebElement instructionText, LoginFrame))
+                    {
+                        if(instructionText.Text == "拖动下方滑块完成拼图")
+                        {
+                            Logger.WriteLog("登录出现滑块验证");
+                            SliderVerification();
+
+                            if (TryFindElementInFrame(By.Id("captcha_close"), out IWebElement closeBtn, LoginFrame))
+                            {
+                                closeBtn.Click();
+                                driver.SwitchTo().DefaultContent();
+                                login.Click(); //点击登录按钮
+                                //closeBtn.Click();
+
+
+                                continue;
+                            }
+                            
+                        }
+
+                        //if (TryFindElement(By.Id("captcha_close"), out IWebElement closeBtn))
+                        //{
+                        //}
+                        //VCodeFrame = LoginFrame.SwitchTo().Frame(LoginFrame.FindElement(By.Id("tcaptcha_iframe")));
+                        //Thread.Sleep(50);
+                    }
+                    //else if (TryFindElementInFrame(By.Id("tcaptcha_iframe"), out IWebElement verIframe, phoneVerifyFrame))
+                    //{
+                    //    Logger.WriteLog("登录出现手机验证");
+                    //}
+                    else
+                    {
+                        Logger.WriteLog("登录成功");
+                        return true;
+                    }
+                }
+                catch(Exception e)
+                {
+                    //return false;
+                    throw e;
+                }
+            }
+            Logger.WriteLog("登录失败");
+            return false;
         }
 
         private void GetFarmInfo()
         {
+            Logger.WriteLog("农场信息：");
             TryFindElement(By.ClassName("farm-info"), out IWebElement farm_info);
             string farmInfo = GetInfo(By.CssSelector("p.tabs-1"), farm_info);
             Logger.WriteLog(farmInfo);
@@ -226,12 +294,14 @@ namespace Selenium
                 Thread.Sleep(1500);
                 Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
             }
+            Logger.WriteLog("查找收获");
             if (TryFindElement(By.LinkText("收获"), out IWebElement harvest))
             {
                 harvest.Click();
                 Thread.Sleep(1500);
                 Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
             }
+            Logger.WriteLog("查找铲除");
             if (TryFindElement(By.LinkText("铲除"), out IWebElement eradicate))
             {
                 eradicate.Click();
@@ -278,8 +348,10 @@ namespace Selenium
                     //}
                 }
             }
+            Logger.WriteLog("返回我的农场");
             TryFindElement(By.LinkText("我的农场"), out IWebElement back4);
             back4.Click();
+            Logger.WriteLog("循环播种");
             while (TryFindElement(By.LinkText("播种"), out IWebElement sow2))
             {
                 sow2.Click();
@@ -687,22 +759,68 @@ namespace Selenium
             //driver.Dispose();
             if (driver != null)
             {
-                driver.Close();
+                //driver.Close(); //关闭一个Tab页
+                driver.Quit(); //关闭所有tab页，并会退出msedgedriver服务进程
             }
             if (driverService != null)
             {
                 driverService.Dispose();
             }
 
-            string pName = "msedgedriver";
-            Process[] processes = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
-            foreach (var p in processes)
-            {
-                p.Kill();
-            }
+            //string pName = "msedgedriver";
+            //Process[] processes = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
+            //foreach (var p in processes)
+            //{
+            //    p.Kill();
+            //}
 
             Logger.WriteLog("任务结束，关闭浏览器\n");
         }
+
+
+        public bool TryFindElementInFrame(By by, out IWebElement element, IWebDriver parentFrame)
+        {
+            ReadOnlyCollection<IWebElement> elements = parentFrame.FindElements(by);
+            if (elements.Count > 0)
+            {
+                element = elements[0];
+                return true;
+            }
+            else
+            {
+                element = null;
+                return false;
+            }
+
+        }
+
+        void SliderVerification()
+        {
+            //找到滑块元素
+            TryFindElementInFrame(By.ClassName("tc-slider-normal"), out IWebElement slide, LoginFrame);
+            //var slide = VCodeFrame.FindElement(By.Id("tcaptcha_drag_button"));
+            //var verifyContainer = driver.FindElement(By.CssSelector(".nc-lang-cnt"));
+            //var width = verifyContainer.Size.Width;
+            var action = new Actions(LoginFrame);
+            int offset = 0;
+            //模仿人工滑动
+
+            int Offset = 30;
+            while (true)
+            {
+                action.ClickAndHold(slide).Perform(); //点击并按住滑块元素
+                action.MoveByOffset(Offset, 0).Perform();
+                action.Release().Perform();
+                Offset += 20;
+                Thread.Sleep(1000);
+            }
+        }
+
+        void ScreenshotElement(string filename, IWebElement element)
+        {
+            //element.save(save_path)
+        }
+
 
         /// <summary>
         /// 寻找第一个匹配的节点
@@ -783,17 +901,17 @@ namespace Selenium
         public void StartExecuteTask()
         {
             TimerList.Add(CreateDailyScheduledTask(0, 0));
-            TimerList.Add(CreateDailyScheduledTask(2, 0));
+            //TimerList.Add(CreateDailyScheduledTask(2, 0));
             TimerList.Add(CreateDailyScheduledTask(4, 0));
-            TimerList.Add(CreateDailyScheduledTask(6, 0));
+            //TimerList.Add(CreateDailyScheduledTask(6, 0));
             TimerList.Add(CreateDailyScheduledTask(8, 0));
-            TimerList.Add(CreateDailyScheduledTask(10, 0));
+            //TimerList.Add(CreateDailyScheduledTask(10, 0));
             TimerList.Add(CreateDailyScheduledTask(12, 0));
-            TimerList.Add(CreateDailyScheduledTask(14, 0));
+            //TimerList.Add(CreateDailyScheduledTask(14, 0));
             TimerList.Add(CreateDailyScheduledTask(16, 0));
-            TimerList.Add(CreateDailyScheduledTask(18, 0));
+            //TimerList.Add(CreateDailyScheduledTask(18, 0));
             TimerList.Add(CreateDailyScheduledTask(20, 0));
-            TimerList.Add(CreateDailyScheduledTask(22, 0));
+            //TimerList.Add(CreateDailyScheduledTask(22, 0));
 
             //TimerList.Add(CreateDailyScheduledTask(20, 3));
         }

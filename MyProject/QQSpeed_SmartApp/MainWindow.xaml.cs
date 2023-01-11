@@ -915,6 +915,80 @@ namespace QQSpeed_SmartApp
             }
         }
       
+
+
+        void DubugBitMmpBug()
+        {
+            Task.Run(() =>
+            {
+
+                while (true)
+                {
+                    try
+                    {
+
+                        string image1 = BaseDirectory + "对战币.png";
+                        var matchOptions = new MatchOptions();
+                        matchOptions.MaxTimes = 0;
+                        matchOptions.DelayInterval = 2000;
+                        matchOptions.Threshold = 0.99;
+                        matchOptions.MatchMode = MatchMode.Absolutely;
+                        matchOptions.ImreadModesConvert = ImreadModesConvert.Color;
+
+                        var rct = EmguCvHelper.GetMatchPos(image1, out double Similarity, matchOptions);
+                        if (rct != System.Drawing.Rectangle.Empty)
+                        {
+                            Console.WriteLine("找到图片" + image1);
+                            Console.WriteLine("相似度" + Similarity);
+                        }
+                        else
+                        {
+                            Console.WriteLine("没有找到" + Similarity);
+                        }
+                        Thread.Sleep(500);
+                    }
+                    catch (Exception e)
+                    {
+
+                    }
+                }
+            });
+
+            Task.Run(() =>
+            {
+
+                while (true)
+                {
+                    try
+                    {
+                        string image2 = BaseDirectory + "对战币.png";
+                        var matchOptions2 = new MatchOptions();
+                        matchOptions2.MaxTimes = 0;
+                        matchOptions2.DelayInterval = 2000;
+                        matchOptions2.Threshold = 0.99;
+                        matchOptions2.MatchMode = MatchMode.Absolutely;
+                        matchOptions2.ImreadModesConvert = ImreadModesConvert.Color;
+
+                        var rct2 = EmguCvHelper.GetMatchPos(image2, out double Similarity2, matchOptions2);
+                        if (rct2 != System.Drawing.Rectangle.Empty)
+                        {
+                            Console.WriteLine("找到图片" + image2);
+                            Console.WriteLine("相似度" + Similarity2);
+                        }
+                        else
+                        {
+                            Console.WriteLine("没有找到" + Similarity2);
+                        }
+                        Thread.Sleep(500);
+                    }
+                    catch(Exception e)
+                    {
+
+                    }
+                   
+                }
+            });
+        }
         #endregion
 
 
@@ -1067,6 +1141,9 @@ namespace QQSpeed_SmartApp
         const long TicksPhase = 3000 ; //50ms
         private void Paotu_Click(object sender, RoutedEventArgs e)
         {
+
+            DubugBitMmpBug();
+            return;
 
             //Task.Run(() => {
             //    PreciseSleep(10000);
