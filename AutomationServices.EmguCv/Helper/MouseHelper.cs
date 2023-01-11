@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace AutomationServices.EmguCv.Helper
 {
@@ -29,6 +30,9 @@ namespace AutomationServices.EmguCv.Helper
         //模拟鼠标滚轮滚动操作，必须配合dwData参数
         const int MouseEventf_Wheel = 0x0800;
 
+        public static int ScreenWidth = 1920;
+        public static int ScreenHeight = 1080;
+
 
         public static void TestMoveMouse()
         {
@@ -49,7 +53,7 @@ namespace AutomationServices.EmguCv.Helper
 
         public static void MouseMove(int X, int Y)
         {
-            mouse_event(MouseEventf_Absolute | MouseEventf_Move, X * 65536 / 1920, Y * 65536 / 1080, 0, 0);
+            mouse_event(MouseEventf_Absolute | MouseEventf_Move, X * 65536 / ScreenWidth, Y * 65536 / ScreenHeight, 0, 0);
         }
 
         public static void MouseDownUp()

@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33122.133
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AutomationServices.EmguCv", "..\AutomationServices.EmguCv\AutomationServices.EmguCv.csproj", "{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QQSpeed_SmartApp", "..\MyProject\QQSpeed_SmartApp\QQSpeed_SmartApp.csproj", "{3A03A6C5-D706-4258-A68A-243550DF9B21}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LOLOnHookMonitor", "..\MyProject\LOLOnHookMonitor\LOLOnHookMonitor.csproj", "{65490C5D-E50C-4AC8-8D03-2495EE2DA699}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A03A6C5-D706-4258-A68A-243550DF9B21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A03A6C5-D706-4258-A68A-243550DF9B21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A03A6C5-D706-4258-A68A-243550DF9B21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A03A6C5-D706-4258-A68A-243550DF9B21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {64CB8016-A18E-4498-B971-0A46AD968380}
+	EndGlobalSection
+EndGlobal

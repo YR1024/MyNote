@@ -103,7 +103,7 @@ namespace QQSpeed_SmartApp
             //WinExec(@"W:\Program Files\腾讯游戏\QQ飞车\Releasephysx27\QQSpeed_Launch.exe", 1);
 
             ProcessStartInfo info = new ProcessStartInfo();
-            info.FileName = @"W:\Program Files\腾讯游戏\QQ飞车\Releasephysx27\QQSpeed_Launch.exe";
+            info.FileName = @"F:\Program Files\腾讯游戏\QQ飞车\Releasephysx27\QQSpeed_Launch.exe";
             info.Arguments = "";
             info.WindowStyle = ProcessWindowStyle.Minimized;
             Process pro = Process.Start(info);
@@ -230,22 +230,37 @@ namespace QQSpeed_SmartApp
             MouseHelper.MouseDownUp(511, 499); //确认
             Thread.Sleep(1000);
 
+            string image1 = BaseDirectory + "对战币.png";
+            var matchOptions = new MatchOptions();
+            matchOptions.MaxTimes = 0;
+            matchOptions.DelayInterval = 2000;
+            matchOptions.Threshold = 0.99;
+            matchOptions.MatchMode = MatchMode.Absolutely;
+            //matchOptions.WindowArea = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
+            matchOptions.ImreadModesConvert = ImreadModesConvert.Color;
+
             for (int i = 0; i < 6; i++)
             {
                 MouseHelper.MouseDownUp(410, 600); // 开始匹配
-                string image1 = BaseDirectory + "对战币.png";
-
-                var matchOptions = new MatchOptions();
-                matchOptions.MaxTimes = 0;
-                matchOptions.DelayInterval = 2000;
-                matchOptions.Threshold = 0.99;
-                matchOptions.MatchMode = MatchMode.Absolutely;
-                //matchOptions.WindowArea = WindowHelper.GetWindowLocationSize(QQSpeedProcess.MainWindowHandle);
-                matchOptions.ImreadModesConvert = ImreadModesConvert.Color;
+              
                 MyHelper.WaitFind(image1, matchOptions);
                 MouseHelper.MouseDownUp(511, 499); //确定
                 Thread.Sleep(1000);
             }
+            if(useCouponCheck.IsChecked == true)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    MyHelper.Click(410, 600, 500); // 开始匹配
+                    MyHelper.Click(450, 490, 500); // 使用天梯劵
+                    MyHelper.WaitFind(image1, matchOptions);
+                    MouseHelper.MouseDownUp(511, 499); //确定
+                    Thread.Sleep(1000);
+                }
+            }
+            
+        
+
 
             //膜拜
             MouseHelper.MouseDownUp(574, 214);
@@ -528,17 +543,22 @@ namespace QQSpeed_SmartApp
             MyHelper.Click(650, 340, 500); //福袋
             MyHelper.Click(390, 485, 500); //领取
             MyHelper.KeyPress(Keys.Enter, 300);
-            MyHelper.Click(530, 155, 500); //抢红包
 
+            MyHelper.Click(430, 155, 500); //发红包tab
+            MyHelper.Click(625, 487, 500); //发红包
+            MyHelper.KeyPress(Keys.Enter, 300);
+
+            MyHelper.Click(530, 155, 500); //抢红包
             for (int i = 0; i < 5; i++)
             {
                 MyHelper.Click(670, 310 + i * 40, 500); //车队红包
                 MyHelper.KeyPress(Keys.Enter, 2500);
             }
 
-            MyHelper.Click(430, 155, 500); //发红包
-            MyHelper.Click(625, 487, 500); //发红包
+            MyHelper.Click(750, 450, 500); //车队任务
+            MyHelper.Click(680, 120, 500); //一键领取
             MyHelper.KeyPress(Keys.Enter, 300);
+
             Thread.Sleep(100);
 
         }
@@ -671,14 +691,14 @@ namespace QQSpeed_SmartApp
             Action action3 = () => {
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {
                     MyHelper.Click(455, 485, 500); //确定
-                    while (DuringTimeSpan())
+                    while (DuringTimeSpan(2))
                     {
-                        MyHelper.Click(565, 520, 200); //继续开启
+                        MyHelper.Click(565, 520, 500); //继续开启
                     }
                     int i = 0;
                     while (i < 3)
                     {
-                        MyHelper.Click(565, 520, 1000); //继续开启
+                        MyHelper.Click(565, 520, 1200); //继续开启
                         i++;
                     }
                     //for (int i = 0; i < 4; i++)
@@ -700,13 +720,13 @@ namespace QQSpeed_SmartApp
                     MyHelper.Click(85, 420, 1000); //捕捉
 
                     DateTimeSynchronization();
-                    scheduledTask.StartExecuteTask(23, 59, 58, action3);
+                    scheduledTask.StartExecuteTask(23, 59, 58.5, action3);
                 });
             };
             scheduledTask.StartExecuteTask(23, 59, 00, action);
         }
 
-        bool DuringTimeSpan()
+        bool DuringTimeSpan(int s)
         {
             var time = DateTime.Now;
             if (time.Hour == 23 /*&& time.Minute = 9*/)
@@ -716,7 +736,7 @@ namespace QQSpeed_SmartApp
             }
             else/* if (time.Hour == 0)*/
             {
-                if(time.Second < 3)
+                if(time.Second < s)
                 {
                     Console.WriteLine($"Second:{time.Second}");
                     return true;
