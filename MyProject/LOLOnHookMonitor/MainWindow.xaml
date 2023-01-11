@@ -5,27 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LOLOnHookMonitor"
         mc:Ignorable="d"
-        Title="MainWindow" Height="445" Width="575">
+        Title="MainWindow" Height="467" Width="439">
     <DockPanel>
-        <Grid>
-            <StackPanel Width="275" HorizontalAlignment="Left">
-                <Label>账号：</Label>
-                <TextBox x:Name="accountTb" Text="1642963395" Width="100"/>
-                
-                <Label>密码：</Label>
-                <PasswordBox x:Name="passwordTb" Password="yr18723750041.." Width="100"/>
-                
-                <Label>区服：</Label>
-                <TextBox x:Name="daqu" Text="" Width="100"/>
+        <StackPanel Width="200" DockPanel.Dock="Right" >
+            <Label>账号：</Label>
+            <TextBox x:Name="accountTb" Text="1642963395" Width="100"/>
 
-                <Label>游戏路径：</Label>
-                <TextBox x:Name="path" Text="D:\WeGameApps\英雄联盟\TCLS\Client.exe" Width="250"/>
-                <Button Content="开始监控" Margin="5" Click="Start_Click"/>
-                <StackPanel Orientation="Horizontal"/>
-            </StackPanel>
-            <Grid HorizontalAlignment="Left" Margin="300,25,0, 25">
-                <TextBox x:Name="InfoBox" Width="200" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible"/>
-            </Grid>
+            <Label>密码：</Label>
+            <PasswordBox x:Name="passwordTb" Password="yr18723750041.." Width="100"/>
+
+            <Label>区服：</Label>
+            <TextBox x:Name="daqu" Text="" Width="100"/>
+
+            <Label>游戏路径：</Label>
+            <TextBox x:Name="path" Text="D:\WeGameApps\英雄联盟\TCLS\Client.exe" Width="250"/>
+            <Button Content="开始监控" Margin="5" Click="Start_Click"/>
+            <StackPanel Orientation="Horizontal"/>
+        </StackPanel>
+        <Grid>
+            <TextBox x:Name="InfoBox" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible"/>
         </Grid>
     </DockPanel>
 </Window>

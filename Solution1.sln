@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AutomationServices.EmguCv", "..\AutomationServices.EmguCv\AutomationServices.EmguCv.csproj", "{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AutomationServices.EmguCv", "AutomationServices.EmguCv\AutomationServices.EmguCv.csproj", "{ACB233E5-51B8-4FBE-8DF9-C33011DD216E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QQSpeed_SmartApp", "..\MyProject\QQSpeed_SmartApp\QQSpeed_SmartApp.csproj", "{3A03A6C5-D706-4258-A68A-243550DF9B21}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QQSpeed_SmartApp", "MyProject\QQSpeed_SmartApp\QQSpeed_SmartApp.csproj", "{3A03A6C5-D706-4258-A68A-243550DF9B21}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LOLOnHookMonitor", "..\MyProject\LOLOnHookMonitor\LOLOnHookMonitor.csproj", "{65490C5D-E50C-4AC8-8D03-2495EE2DA699}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LOLOnHookMonitor", "MyProject\LOLOnHookMonitor\LOLOnHookMonitor.csproj", "{65490C5D-E50C-4AC8-8D03-2495EE2DA699}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
