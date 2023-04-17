@@ -110,6 +110,7 @@ namespace DesktopIconTool
         public POINT CurrentMousePoint = new POINT(0, 0);
         void MouseMoveTask()
         {
+            //50ms 获取记录一次鼠标位置， 若位置发生变化则通知时间
             Task.Run(() => {
                 while (true)
                 {
@@ -124,35 +125,47 @@ namespace DesktopIconTool
             });
 
 
-            Task t = new Task(() =>
+            Task.Run(() =>
             {
 
                 while (true)
                 {
+
                     if (curTimes >= Times)
                     {
+                        Thread.Sleep(30);
                         continue;
                     }
+
+
                     while (curTimes++ < Times) //计时
                     {
                         Thread.Sleep(1000);
                     }
                     ShowDesktopIcon = false;
-                    ShowHiddenIcon(ShowDesktopIcon); //隐藏
+                    ShowHiddenIcon(false); //隐藏
                     if (_config.HiddenToolBar)
                     {
-                        ShowTaskbar(ShowDesktopIcon);
+                        ShowTaskbar(false);
                     }
                     Thread.Sleep(30);
                 }
-
             });
-            t.Start();
         }
 
+        /// <summary>
+        /// 鼠标未移动的时间
+        /// </summary>
         int curTimes = 0;
+
+        /// <summary>
+        /// 
+        /// </summary>
         readonly int Times = 10;
 
+        /// <summary>
+        /// 鼠标位置发生变化
+        /// </summary>
         public void MousePointChange()
         {
             if (_config.IsRun)
@@ -161,15 +174,16 @@ namespace DesktopIconTool
             }
             else
             {
-                curTimes = 9999999;
+                curTimes = int.MaxValue;
             }
+
             if (ShowDesktopIcon == false) //如果是隐藏则立马显现，如果是显示则不做操作
             {
                 ShowDesktopIcon = true;
-                ShowHiddenIcon(ShowDesktopIcon);//显示
-                if (_config.HiddenToolBar)
+                ShowHiddenIcon(true);//显示桌面图标
+                if (_config.HiddenToolBar) 
                 {
-                    ShowTaskbar(ShowDesktopIcon);
+                    ShowTaskbar(true); //显示任务栏
                 }
             }
         }
