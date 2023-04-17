@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QQSpeed_SmartApp", "MyProje
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LOLOnHookMonitor", "MyProject\LOLOnHookMonitor\LOLOnHookMonitor.csproj", "{65490C5D-E50C-4AC8-8D03-2495EE2DA699}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GTA", "C:\Users\YR\Desktop\GTA\GTA\GTA.csproj", "{337E645D-13B5-4FFD-8854-65B869B38388}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsFormsApp1", "WindowsFormsApp1\WindowsFormsApp1.csproj", "{0B65E1E6-FAC2-4E46-8DD3-D3EFA8A922DA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65490C5D-E50C-4AC8-8D03-2495EE2DA699}.Release|Any CPU.Build.0 = Release|Any CPU
+		{337E645D-13B5-4FFD-8854-65B869B38388}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{337E645D-13B5-4FFD-8854-65B869B38388}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{337E645D-13B5-4FFD-8854-65B869B38388}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{337E645D-13B5-4FFD-8854-65B869B38388}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B65E1E6-FAC2-4E46-8DD3-D3EFA8A922DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B65E1E6-FAC2-4E46-8DD3-D3EFA8A922DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B65E1E6-FAC2-4E46-8DD3-D3EFA8A922DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B65E1E6-FAC2-4E46-8DD3-D3EFA8A922DA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

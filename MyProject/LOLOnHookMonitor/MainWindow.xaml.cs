@@ -28,6 +28,7 @@ namespace LOLOnHookMonitor
     {
         public MainWindow()
         {
+            //FindWindowIntPtrs();
             InitializeComponent();
         }
 
@@ -50,6 +51,8 @@ namespace LOLOnHookMonitor
                     {
                         StartUpLOL();
                         Login();
+                        Thread.Sleep(15000);
+                        StartLolHunter();
                     }));
                 }
                 catch (Exception ex)
@@ -316,20 +319,52 @@ namespace LOLOnHookMonitor
             var lolHunterIntPtr = Win32Helper.FindWindow(null, "LOLHunter - 亨特儿");
             var ctrlIntPtrs = Win32Helper.EnumChildWindowsCallback(lolHunterIntPtr);
 
-            var startBtnIp = ctrlIntPtrs.Where(i => i.szWindowName == "启动").LastOrDefault();
+            if (ctrlIntPtrs.Count == 0)
+            {
+                AddLog("子控件句柄数量0");
+            }
+            var startBtnIp = ctrlIntPtrs.Where(i => i.szClassName == "WindowsForms10.Button.app.0.33c0d9d_r3_ad1").LastOrDefault();
 
+            if (startBtnIp.hWnd == IntPtr.Zero)
+            {
+                AddLog("没找到开始按钮句柄");
+                return;
+            }
             //const int WM_CLICK = 0x00F5;
             //Win32Helper.SendMessage(startBtnIp.hWnd, WM_CLICK, IntPtr.Zero, IntPtr.Zero);
 
             //var startBtnIp2 = ctrlIntPtrs.Where(i => i.szWindowName == "启动").LastOrDefault();
 
-            Task.Run(() => {
-                Thread.Sleep(3000);
-                //Win32Helper.SendClick(startBtnIp.hWnd,50,20);
+            if (startBtnIp.szWindowName == "启动")
+            {
                 Win32Helper.SendClick(startBtnIp.hWnd);
-                //Win32Helper.SendClick(startBtnIp.hWnd,50,20);
+                Thread.Sleep(1500);
                 Win32Helper.SendClick(startBtnIp.hWnd);
-            });
+            }
+        }
+
+        void FindWindowIntPtrs()
+        {
+            var lolHunterIntPtr = Win32Helper.FindWindow(null, "英雄联盟登录程序");
+            var ctrlIntPtrs = Win32Helper.EnumChildWindowsCallback(lolHunterIntPtr);
+            var ctrlIntPtrs2 = Win32Helper.EnumChildWindowsCallback(ctrlIntPtrs[1].hWnd);
+
+            Process[] temp = Process.GetProcessesByName("Client");
+            //var startBtnIp = ctrlIntPtrs.Where(i => i.szClassName == "WindowsForms10.Button.app.0.33c0d9d_r3_ad1").LastOrDefault();
+
+            //if (startBtnIp.hWnd == IntPtr.Zero)
+            //    return;
+            ////const int WM_CLICK = 0x00F5;
+            ////Win32Helper.SendMessage(startBtnIp.hWnd, WM_CLICK, IntPtr.Zero, IntPtr.Zero);
+
+            ////var startBtnIp2 = ctrlIntPtrs.Where(i => i.szWindowName == "启动").LastOrDefault();
+
+            //if (startBtnIp.szWindowName == "启动")
+            //{
+            //    Win32Helper.SendClick(startBtnIp.hWnd);
+            //    Thread.Sleep(1500);
+            //    Win32Helper.SendClick(startBtnIp.hWnd);
+            //}
         }
 
 
