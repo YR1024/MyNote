@@ -21,6 +21,7 @@ namespace WindowTop
         [DllImport("user32.dll")]
         static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+
         static void Main(string[] args)
         {
             // 创建托盘图标
@@ -38,29 +39,42 @@ namespace WindowTop
 
             // 注册鼠标单击事件和快捷键
             //MouseHook.RegisterMouseClickEvent(MouseButtons.Left, HandleMouseClick);
-            KeyboardHook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Shift, Keys.T, HandleHotKey);
+            //KeyboardHook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Shift, Keys.T, HandleHotKey);
+            keyId = HotKeyManager.RegisterHotKey(Keys.T, KeyModifiers.Control | KeyModifiers.Alt);
+            HotKeyManager.HotKeyPressed += new EventHandler<HotKeyEventArgs>(HotKeyManager_HotKeyPressed);
 
             // 运行消息循环
             Application.Run();
+            Application.ApplicationExit += Application_ApplicationExit;
         }
 
-        private static void HandleMouseClick()
+        static int keyId;
+        private static void Application_ApplicationExit(object sender, EventArgs e)
+        {
+            HotKeyManager.UnregisterHotKey(keyId);
+        }
+
+        static void HotKeyManager_HotKeyPressed(object sender, HotKeyEventArgs e)
         {
             // 获取当前活动窗口句柄
             var hWnd = GetForegroundWindow();
+            if (!WindowHWndList.Contains(hWnd))
+            {
+                TopMostWindow.SetTopomost(hWnd);
+                WindowHWndList.Add(hWnd);
+            }
+            else
+            {
+                TopMostWindow.CancelTopomost(hWnd);
+                WindowHWndList.Remove(hWnd);
+            }
 
-            // 将当前活动窗口置顶
-            SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 0, 0, 0x0002 | 0x0001);
+            //Console.WriteLine(hWnd.ToString());
+            //MessageBox.Show(hWnd.ToString());
         }
+         
+        static List<IntPtr> WindowHWndList  = new List<IntPtr>();
 
-        private static void HandleHotKey()
-        {
-            // 获取当前活动窗口句柄
-            var hWnd = GetForegroundWindow();
-
-            // 将当前活动窗口置顶
-            SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 0, 0, 0x0002 | 0x0001);
-        }
     }
 
 
