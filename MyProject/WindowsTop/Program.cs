@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Input;
 using System.Xml;
 using System.Xml.Serialization;
 using static WindowsTop.Helper;
@@ -80,65 +81,60 @@ namespace WindowsTop
             {
                 Helper.StartUp();
             }
-
-            // 注册全局热键
-            RegisterHotKey(this.Handle, 1, 0, (int)HotKey);
-
             InitializeComponent();
             RunTask();
         }
 
 
         [DllImport("user32.dll")]
-        public static extern IntPtr GetForegroundWindow();
+        static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const Keys HotKey = Keys.F9; // 可以修改为您想要的快捷键
-
-        private bool isTopMost = false;
-
-   
-
-        protected override void WndProc(ref Message m)
+        static void Main(string[] args)
         {
-            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 1) // 接收到热键消息
-            {
-                IntPtr hwnd = GetForegroundWindow(); // 获取当前激活窗口的句柄
+            // 创建托盘图标
+            var notifyIcon = new NotifyIcon();
+            notifyIcon.Icon = SystemIcons.Application;
+            notifyIcon.Text = "Window TopMost";
+            notifyIcon.Visible = true;
 
-                // 根据当前置顶状态设置窗口置顶或取消置顶
-                if (isTopMost)
-                {
-                    SetWindowPos(hwnd, new IntPtr(-2), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                    isTopMost = false;
-                }
-                else
-                {
-                    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                    isTopMost = true;
-                }
-            }
+            // 设置托盘图标的快捷菜单
+            var contextMenu = new ContextMenu();
+            var menuItemExit = new MenuItem("退出");
+            menuItemExit.Click += (s, e) => Application.Exit();
+            contextMenu.MenuItems.Add(menuItemExit);
+            notifyIcon.ContextMenu = contextMenu;
 
-            base.WndProc(ref m);
+            // 注册鼠标单击事件和快捷键
+            MouseHook.RegisterMouseClickEvent(MouseButtons.Left, HandleMouseClick);
+            KeyboardHook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Shift, Keys.T, HandleHotKey);
+
+            // 运行消息循环
+            Application.Run();
         }
 
-        [DllImport("user32.dll")]
-        public static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
-
-        protected override void Dispose(bool disposing)
+        private static void HandleMouseClick()
         {
-        
+            // 获取当前活动窗口句柄
+            var hWnd = GetForegroundWindow();
 
-            // 注销全局热键
-            UnregisterHotKey(this.Handle, 1);
+            // 将当前活动窗口置顶
+            SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 0, 0, 0x0002 | 0x0001);
         }
 
-        [DllImport("user32.dll")]
-        public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+        private static void HandleHotKey()
+        {
+            // 获取当前活动窗口句柄
+            var hWnd = GetForegroundWindow();
+
+            // 将当前活动窗口置顶
+            SetWindowPos(hWnd, new IntPtr(-1), 0, 0, 0, 0, 0x0002 | 0x0001);
+        }
+
+
+
 
 
 
