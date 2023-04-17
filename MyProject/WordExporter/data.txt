@@ -1,0 +1,20 @@
+Text_Text1_Key----微软
+Text_Text2_Key----.NET Framework
+Text_Text3_Key----高级程序设计语言
+Text_Text4_Key----Java
+Text_Text5_Key----面向对象编程语言
+Text_Text6_Key----多重继承
+Text_Text7_Key----面向对象
+Text_Text8_Key----C/C++
+Text_Text8_Key----C/C++2
+
+Image_Image1_Key----C:\Users\YR\Desktop\射孔枪.png
+Image_Image2_Key----C:\Users\YR\Desktop\点赞.jpg
+
+Table_Table1_Key----4,4
+张三----男----25----无
+纳兰性德----男----348----叶赫那拉氏，字容若，号楞伽山人，原名纳兰成德，一度因避讳太子保成（爱新觉罗·胤礽）而改名纳兰性德。满洲正黄旗人，清朝初年词人。
+秦始皇----男----2262----我，秦始皇，打钱！
+李清照----女----未知----
+
+Text_Text10_Key----单元格的内容
