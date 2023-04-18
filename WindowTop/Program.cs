@@ -35,17 +35,31 @@ namespace WindowTop
             var menuItemExit = new MenuItem("退出");
             menuItemExit.Click += (s, e) => Application.Exit();
             contextMenu.MenuItems.Add(menuItemExit);
+
+            var menuItemSet = new MenuItem("设置");
+            menuItemSet.Click += MenuItemSet_Click;
+            contextMenu.MenuItems.Add(menuItemSet);
+
             notifyIcon.ContextMenu = contextMenu;
 
             // 注册鼠标单击事件和快捷键
             //MouseHook.RegisterMouseClickEvent(MouseButtons.Left, HandleMouseClick);
             //KeyboardHook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Shift, Keys.T, HandleHotKey);
-            keyId = HotKeyManager.RegisterHotKey(Keys.T, KeyModifiers.Control | KeyModifiers.Alt);
+            //keyId = HotKeyManager.RegisterHotKey(Keys.T, KeyModifiers.Control | KeyModifiers.Alt);
             HotKeyManager.HotKeyPressed += new EventHandler<HotKeyEventArgs>(HotKeyManager_HotKeyPressed);
 
             // 运行消息循环
             Application.Run();
             Application.ApplicationExit += Application_ApplicationExit;
+        }
+
+        /// <summary>
+        /// 设置
+        /// </summary>
+        private static void MenuItemSet_Click(object sender, EventArgs e)
+        {
+            SettingForm settingForm = new SettingForm();
+            settingForm.ShowDialog();
         }
 
         static int keyId;
