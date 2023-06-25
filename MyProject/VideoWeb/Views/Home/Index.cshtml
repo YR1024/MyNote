@@ -1,14 +1,7 @@
 ﻿@{
     Layout = null;
-    List<FileInfo> FileInfoList = ViewBag.Videos;
+    List<VideoFile> VideoFiles = ViewBag.Videos;
     string spath = ViewBag.ServerPath;
-
-    List<string> Videos = new List<string>();
-    foreach (var fi in FileInfoList)
-    {
-        string vidoeName = fi.FullName.Remove(0, spath.Length+1);
-        Videos.Add("AV/" + vidoeName);
-    }
     var i = 0;
     var index = 0;
 }
@@ -23,27 +16,29 @@
 </head>
 <body>
     @{
-        foreach (var path in Videos)
+        foreach (var videoFile in VideoFiles)
         {
             i++;
-            <div style="margin:0 auto;width:550px;height:350px">
-                <div>
-                    <video controls="controls" width="500" height="300">
-                        <source src="../../Video/@path" />
-                    </video>
+            //<div style="margin:0 auto;width:550px;height:350px">
+            //    <div>
+            //        <video controls="controls" width="500" height="300">
+            //            <source src="../../Video/@path" />
+            //        </video>
 
-                </div>
-            </div>
+            //    </div>
+            //</div>
             <div style="margin:0 auto;width:550px">
+                <p>@videoFile.Name</p>
+                <p>@videoFile.Size G</p>
                 <button onclick="Delete(this,@i)">删除</button>
-                <a href="/Home/Delete?FilePath=@FileInfoList[i-1]&Type=AV" id="a_@i" style="display:none">确认</a>
-                @{index = path.IndexOf("\\") == -1 ? path.IndexOf("/") : path.IndexOf("\\");}
-                <a>@path.Substring(index + 1)</a>
+                <button onclick="Play(this,@i)">播放</button>
+                <div id=""></div>
                 &nbsp;&nbsp;&nbsp;&nbsp;
-                <a>@(Math.Round(Convert.ToDouble(Convert.ToDouble(FileInfoList[i - 1].Length) / (1024F * 1024F * 1024F)), 4)) GB</a>
-                <p>@FileInfoList[i-1].LastWriteTime</p>
+                <p>@videoFile.LastWriteTime</p>
             </div>
         }
+        //<a href="/Home/Delete?FilePath=@FileInfoList[i-1]&Type=AV" id="a_@i" style="display:none">确认</a>
+        //@{index = path.IndexOf("\\") == -1 ? path.IndexOf("/") : path.IndexOf("\\");}
     }
 
 

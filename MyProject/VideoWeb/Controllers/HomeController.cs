@@ -7,17 +7,32 @@ namespace VideoWeb.Controllers
 {
     public class HomeController : Controller
     {
-        string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video";
+        static string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video\\";
+        static string avpath = path + "AV\\";
 
         public IActionResult Index()
         {
-            string avpath = path + "\\AV";
             if (!Directory.Exists(avpath))
                 Directory.CreateDirectory(avpath);
             Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
             Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
+
             ViewBag.ServerPath = avpath;
-            ViewBag.Videos = new List<FileInfo>((IEnumerable<FileInfo>)FileInfoArray);
+            
+
+            List<VideoFile> VideoFiles = new List<VideoFile>();
+            foreach (FileInfo item in FileInfoArray)
+            {
+                var f = new VideoFile();
+                f.Name = item.Name;
+                f.FullPath = item.FullName;
+                f.LastWriteTime = item.LastWriteTime;
+                f.Size =(float)Math.Round(item.Length /1024f / 1024f /1024f, 2);
+                f.ReleatviePath = item.FullName.Substring(avpath.Length, item.FullName.Length - avpath.Length).Replace("\\","/");
+                VideoFiles.Add(f);
+            }
+            ViewBag.Videos = VideoFiles;
+
             return View();
         }
 
