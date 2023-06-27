@@ -1,0 +1,20 @@
+﻿<Window x:Class="WuNianClose.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WuNianClose"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="137" Width="204">
+    <Grid>
+        <StackPanel Orientation="Horizontal" Height="40" VerticalAlignment="Top" >
+            <TextBlock Text="定时关闭:" VerticalAlignment="Center"  Margin="10 0 0 0"/>
+            <TextBox x:Name="hour" Text="00" Height="25" Width="30" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10 0 0 0"/>
+            <TextBlock Text="时"   VerticalAlignment="Center" Margin="2 0 0 0"/>
+            <TextBox x:Name="minute" Text="01"  Height="25" Width="30"  VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10 0 0 0"/>
+            <TextBlock Text="分"   VerticalAlignment="Center" Margin="2 0 0 0"/>
+        </StackPanel>
+
+        <Button Content="开始" Margin="30 50 30 10" Click="Button_Click" />
+    </Grid>
+</Window>
