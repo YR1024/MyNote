@@ -25,7 +25,7 @@ namespace Selenium
         private static Mutex mutex;
         static void Main(string[] args)
         {
-            Test(); return;
+            //Test(); return;
             //单例程序
             if (SingleProcess())
                 return;
@@ -41,18 +41,14 @@ namespace Selenium
 #else
             //定时任务
             new ScheduledTask().StartExecuteTask();
+            //开机启动
+            StartUp(); 
 #endif
-
-
-
-
 
             //隐藏控制台窗口
             Console.Title = "QQ农场牧场自动化";
             ShowWindow(FindWindow(null, "QQ农场牧场自动化"), 0);
 
-            //开机启动
-            StartUp(); 
             Console.ReadLine();
         }
 

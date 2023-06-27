@@ -901,17 +901,9 @@ namespace Selenium
         public void StartExecuteTask()
         {
             TimerList.Add(CreateDailyScheduledTask(0, 0));
-            //TimerList.Add(CreateDailyScheduledTask(2, 0));
-            TimerList.Add(CreateDailyScheduledTask(4, 0));
-            //TimerList.Add(CreateDailyScheduledTask(6, 0));
-            TimerList.Add(CreateDailyScheduledTask(8, 0));
-            //TimerList.Add(CreateDailyScheduledTask(10, 0));
+            TimerList.Add(CreateDailyScheduledTask(6, 0));
             TimerList.Add(CreateDailyScheduledTask(12, 0));
-            //TimerList.Add(CreateDailyScheduledTask(14, 0));
-            TimerList.Add(CreateDailyScheduledTask(16, 0));
-            //TimerList.Add(CreateDailyScheduledTask(18, 0));
-            TimerList.Add(CreateDailyScheduledTask(20, 0));
-            //TimerList.Add(CreateDailyScheduledTask(22, 0));
+            TimerList.Add(CreateDailyScheduledTask(18, 0));
 
             //TimerList.Add(CreateDailyScheduledTask(20, 3));
         }
