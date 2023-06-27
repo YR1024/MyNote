@@ -1,4 +1,6 @@
 ﻿using Emgu.CV;
+using Emgu.CV.ML;
+using Emgu.CV.ML.MlEnum;
 using Emgu.CV.Structure;
 using System;
 using System.Collections.Generic;
@@ -70,7 +72,45 @@ namespace AutomationServices.EmguCv
 
 
 
+        void Demo1()
+        {
 
+            // 准备训练数据
+            var trainingData = new Matrix<float>(new float[,]
+            {
+                // 特征向量
+                { 1, 1, 1 },
+                { 2, 2, 2 },
+                { 3, 3, 3 },
+                { 4, 4, 4 }
+            });
+
+            var labels = new Matrix<int>(new int[]
+            {
+                // 标签
+                0,
+                0,
+                1,
+                1
+            });
+
+            // 训练模型
+            var svm = new SVM();
+            svm.C = 1;
+            svm.Type = SVM.SvmType.CSvc;
+            svm.SetKernel(SVM.SvmKernelType.Linear);
+            //svm.Train(trainingData, labels);
+
+            // 预测新图像
+            var newImage = new Matrix<float>(new float[,]
+            {
+                { 1, 1, 1 } // 新图像的特征向量
+            });
+
+            var result = svm.Predict(newImage);
+            Console.WriteLine("预测结果：" + result);
+
+        }
         public static List<Image<Bgr, byte>> LoadSamples(string folderPath)
         {
             var samples = new List<Image<Bgr, byte>>();
