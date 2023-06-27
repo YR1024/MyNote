@@ -50,7 +50,9 @@ namespace WindowTop
             _config = Helper.config;
             if (_config.StartUp)
             {
+#if DEBUG
                 Helper.StartUp();
+#endif
             }
 
             // 创建托盘图标
@@ -66,6 +68,7 @@ namespace WindowTop
             contextMenu.MenuItems.Add(menuItemSet);
 
             var menuItemStartUp = new MenuItem("开机启动");
+            menuItemStartUp.Checked = _config.StartUp;
             menuItemStartUp.Click += MenuItemStartUp_Click; ;
             contextMenu.MenuItems.Add(menuItemStartUp);
 
@@ -75,6 +78,8 @@ namespace WindowTop
             contextMenu.MenuItems.Add(menuItemExit);
             notifyIcon.ContextMenu = contextMenu;
 
+
+            Helper.SpiltCombinationKey(_config.ShortcutKeys);
             // 注册鼠标单击事件和快捷键
             //MouseHook.RegisterMouseClickEvent(MouseButtons.Left, HandleMouseClick);
             //KeyboardHook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Shift, Keys.T, HandleHotKey);
@@ -251,6 +256,27 @@ namespace WindowTop
                 ShortcutKeys = Properties.Settings1.Default.ShortcutKeys,
             };
 
+        }
+
+
+        public static void SpiltCombinationKey(Keys keys)
+        {
+            var a = keys.ToString();
+            var keyList = a.Split(',');
+            foreach (var key in keyList)
+            {
+                //var k = key as Keys;
+                if(Enum.TryParse(key, out Keys _key))
+                {
+                        
+
+                }
+
+            }
+            //foreach (var item in keys)
+            //{
+
+            //}
         }
 
     }
