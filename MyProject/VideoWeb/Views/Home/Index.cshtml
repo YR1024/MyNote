@@ -18,23 +18,26 @@
     @{
         foreach (var videoFile in VideoFiles)
         {
-            i++;
-            //<div style="margin:0 auto;width:550px;height:350px">
-            //    <div>
-            //        <video controls="controls" width="500" height="300">
-            //            <source src="../../Video/@path" />
-            //        </video>
-
-            //    </div>
-            //</div>
-            <div style="margin:0 auto;width:550px">
+            i++;    
+            <div style="margin:0 auto;width:550px" id="videoInfoPanel_@i">
                 <p>@videoFile.Name</p>
-                <p>@videoFile.Size G</p>
-                <button onclick="Delete(this,@i)">删除</button>
-                <button onclick="Play(this,@i)">播放</button>
-                <div id=""></div>
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <p>@videoFile.LastWriteTime</p>
+                <span>@videoFile.Size G</span>
+                <span> 丨 </span>
+                <span>@videoFile.LastWriteTime</span>
+                <div>
+                    <button onclick="Play(this,@i)">播放</button>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <button onclick="Delete(this,@i)">删除</button>
+                    <div id="videoBox_@i" data-video-path ="@videoFile.ReleatviePath"></div>
+                </div>
+
+                <p>----------</p>
+                <p> </p>
+                <p> </p>
+                <p> </p>
+                <p> </p>
+                <p> </p>
+
             </div>
         }
         //<a href="/Home/Delete?FilePath=@FileInfoList[i-1]&Type=AV" id="a_@i" style="display:none">确认</a>
@@ -45,9 +48,48 @@
 </body>
 </html>
 <script>
+
+
+
+
+
     function Delete(btn, index) {
-        var OkBtn = document.querySelector("#a_" + index);
-        OkBtn.style.display = "block";
-        btn.style.display = "none";
+        var videoInfoPanel = document.querySelector("#videoInfoPanel_" + index);
+        videoInfoPanel.style.display = "none";
+
+        var videoBox = document.querySelector("#videoBox_" + index);
+        var path = videoBox.getAttribute("data-video-path");
+
+        var xhr = new XMLHttpRequest();//第一步：新建对象
+        var url = '/Home/Delete?FilePath=' + path;
+        xhr.open('GET', url, true);//第二步：打开连接  将请求参数写在url中
+        xhr.send();//第三步：发送请求  将请求参数写在URL中
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var res = xhr.responseText;//获取到json字符串，解析
+            }
+        };
+    }
+
+    var videoElement;
+
+    function Play(btn, index) {
+
+        if (videoElement != null){
+            videoElement.parentElement.removeChild(videoElement);
+            videoElement = null;
+        }
+
+
+        var videoBox = document.querySelector("#videoBox_" + index);
+        var path = videoBox.getAttribute("data-video-path");
+        videoElement = document.createElement('video');
+        videoElement.src = '../../Video/AV/' + path;
+        videoElement.controls = true;
+        videoElement.muted = false;
+        videoElement.autoplay = true;
+        videoElement.height = 240; // in px
+        videoElement.width = 320; // in pxconst box = document.getElementById('box');// Include in HTML as child of #box
+        videoBox.appendChild(videoElement);
     }
 </script>

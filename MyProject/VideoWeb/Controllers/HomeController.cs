@@ -10,6 +10,8 @@ namespace VideoWeb.Controllers
         static string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video\\";
         static string avpath = path + "AV\\";
 
+        static List<VideoFile> VideoFiles = new List<VideoFile>();
+
         public IActionResult Index()
         {
             if (!Directory.Exists(avpath))
@@ -18,9 +20,8 @@ namespace VideoWeb.Controllers
             Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
 
             ViewBag.ServerPath = avpath;
-            
 
-            List<VideoFile> VideoFiles = new List<VideoFile>();
+            VideoFiles.Clear();
             foreach (FileInfo item in FileInfoArray)
             {
                 var f = new VideoFile();
@@ -34,6 +35,25 @@ namespace VideoWeb.Controllers
             ViewBag.Videos = VideoFiles;
 
             return View();
+        }
+
+        [HttpGet]
+        public bool Delete(string FilePath)
+        {
+            var video = VideoFiles.Where(v => v.ReleatviePath == FilePath).FirstOrDefault();
+            if(video != null)
+            {
+                try
+                {
+                    System.IO.File.Delete(video.FullPath);
+                    return true;
+                }
+                catch(Exception e)
+                {
+                    return false;
+                }
+            }
+            return false;
         }
 
 
@@ -71,21 +91,7 @@ namespace VideoWeb.Controllers
         //}
 
 
-        public ActionResult Delete(string FilePath,string Type)
-        {
-            //string a = path + "/../";
-
-            System.IO.File.Delete(FilePath);
-            if(Type == "AV")
-            {
-                return Redirect("Index");
-            }
-            else if (Type == "LOL")
-            {
-                return Redirect("LOLVideo");
-            }
-            return Redirect("Index");
-        }
+      
 
         public void VideoClip(string FilePath, string Type, string startTime, string endTime)
         {
