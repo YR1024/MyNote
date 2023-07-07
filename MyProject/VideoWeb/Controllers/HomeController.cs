@@ -16,13 +16,17 @@ namespace VideoWeb.Controllers
         {
             if (!Directory.Exists(avpath))
                 Directory.CreateDirectory(avpath);
-            Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
-            Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
-
+            //Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
+            //Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
+            var FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
+            // 按 LastWriteTime 升序排序，然后再按文件名排序
+            List<FileInfo> sortedFiles = FileInfoArray.OrderBy(file => file.LastWriteTime)
+                                             .ThenBy(file => file.Name)
+                                             .ToList();
             ViewBag.ServerPath = avpath;
 
             VideoFiles.Clear();
-            foreach (FileInfo item in FileInfoArray)
+            foreach (FileInfo item in sortedFiles)
             {
                 var f = new VideoFile();
                 f.Name = item.Name;
@@ -56,6 +60,24 @@ namespace VideoWeb.Controllers
             return false;
         }
 
+        [HttpGet]
+        public bool Merge(List<string> VideoList)
+        {
+            
+            List<VideoFile> VideoFileList = new List<VideoFile>();
+            foreach (var video in VideoList)
+            {
+                var vid = VideoFiles.Where(v => v.ReleatviePath == video).FirstOrDefault();
+                if (vid != null) {
+                    VideoFileList.Add(vid);
+                }
+            }
+            if (VideoFileList.Count != 2)
+                return false; 
+           
+                return false;
+
+        }
 
         public IActionResult LOLVideo()
         {
