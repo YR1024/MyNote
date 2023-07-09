@@ -61,21 +61,24 @@ namespace VideoWeb.Controllers
         }
 
         [HttpGet]
-        public bool Merge(List<string> VideoList)
+        public bool Merge(string VideoList)
         {
-            
+            var list = VideoList.Split(":");
             List<VideoFile> VideoFileList = new List<VideoFile>();
-            foreach (var video in VideoList)
+            foreach (var video in list)
             {
                 var vid = VideoFiles.Where(v => v.ReleatviePath == video).FirstOrDefault();
                 if (vid != null) {
                     VideoFileList.Add(vid);
                 }
             }
-            if (VideoFileList.Count != 2)
-                return false; 
-           
-                return false;
+            if (VideoFileList.Count == 2)
+            {
+                VideoHelper.Combine(VideoFileList[0].FullPath, VideoFileList[1].FullPath,"1234.mp4");
+                return true;
+            }
+
+            return false;
 
         }
 

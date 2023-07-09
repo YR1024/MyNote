@@ -30,7 +30,7 @@
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     <button onclick="Delete(this,@i)">删除</button>
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <button onclick="HeBing(this)">合并</button>
+                    <button onclick="Merge(this)">合并</button>
                     <div id="videoBox_@i" data-video-path ="@videoFile.ReleatviePath"></div>
                 </div>
 
@@ -90,10 +90,11 @@
         videoElement.src = '../../Video/AV/' + path;
         videoElement.controls = true;
         videoElement.muted = false;
-        videoElement.autoplay = true;
+        //videoElement.autoplay = true;
         videoElement.height = 240; // in px
         videoElement.width = 320; // in pxconst box = document.getElementById('box');// Include in HTML as child of #box
         videoBox.appendChild(videoElement);
+        videoElement.play();
     }
 
 
@@ -103,7 +104,7 @@
         return path;
     }
 
-    function HeBing(btn) {
+    function Merge(btn) {
         var checkedFile = [];
         //获取所有的input标签
         var input = document.getElementsByTagName("input");
@@ -116,9 +117,8 @@
             }
         }
         if (checkedFile.length == 2){
-
             var xhr = new XMLHttpRequest();//第一步：新建对象
-            var url = '/Home/Merge?VideoList=' + checkedFile;
+            var url = '/Home/Merge?VideoList=' + checkedFile[0] + ":" + checkedFile[1];
             xhr.open('GET', url, true);//第二步：打开连接  将请求参数写在url中
             xhr.send();//第三步：发送请求  将请求参数写在URL中
             xhr.onreadystatechange = function () {
