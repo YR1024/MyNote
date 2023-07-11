@@ -61,25 +61,39 @@ namespace VideoWeb.Controllers
         }
 
         [HttpGet]
-        public bool Merge(string VideoList)
+        public async Task<string> Merge(string file1, string file2)
         {
-            var list = VideoList.Split(":");
-            List<VideoFile> VideoFileList = new List<VideoFile>();
-            foreach (var video in list)
-            {
-                var vid = VideoFiles.Where(v => v.ReleatviePath == video).FirstOrDefault();
-                if (vid != null) {
-                    VideoFileList.Add(vid);
-                }
-            }
-            if (VideoFileList.Count == 2)
-            {
-                VideoHelper.Combine(VideoFileList[0].FullPath, VideoFileList[1].FullPath,"1234.mp4");
-                return true;
-            }
+            //var f1 = VideoFiles.Where(v => v.ReleatviePath == file1).FirstOrDefault();
+            //var f2 = VideoFiles.Where(v => v.ReleatviePath == file2).FirstOrDefault();
+            //if (f1 != null && f2 != null)
+            //{
+            //    if (System.IO.File.Exists(f1.FullPath) && System.IO.File.Exists(f2.FullPath))
+            //    {
+            //        var newVideoFileName = VideoHelper.FindLongestCommonSubstring(f1.Name, f2.Name);
+            //        newVideoFileName = $"{avpath}{newVideoFileName}.mp4";
+            //        bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
+            //        if (r)
+            //        {
+            //            System.IO.File.Delete(f1.FullPath);
+            //            System.IO.File.Delete(f2.FullPath);
+            //            return "视频合并完成！";
+            //        }
+            //        else
+            //        {
+            //            return "视频合并失败！";
+            //        }
+            //    }
+            //    else
+            //    {
+            //        return "文件不存在！";
+            //    }
+            //}
+            //else
+            //{
+            //    return "集合中的项不存在，请刷新网页";
+            //}
 
-            return false;
-
+            return $"{file1},{file2}";
         }
 
         public IActionResult LOLVideo()

@@ -3,7 +3,6 @@
     List<VideoFile> VideoFiles = ViewBag.Videos;
     string spath = ViewBag.ServerPath;
     var i = 0;
-    var index = 0;
 }
 
 
@@ -20,8 +19,10 @@
         {
             i++;    
             <div style="margin:0 auto;width:550px" id="videoInfoPanel_@i">
-                <input type="checkbox" class="CheckboxHeBing" id="checkbox_@i" value="@i">
-                <p>@videoFile.Name</p>
+                <p>
+                    <input type="checkbox" class="CheckboxHeBing" id="checkbox_@i" value="@i">
+                    <span>@videoFile.Name</span>
+                </p>
                 <span>@videoFile.Size G</span>
                 <span> 丨 </span>
                 <span>@videoFile.LastWriteTime</span>
@@ -34,12 +35,7 @@
                     <div id="videoBox_@i" data-video-path ="@videoFile.ReleatviePath"></div>
                 </div>
 
-                <p>----------</p>
-                <p> </p>
-                <p> </p>
-                <p> </p>
-                <p> </p>
-                <p> </p>
+                <p style="height:60px">----------</p>
 
             </div>
         }
@@ -55,7 +51,7 @@
 
 
 
-
+    //删除
     function Delete(btn, index) {
         var videoInfoPanel = document.querySelector("#videoInfoPanel_" + index);
         videoInfoPanel.style.display = "none";
@@ -76,13 +72,13 @@
 
     var videoElement;
 
+    //播放
     function Play(btn, index) {
 
         if (videoElement != null){
             videoElement.parentElement.removeChild(videoElement);
             videoElement = null;
         }
-
 
         var videoBox = document.querySelector("#videoBox_" + index);
         var path = videoBox.getAttribute("data-video-path");
@@ -104,26 +100,68 @@
         return path;
     }
 
+    var file1;
+    var file2;
+    var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    var selectedCheckboxes = [];
+    checkboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', handleCheckboxChange);
+    });
+    function handleCheckboxChange() {
+        // 检查已选择的复选框数量
+        var selectedCount = 0;
+        checkboxes.forEach(function (checkbox) {
+            if (checkbox.checked) {
+                selectedCount++;
+                // 如果已选择的数量超过两个，则禁用其他复选框
+                if (selectedCount > 2) {
+                    checkbox.disabled = true;
+                } else {
+                    checkbox.disabled = false;
+                    // 如果复选框已选择且不在已选择列表中，则将其添加到已选择列表中
+                    if (!selectedCheckboxes.includes(checkbox)) {
+                        selectedCheckboxes.push(checkbox);
+                    }
+                }
+            } else {
+                // 如果复选框未选择且在已选择列表中，则将其从已选择列表中移除
+                var index = selectedCheckboxes.indexOf(checkbox);
+                if (index > -1) {
+                    selectedCheckboxes.splice(index, 1);
+                }
+                // 否则，启用复选框
+                checkbox.disabled = false;
+            }
+        });
+    }
+
+    //合并视频
     function Merge(btn) {
         var checkedFile = [];
-        //获取所有的input标签
-        var input = document.getElementsByTagName("input");
-        for (var i = 0; i < input.length; i++) {
-            var obj = input[i];
-            //判断是否是checkbox并且已经选中
-            if (obj.type == "checkbox" && obj.checked) {
-                var index = obj.value;//获取checkbox的值
+        ////获取所有的input标签
+        //var input = document.getElementsByTagName("input");
+        //for (var i = 0; i < input.length; i++) {
+        //    var obj = input[i];
+        //    //判断是否是checkbox并且已经选中
+        //    if (obj.type == "checkbox" && obj.checked) {
+        //        var index = obj.value;//获取checkbox的值
+        //        checkedFile.push(GetFileName(index));
+        //    }
+        //}
+        for (var i = 0; i < selectedCheckboxes.length; i++) {
+         
+                var index = selectedCheckboxes[i].value;//获取checkbox的值
                 checkedFile.push(GetFileName(index));
-            }
         }
-        if (checkedFile.length == 2){
+        if (checkedFile.length == 2) {
             var xhr = new XMLHttpRequest();//第一步：新建对象
-            var url = '/Home/Merge?VideoList=' + checkedFile[0] + ":" + checkedFile[1];
+            var url = '/Home/Merge?file1=' + checkedFile[0] + "&file2=" + checkedFile[1];
             xhr.open('GET', url, true);//第二步：打开连接  将请求参数写在url中
             xhr.send();//第三步：发送请求  将请求参数写在URL中
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     var res = xhr.responseText;//获取到json字符串，解析
+                    alert(res);
                 }
             };
         }
