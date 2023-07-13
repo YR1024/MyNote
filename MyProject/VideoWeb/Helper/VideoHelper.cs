@@ -109,10 +109,10 @@
 
                     #endregion
 
-                    //string strCmd = " -i \"concat:" + strTmp1 + "|" +
-                    //strTmp2 + "\" -c copy -bsf:a aac_adtstoasc -movflags +faststart " + DstFile + " -y ";
-                    string strCmd = " -i \"concat:" + File1 + "|" + File2 +
-                                    "\" -c copy -bsf:a aac_adtstoasc -movflags +faststart " + DstFile + " -y ";
+                    string strCmd = " -i \"concat:" + strTmp1 + "|" +
+                                    strTmp2 + "\" -c copy -bsf:a aac_adtstoasc -movflags +faststart " + DstFile + " -y ";
+                    //string strCmd = " -i \"concat:" + File1 + "|" + File2 +
+                    //                "\" -c copy -bsf:a aac_adtstoasc -movflags +faststart " + DstFile + " -y ";
                     //合并
                     p = new System.Diagnostics.Process();
                     p.StartInfo.FileName = FFmpegpath + "ffmpeg.exe"; ;//要执行的程序名称

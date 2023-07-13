@@ -18,7 +18,7 @@ namespace VideoWeb.Controllers
                 Directory.CreateDirectory(avpath);
             //Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
             //Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
-            var FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
+            var FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv.wmv").ToArray();
             // 按 LastWriteTime 升序排序，然后再按文件名排序
             List<FileInfo> sortedFiles = FileInfoArray.OrderBy(file => file.LastWriteTime)
                                              .ThenBy(file => file.Name)
@@ -63,37 +63,37 @@ namespace VideoWeb.Controllers
         [HttpGet]
         public async Task<string> Merge(string file1, string file2)
         {
-            //var f1 = VideoFiles.Where(v => v.ReleatviePath == file1).FirstOrDefault();
-            //var f2 = VideoFiles.Where(v => v.ReleatviePath == file2).FirstOrDefault();
-            //if (f1 != null && f2 != null)
-            //{
-            //    if (System.IO.File.Exists(f1.FullPath) && System.IO.File.Exists(f2.FullPath))
-            //    {
-            //        var newVideoFileName = VideoHelper.FindLongestCommonSubstring(f1.Name, f2.Name);
-            //        newVideoFileName = $"{avpath}{newVideoFileName}.mp4";
-            //        bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
-            //        if (r)
-            //        {
-            //            System.IO.File.Delete(f1.FullPath);
-            //            System.IO.File.Delete(f2.FullPath);
-            //            return "视频合并完成！";
-            //        }
-            //        else
-            //        {
-            //            return "视频合并失败！";
-            //        }
-            //    }
-            //    else
-            //    {
-            //        return "文件不存在！";
-            //    }
-            //}
-            //else
-            //{
-            //    return "集合中的项不存在，请刷新网页";
-            //}
+            var f1 = VideoFiles.Where(v => v.ReleatviePath == file1).FirstOrDefault();
+            var f2 = VideoFiles.Where(v => v.ReleatviePath == file2).FirstOrDefault();
+            if (f1 != null && f2 != null)
+            {
+                if (System.IO.File.Exists(f1.FullPath) && System.IO.File.Exists(f2.FullPath))
+                {
+                    var newVideoFileName = VideoHelper.FindLongestCommonSubstring(f1.Name, f2.Name);
+                    newVideoFileName = $"{avpath}{newVideoFileName}.mp4";
+                    bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
+                    if (r)
+                    {
+                        System.IO.File.Delete(f1.FullPath);
+                        System.IO.File.Delete(f2.FullPath);
+                        return "视频合并完成！";
+                    }
+                    else
+                    {
+                        return "视频合并失败！";
+                    }
+                }
+                else
+                {
+                    return "文件不存在！";
+                }
+            }
+            else
+            {
+                return "集合中的项不存在，请刷新网页";
+            }
 
-            return $"{file1},{file2}";
+            //return $"{file1},{file2}";
         }
 
         public IActionResult LOLVideo()
@@ -101,7 +101,7 @@ namespace VideoWeb.Controllers
             string LOLpath = path+ "\\League of Legends";
             if (!Directory.Exists(LOLpath))
                 Directory.CreateDirectory(LOLpath);
-            Array FileInfoArray = GetFileHelper.GetFile(LOLpath, ".mp4.avi.mkv").ToArray();
+            Array FileInfoArray = GetFileHelper.GetFile(LOLpath, ".mp4.avi.mkv.wmv").ToArray();
             Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
             ViewBag.ServerPath = LOLpath;
             ViewBag.Videos = new List<FileInfo>((IEnumerable<FileInfo>)FileInfoArray);
