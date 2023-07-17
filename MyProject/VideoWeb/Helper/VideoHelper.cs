@@ -1,4 +1,6 @@
-﻿namespace VideoWeb.Helper
+﻿using System.Diagnostics;
+
+namespace VideoWeb.Helper
 {
     public class VideoHelper
     {
@@ -159,6 +161,40 @@
                 }
             });
         }
+
+
+        public async static Task<bool> MergeVideo(string File1, string File2, string DstFile)
+        {
+            bool result = false;
+            string MergeVideoPath = AppDomain.CurrentDomain.BaseDirectory + "MergeVideo.exe";
+            return await Task.Run(() =>
+            {
+                // 设置调用参数和启动信息
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = MergeVideoPath, // 替换为你的控制台程序的实际文件名
+                    Arguments = $"{File1} {File2} {DstFile}",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                // 启动进程并获取输出
+                using (Process process = new Process())
+                {
+                    process.StartInfo = psi;
+                    process.Start();
+                    string output = process.StandardOutput.ReadToEnd();
+                    process.WaitForExit();
+
+                    // 输出控制台程序返回的结果
+                    //Console.WriteLine(output);
+                    result = Boolean.Parse(output);
+                }
+                return result;
+            });
+        }
+
 
         public static string FindLongestCommonSubstring(string str1, string str2)
         {

@@ -71,7 +71,8 @@ namespace VideoWeb.Controllers
                 {
                     var newVideoFileName = VideoHelper.FindLongestCommonSubstring(f1.Name, f2.Name);
                     newVideoFileName = $"{avpath}{newVideoFileName}.mp4";
-                    bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
+                    //bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
+                    bool r = await VideoHelper.MergeVideo(f1.FullPath, f2.FullPath, newVideoFileName);
                     if (r)
                     {
                         System.IO.File.Delete(f1.FullPath);
