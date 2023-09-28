@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="App1.MainPage">
+
+    <StackLayout>
+        <Grid HorizontalOptions="Center">
+            <Label x:Name="TipsTxt" Text="未连接" HorizontalOptions="Center" VerticalOptions="Center" FontSize="25" TextColor="Black"/>
+        </Grid>
+
+        <Grid >
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="70"/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+
+            <Label Text="IP/Url:" Grid.Row="0" HorizontalOptions="End" VerticalTextAlignment="Center"/>
+            <Label Text="Port:"   Grid.Row="1" HorizontalOptions="End" VerticalTextAlignment="Center"/>
+            <Editor x:Name="ipEditor"   Text="192.168.28.177"  Grid.Row="0" Grid.Column="1" WidthRequest="200" />
+            <Editor x:Name="portEditor" Text="5555"            Grid.Row="1" Grid.Column="1" WidthRequest="200" />
+        </Grid>
+        
+        <Button Text="连接" Clicked="Connect_Clicked" Margin="5"/>
+        <Button Text="随机发送消息" Clicked="SendToService_Clicked" Margin="5"/>
+        <Button Text="保存" Clicked="Save_Clicked" Margin="5"/>
+        <Button Text="测试获取短信" Clicked="ReadSmsButton_Clicked" Margin="5"/>
+    </StackLayout>
+</ContentPage>
