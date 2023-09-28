@@ -50,16 +50,18 @@ namespace WuNianClose
 						if (DateTime.Now > closeTime)
 						{
 							Process[] qqSpeedProcesses = Process.GetProcessesByName("GameApp");
-							Process[] wunianProcesses = Process.GetProcessesByName("勿念秒杀");
+							Process[] allProcesses = Process.GetProcesses();
 							if (qqSpeedProcesses.Length >= 1)
 							{
 								foreach (var p in qqSpeedProcesses)
                                 {
 									p.Kill();
                                 }
-								if (wunianProcesses.Length >= 1)
+								var wunianProc = allProcesses.FirstOrDefault(p => p.ProcessName.Contains("勿念"));
+
+                                if (wunianProc != null)
 								{
-									wunianProcesses[0].Kill();
+                                    wunianProc.Kill();
 								}
 								Process.GetCurrentProcess().Kill();
 							}
