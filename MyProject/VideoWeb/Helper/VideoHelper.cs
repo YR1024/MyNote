@@ -173,7 +173,7 @@ namespace VideoWeb.Helper
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = MergeVideoPath, // 替换为你的控制台程序的实际文件名
-                    Arguments = $"{File1} {File2} {DstFile}",
+                    Arguments = $"\"{File1}\" \"{File2}\" \"{DstFile}\"", // 使用引号括起参数
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
