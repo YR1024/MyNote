@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using System.Xml.Linq;
 using VideoWeb.Helper;
 using VideoWeb.Models;
 
@@ -61,6 +62,27 @@ namespace VideoWeb.Controllers
         }
 
         [HttpGet]
+        public bool Rename(string FilePath,string NewName)
+        {
+            var video = VideoFiles.Where(v => v.ReleatviePath == FilePath).FirstOrDefault();
+            if (video != null)
+            {
+                try
+                {
+                    string extensionname = Path.GetExtension(FilePath);
+                    string path1 = Path.GetDirectoryName(video.FullPath);
+                    System.IO.File.Move(video.FullPath, path1 + "\\" + NewName + extensionname);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        [HttpGet]
         public async Task<string> Merge(string file1, string file2)
         {
             var f1 = VideoFiles.Where(v => v.ReleatviePath == file1).FirstOrDefault();
@@ -71,8 +93,8 @@ namespace VideoWeb.Controllers
                 {
                     var newVideoFileName = VideoHelper.FindLongestCommonSubstring(f1.Name, f2.Name);
                     newVideoFileName = $"{avpath}{newVideoFileName}.mp4";
-                    //bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
-                    bool r = await VideoHelper.MergeVideo(f1.FullPath, f2.FullPath, newVideoFileName);
+                    bool r = await VideoHelper.Combine(f1.FullPath, f2.FullPath, newVideoFileName);
+                    //bool r = await VideoHelper.MergeVideo(f1.FullPath, f2.FullPath, newVideoFileName);
                     if (r)
                     {
                         System.IO.File.Delete(f1.FullPath);
