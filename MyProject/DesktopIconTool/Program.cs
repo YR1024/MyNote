@@ -28,6 +28,8 @@ namespace DesktopIconTool
         static void Main(string[] args)
         {
 
+            //IsHasWindowActive();
+
             //单例程序
             if (SingleProcess())
                 return;
@@ -100,14 +102,19 @@ namespace DesktopIconTool
 
             InitializeComponent();
             MouseMoveTask();
-            MousePointChanged += MousePointChange;
+            AutoHiddenDesktopIconAndTaskBarThread();
             SwitchIconTask();
             UpDateCpuUsageTask();
+            MousePointChanged += MousePointChange;
         }
 
 
         public static bool ShowDesktopIcon = false;
         public POINT CurrentMousePoint = new POINT(0, 0);
+
+        /// <summary>
+        ///监控鼠标位置 线程
+        /// </summary>
         void MouseMoveTask()
         {
             //50ms 获取记录一次鼠标位置， 若位置发生变化则通知时间
@@ -123,8 +130,13 @@ namespace DesktopIconTool
                     Thread.Sleep(50);
                 }
             });
+        }
 
-
+        /// <summary>
+        /// 自动隐藏桌面图标和任务栏 线程
+        /// </summary>
+        void AutoHiddenDesktopIconAndTaskBarThread()
+        {
             Task.Run(() =>
             {
 
@@ -137,7 +149,6 @@ namespace DesktopIconTool
                         continue;
                     }
 
-
                     while (curTimes++ < Times) //计时
                     {
                         Thread.Sleep(1000);
@@ -146,7 +157,10 @@ namespace DesktopIconTool
                     ShowHiddenIcon(false); //隐藏
                     if (_config.HiddenToolBar)
                     {
-                        ShowTaskbar(false);
+                        if (!Helper.IsHasWindowActive())
+                        {
+                            ShowTaskbar(false);
+                        }
                     }
                     Thread.Sleep(30);
                 }
@@ -215,9 +229,10 @@ namespace DesktopIconTool
 
         }
 
-        /// summary 
+        /// <summary>
         /// 隐藏任务栏和桌面图标
-        /// /summary 
+        /// </summary>
+        /// <param name="Taskbar"></param>
         private static void ShowTaskbar(bool Taskbar)
         {
             IntPtr trayHwnd = FindWindow("Shell_TrayWnd", null);
@@ -289,11 +304,15 @@ namespace DesktopIconTool
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             //this.Dispose();
+            NotIcon.Dispose(); //释放notifyIcon1的所有资源，以保证托盘图标在程序关闭时立即消失
             Application.Exit();
         }
 
         List<Icon> icons = new List<Icon>();
 
+        /// <summary>
+        /// 循环icon实现动态icon 线程
+        /// </summary>
         void SwitchIconTask()
         {
             for (int i = 0; i < 18; i++)
@@ -350,7 +369,9 @@ namespace DesktopIconTool
             Helper.SaveConfig();
         }
 
-
+        /// <summary>
+        /// 刷新获取CPU使用率 线程
+        /// </summary>
         void UpDateCpuUsageTask() 
         {
             Task.Run(() =>
@@ -595,6 +616,150 @@ namespace DesktopIconTool
             }
         }
 
+        #region 当前是否有激活窗口
+        private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsCallback lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern long GetWindowLong(IntPtr hWnd, int nIndex);
+
+        private static bool EnumWindowsCallbackMethod(IntPtr hWnd, IntPtr lParam)
+        {
+            // 检查窗口是否可见和非最小化
+            if (IsWindowVisible(hWnd) && !IsIconic(hWnd))
+            {
+                // 获取窗口标题
+                const int MaxWindowTitleLength = 256;
+                StringBuilder windowTitleBuilder = new StringBuilder(MaxWindowTitleLength);
+                GetWindowText(hWnd, windowTitleBuilder, MaxWindowTitleLength);
+
+                // 输出窗口标题和进程名
+                Console.WriteLine("窗口标题: " + windowTitleBuilder.ToString());
+                uint processId;
+                GetWindowThreadProcessId(hWnd, out processId);
+                Process process = Process.GetProcessById((int)processId);
+                Console.WriteLine("进程名: " + process.ProcessName);
+                Console.WriteLine("-----------------------------------------");
+
+                // 如果有任何窗口是激活或非最小化状态，则返回 true
+                if (hWnd == GetForegroundWindow())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left; //最左坐标
+            public int Top; //最上坐标
+            public int Right; //最右坐标
+            public int Bottom; //最下坐标
+        }
+
+        public static Rectangle GetWindowLocationSize(IntPtr h)
+        {
+            RECT fx = new RECT();
+            GetWindowRect(h, ref fx);//h为窗口句柄
+            int width = fx.Right - fx.Left;                        //窗口的宽度
+            int height = fx.Bottom - fx.Top;                   //窗口的高度
+            int x = fx.Left;
+            int y = fx.Top;
+            return new Rectangle(x, y, width, height);
+        }
+
+
+        const int GWL_EXSTYLE = (-20); //扩展窗口样式
+        const int GWL_STYLE = (-16); //窗口样式
+        const uint WS_VISIBLE = 0x10000000;
+
+        public static bool IsHasWindowActive()
+        {
+            //var style = GetWindowLong(hwnd, GWL.GWL_EXSTYLE);
+
+            //List<IntPtr> WindowHandleList = new List<IntPtr>();
+            List<Process> Processlist = new List<Process>();
+            List<WindowInfo> WindowInfolist = new List<WindowInfo>();
+            // 获取所有进程
+            Process[] processes = Process.GetProcesses();
+
+            // 遍历每个进程并检查MainWindowHandle属性
+            foreach (Process process in processes)
+            {
+                IntPtr mainWindowHandle = process.MainWindowHandle;
+
+                // 如果MainWindowHandle不为空，则表示该进程有前台窗口
+                if (mainWindowHandle != IntPtr.Zero)
+                {
+                    //Console.WriteLine("进程名称: {0}   ", process.ProcessName);
+                    //Console.WriteLine("窗口标题: {0}   ", process.MainWindowTitle);
+                    //Processlist.Add(process);
+                    //Console.WriteLine("显示状态: {0}   ", IsWindowVisible(mainWindowHandle));
+                    //Console.WriteLine("最小化: {0}   ", IsIconic(mainWindowHandle));
+                    //var exstyle = GetWindowLong(mainWindowHandle, GWL_EXSTYLE);
+                    //var style = GetWindowLong(mainWindowHandle, GWL_STYLE);
+                    //Console.WriteLine("Exstyle: {0}   ", exstyle);
+                    //Console.WriteLine("Style: {0}   ", style);
+                    //bool bVisible = (GetWindowLong(mainWindowHandle, GWL_STYLE) & WS_VISIBLE) != 0;
+                    //Console.WriteLine("bVisible: {0}   ", bVisible);
+                    //Console.WriteLine("");
+
+                    WindowInfo windowInfo = new WindowInfo()
+                    {
+                        Process = process.ProcessName,
+                        Title = process.MainWindowTitle,
+                        Handle = process.MainWindowHandle,
+                        IsMinimize = IsIconic(mainWindowHandle),
+                        Exstyle = GetWindowLong(mainWindowHandle, GWL_EXSTYLE),
+                        Style = GetWindowLong(mainWindowHandle, GWL_STYLE),
+                        //Rect = GetWindowLocationSize(mainWindowHandle),
+                    };
+                    WindowInfolist.Add(windowInfo);
+                }
+            }
+
+            foreach (var wi in WindowInfolist)
+            {
+                if(wi.Title == "媒体播放器" || string.IsNullOrWhiteSpace(wi.Title))
+                {
+                    continue;
+                }
+                if(wi.Style == 6777995264)
+                {
+                    continue;
+                }
+                if (!wi.IsMinimize)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        #endregion
 
 
         static PerformanceCounter cpuCounter = new PerformanceCounter("Processor Information", "% Processor Utility", "_Total");
@@ -760,4 +925,23 @@ namespace DesktopIconTool
 
         public int GifSpeed { get; set; } = 1;
     }
+
+
+    public class WindowInfo
+    {
+        public string Process { get; set; }
+
+        public string Title { get; set; }
+
+        public IntPtr Handle { get; set; }
+
+        public bool IsMinimize { get; set; }
+
+        public long Exstyle { get; set; }
+        
+        public long Style { get; set; }
+
+        public Rectangle Rect { get; set; }
+    }
 }
+
