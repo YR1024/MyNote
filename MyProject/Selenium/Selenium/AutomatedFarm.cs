@@ -1,4 +1,5 @@
 ﻿using ICSharpCode.SharpZipLib.Zip;
+using Microsoft.ML.Data;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
 using OpenQA.Selenium.Interactions;
@@ -9,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -22,7 +24,6 @@ namespace Selenium
         private EdgeDriver driver;
         private EdgeDriverService driverService;
         private IWebDriver LoginFrame;
-        private IWebDriver VCodeFrame;
 
 
         public bool ShowBrowserWnd = false;
@@ -80,7 +81,11 @@ namespace Selenium
         {
             //https://msedgedriver.azureedge.net/105.0.1343.33/edgedriver_win64.zip
             var url = "https://msedgedriver.azureedge.net/" + fileVersion + "/edgedriver_win64.zip";
+            Logger.WriteLog("开始下载：edgedriver_win64.zip");
+            Logger.WriteLog("下载URL：" + url);
             HttpDownload(url, AppDomain.CurrentDomain.BaseDirectory + "edgedriver_win64.zip");
+            Logger.WriteLog("下载完成：edgedriver_win64.zip");
+
             // Set the method that will be called on each file before extraction but after the OverwritePrompt (if applicable)
             //FastZipEvents events = new FastZipEvents();
             //events.ProcessFile = ProcessFileMethod;
@@ -117,17 +122,45 @@ namespace Selenium
         {
             using (var client = new WebDownload())
             {
-                Logger.WriteLog("开始下载：edgedriver_win64.zip");
-                Logger.WriteLog("下载URL："+ url);
                 client.DownloadFile(url, localFileAddr);//下载临时文件
-                Logger.WriteLog("下载完成：edgedriver_win64.zip");
-
                 //Console.WriteLine("Using " + tempFile);
                 //return FileToStream(tempFile, true);
             }
-
         }
 
+        void BatchDownloadImage()
+        {
+            try
+            {
+                for (int i = 50; i < 100; i++)
+                {
+                    TryFindElementInFrame(By.Id("slideBg"), out IWebElement slideBg, LoginFrame);
+                    TryFindElementInFrame(By.XPath("/html/body/div/div[3]/div[2]/div[8]"), out IWebElement slide, LoginFrame);
+                    var bgImg = slideBg.GetCssValue("background-image");
+                    var slideImg = slide.GetCssValue("background-image");
+                    Match match = Regex.Match(bgImg, "url\\(\"(.*?)\"\\)");
+                    Match match2 = Regex.Match(slideImg, "url\\(\"(.*?)\"\\)");
+                    if (match.Success)
+                    {
+                        string imgURL = match.Groups[1].Value;
+                        HttpDownload(imgURL, $@"D:\360MoveData\Users\YR\Desktop\滑块验证码\Bg\{i}.png");
+                    }
+                    if (match.Success)
+                    {
+                        string imgURL2 = match2.Groups[1].Value;
+                        //HttpDownload(imgURL2, $@"D:\360MoveData\Users\YR\Desktop\滑块验证码\Slider\{i}.png");
+                    }
+                    TryFindElementInFrame(By.Id("reload"), out IWebElement reload, LoginFrame);
+                    reload.Click();
+                    Thread.Sleep(2000);
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e);
+                throw e;
+            }
+        }
         /// <summary>
         /// 覆盖提示
         /// </summary>
@@ -187,9 +220,8 @@ namespace Selenium
                 password.SendKeys("yr18723750041.."); //填入密码
                 Thread.Sleep(1500);
                 login.Click(); //点击登录按钮
-                Thread.Sleep(1500);
-
-
+                Thread.Sleep(5000);
+             
                 if (TryFindElement(By.LinkText("个人中心"), out IWebElement personalCenter))
                 {
                     Logger.WriteLog("登录成功");
@@ -200,41 +232,42 @@ namespace Selenium
 
                     LoginFrame = driver.SwitchTo().Frame(driver.FindElement(By.Id("tcaptcha_iframe_dy")));
                     //driver.SwitchTo().DefaultContent(); 
-                    //var phoneVerifyFrame = driver.SwitchTo().Frame(driver.FindElement(By.Id("verify")));
                     if (TryFindElementInFrame(By.Id("instructionText"), out IWebElement instructionText, LoginFrame))
                     {
-                        if(instructionText.Text == "拖动下方滑块完成拼图")
+                        for (int j = 0; j < 3; j++)
                         {
-                            Logger.WriteLog("登录出现滑块验证");
-                            SliderVerification();
-
-                            if (TryFindElementInFrame(By.Id("captcha_close"), out IWebElement closeBtn, LoginFrame))
+                            if (instructionText.Text.Contains("请选择最符合"))
                             {
-                                closeBtn.Click();
-                                driver.SwitchTo().DefaultContent();
-                                login.Click(); //点击登录按钮
-                                //closeBtn.Click();
-
-
+                                Logger.WriteLog(instructionText.Text);
+                                Logger.WriteLog("跳过此种验证方式，点击'我不会'");
+                                TryFindElementInFrame(By.Id("agedText"), out IWebElement Iwont, LoginFrame);
+                                Iwont.Click();
+                                Thread.Sleep(1000);
                                 continue;
                             }
-                            
+                            if (instructionText.Text == "拖动下方滑块完成拼图")
+                            {
+                                //BatchDownloadImage(); //批量爬取下载验证图片，用于训练模型
+                                Logger.WriteLog("登录出现滑块验证");
+                                SliderVerification();
+                                Thread.Sleep(2000);
+                                driver.SwitchTo().DefaultContent();
+                                //var phoneVerifyFrame = driver.SwitchTo().Frame(driver.FindElement(By.Id("verify")));
+                                if (TryFindElement(By.Id("verify"), out IWebElement phoneVerify))
+                                {
+                                    Logger.WriteLog("手机号码验证");
+                                    throw new Exception("出现手机验证，退出本次任务");
+                                }
+                                else
+                                {
+                                    if (TryFindElement(By.LinkText("个人中心"), out IWebElement home))
+                                    {
+                                        Logger.WriteLog("登录成功");
+                                        return true;
+                                    }
+                                }
+                            }
                         }
-
-                        //if (TryFindElement(By.Id("captcha_close"), out IWebElement closeBtn))
-                        //{
-                        //}
-                        //VCodeFrame = LoginFrame.SwitchTo().Frame(LoginFrame.FindElement(By.Id("tcaptcha_iframe")));
-                        //Thread.Sleep(50);
-                    }
-                    //else if (TryFindElementInFrame(By.Id("tcaptcha_iframe"), out IWebElement verIframe, phoneVerifyFrame))
-                    //{
-                    //    Logger.WriteLog("登录出现手机验证");
-                    //}
-                    else
-                    {
-                        Logger.WriteLog("登录成功");
-                        return true;
                     }
                 }
                 catch(Exception e)
@@ -363,48 +396,7 @@ namespace Selenium
                     var a = BackpackInfo.Text;
                     if (BackpackInfo.Text.Contains("你没有符合种植条件的种子"))
                     {
-                        TryFindElement(By.LinkText("去商店购买种子"), out IWebElement GoStore);
-                        Logger.WriteLog("没有种子, 去商店购买");
-                        GoStore.Click();
-                        Thread.Sleep(1500);
-                        IWebElement forageGrassSeeds = null;
-                        TryFindElement(By.LinkText("末页"), out IWebElement LastPage);
-                        LastPage.Click();
-                        Thread.Sleep(1000);
-                        while (true)
-                        {
-                            ReadOnlyCollection<IWebElement> SeedsInfos = driver.FindElements(By.ClassName("padding-3-0"));
-                            foreach (var item in SeedsInfos)
-                            {
-                                if (item.Text.Contains("牧草"))
-                                {
-                                    forageGrassSeeds = item;
-                                    break;
-                                }
-                            }
-                            if (forageGrassSeeds != null)
-                            {
-                                break;
-                            }
-                            TryFindElement(By.LinkText("上页"), out IWebElement PrevPage);
-                            PrevPage.Click();
-                            Thread.Sleep(1000);
-                        }
-                     
-                        if (forageGrassSeeds != null)
-                        {
-                            var purchase = forageGrassSeeds.FindElement(By.LinkText("购买"));
-                            purchase.Click();
-                            Thread.Sleep(1500);
-                            TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
-                            confirm.Click();
-                            Thread.Sleep(1500);
-                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                            TryFindElement(By.LinkText("去土地种植"), out IWebElement planting);
-                            planting.Click();
-                            Thread.Sleep(1500);
-
-                        }
+                        GoStorePurchaseSeeds();
                     }
                     else
                     {
@@ -412,7 +404,7 @@ namespace Selenium
                         {
                             if (TryFindElements(By.ClassName("bg-alter"), out ReadOnlyCollection<IWebElement> zhongzis))
                             {
-                                IWebElement zhongzi = zhongzis[0];
+                                IWebElement zhongzi = null;
                                 foreach (var item in zhongzis)
                                 {
                                     if (item.FindElement(By.ClassName("txt-fade")).Text.Contains("金"))
@@ -426,9 +418,19 @@ namespace Selenium
                                     }
                                 }
 
-                                zhongzi.FindElement(By.LinkText("种植")).Click();
-                                Thread.Sleep(1500);
-                                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                                if(zhongzi != null)
+                                {
+                                    zhongzi.FindElement(By.LinkText("种植")).Click();
+                                    Thread.Sleep(1500);
+                                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                                }
+                                else
+                                {
+                                    Logger.WriteLog("只有金种子或没有可种植的种子");
+                                    GoStorePurchaseSeeds();
+                                }
+
+                                
                             }
                         }
                     }
@@ -441,48 +443,8 @@ namespace Selenium
             TryFindElement(By.LinkText("我的农场"), out IWebElement back3);
             back3.Click();
             Thread.Sleep(1500);
-            TryFindElement(By.LinkText("我的池塘"), out IWebElement fishPond);
-            fishPond.Click();
-            Logger.WriteLog("进入我的池塘");
-            Thread.Sleep(1500);
-            if (TryFindElement(By.LinkText("捞鱼"), out IWebElement Fishfishing))
-            {
-                Fishfishing.Click();
-                Thread.Sleep(1500);
-                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                if (TryFindElement(By.LinkText("养殖"), out IWebElement breed))
-                {
-                    breed.Click();
-                    Thread.Sleep(1500);
-                    if (GetInfo(By.ClassName("module-content")).Contains("你没有可养殖的鱼苗了"))
-                    {
-                        Logger.WriteLog("你没有可养殖的鱼苗了，到商店购买鱼苗");
-                        TryFindElement(By.LinkText("到商店购买鱼苗"), out IWebElement BuyFry);
-                        BuyFry.Click();
-                        Thread.Sleep(1500);
-                        TryFindElement(By.LinkText("购买"), out IWebElement Buy);
-                        Buy.Click();
-                        Thread.Sleep(1500);
-                        Logger.WriteLog(GetInfo(By.XPath("/html/body/div[2]/div[2]/p")));
-                        TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
-                        confirm.Click();
-                        Thread.Sleep(1500);
-                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                        TryFindElement(By.LinkText("去鱼塘养殖"), out IWebElement ToFishPond);
-                        ToFishPond.Click();
-                        Thread.Sleep(1500);
-                    }
-                    while (TryFindElement(By.LinkText("养殖"), out IWebElement breed2))
-                    {
-                        breed2.Click();
-                        Thread.Sleep(1500);
-                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                    }
-                }
-            }
-            TryFindElement(By.LinkText("我的农场"), out IWebElement back2);
-            back2.Click();
-            Thread.Sleep(1500);
+            MyPond();
+
 
             if (TryFindElement(By.LinkText("签到"), out IWebElement SignIn))
             {
@@ -497,6 +459,113 @@ namespace Selenium
                 }
             }
         }
+
+        /// <summary>
+        /// 去商店购买种子
+        /// </summary>
+        /// <param name="grassSeeds">默认购买牧草</param>
+        private void GoStorePurchaseSeeds(bool grassSeeds = true)
+        {
+            TryFindElement(By.LinkText("去商店购买种子"), out IWebElement GoStore);
+            Logger.WriteLog("没有种子, 去商店购买");
+            GoStore.Click();
+            Thread.Sleep(1500);
+            IWebElement forageGrassSeeds = null;
+            TryFindElement(By.LinkText("末页"), out IWebElement LastPage);
+            LastPage.Click();
+            Thread.Sleep(1000);
+            while (true)
+            {
+                ReadOnlyCollection<IWebElement> SeedsInfos = driver.FindElements(By.ClassName("padding-3-0"));
+                foreach (var item in SeedsInfos)
+                {
+                    if (item.Text.Contains("牧草"))
+                    {
+                        forageGrassSeeds = item;
+                        break;
+                    }
+                }
+                if (forageGrassSeeds != null)
+                {
+                    break;
+                }
+                TryFindElement(By.LinkText("上页"), out IWebElement PrevPage);
+                PrevPage.Click();
+                Thread.Sleep(1000);
+            }
+
+            if (forageGrassSeeds != null)
+            {
+                var purchase = forageGrassSeeds.FindElement(By.LinkText("购买"));
+                purchase.Click();
+                Thread.Sleep(1500);
+                TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
+                confirm.Click();
+                Thread.Sleep(1500);
+                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                TryFindElement(By.LinkText("去土地种植"), out IWebElement planting);
+                planting.Click();
+                Thread.Sleep(1500);
+            }
+        }
+
+        /// <summary>
+        /// 我的池塘
+        /// </summary>
+        private void MyPond()
+        {
+            TryFindElement(By.LinkText("我的池塘"), out IWebElement fishPond);
+            fishPond.Click();
+            Logger.WriteLog("进入我的池塘");
+            TryFindElement(By.XPath("/html"), out IWebElement html);
+            if (html.Text.Contains("网络繁忙"))
+            {
+                Logger.WriteLog(html.Text);
+                driver.Navigate().Back();
+                return;
+            }
+
+            Thread.Sleep(1500);
+            if (TryFindElement(By.LinkText("捞鱼"), out IWebElement Fishfishing))
+            {
+                Fishfishing.Click();
+                Thread.Sleep(1500);
+                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+            }
+            if (TryFindElement(By.LinkText("养殖"), out IWebElement breed))
+            {
+                breed.Click();
+                Thread.Sleep(1500);
+                if (GetInfo(By.ClassName("module-content")).Contains("你没有可养殖的鱼苗了"))
+                {
+                    Logger.WriteLog("你没有可养殖的鱼苗了，到商店购买鱼苗");
+                    TryFindElement(By.LinkText("到商店购买鱼苗"), out IWebElement BuyFry);
+                    BuyFry.Click();
+                    Thread.Sleep(1500);
+                    TryFindElement(By.LinkText("购买"), out IWebElement Buy);
+                    Buy.Click();
+                    Thread.Sleep(1500);
+                    Logger.WriteLog(GetInfo(By.XPath("/html/body/div[2]/div[2]/p")));
+                    TryFindElement(By.Name("sb"), out IWebElement confirm); //确定
+                    confirm.Click();
+                    Thread.Sleep(1500);
+                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                    TryFindElement(By.LinkText("去鱼塘养殖"), out IWebElement ToFishPond);
+                    ToFishPond.Click();
+                    Thread.Sleep(1500);
+                }
+                while (TryFindElement(By.LinkText("养殖"), out IWebElement breed2))
+                {
+                    breed2.Click();
+                    Thread.Sleep(1500);
+                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                }
+            }
+            TryFindElement(By.LinkText("我的农场"), out IWebElement back2);
+            back2.Click();
+            Thread.Sleep(1500);
+        }
+
 
         /// <summary>
         /// 牧场
@@ -573,18 +642,17 @@ namespace Selenium
                 Thread.Sleep(1500);
                 Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
                 Thread.Sleep(16000);
-
-                if (TryFindElement(By.LinkText("刷新"), out IWebElement refresh))
-                {
-                    refresh.Click();
-                    Thread.Sleep(1500);
-                }
-                if (TryFindElement(By.LinkText("收获."), out IWebElement harvest2))
-                {
-                    harvest2.Click();
-                    Thread.Sleep(1500);
-                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                }
+            }
+            if (TryFindElement(By.LinkText("刷新"), out IWebElement refresh))
+            {
+                refresh.Click();
+                Thread.Sleep(1500);
+            }
+            if (TryFindElement(By.LinkText("收获."), out IWebElement harvest2))
+            {
+                harvest2.Click();
+                Thread.Sleep(1500);
+                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
             }
             TryFindElement(By.LinkText("我的牧场"), out IWebElement backPasture3);
             backPasture3.Click();
@@ -794,33 +862,123 @@ namespace Selenium
 
         }
 
-        void SliderVerification()
-        {
-            //找到滑块元素
-            TryFindElementInFrame(By.ClassName("tc-slider-normal"), out IWebElement slide, LoginFrame);
-            //var slide = VCodeFrame.FindElement(By.Id("tcaptcha_drag_button"));
-            //var verifyContainer = driver.FindElement(By.CssSelector(".nc-lang-cnt"));
-            //var width = verifyContainer.Size.Width;
-            var action = new Actions(LoginFrame);
-            int offset = 0;
-            //模仿人工滑动
+        #region 滑块验证
 
-            int Offset = 30;
-            while (true)
+        /// <summary>
+        /// 下载图片
+        /// </summary>
+        void DownloadImage()
+        {
+            try
             {
-                action.ClickAndHold(slide).Perform(); //点击并按住滑块元素
-                action.MoveByOffset(Offset, 0).Perform();
-                action.Release().Perform();
-                Offset += 20;
-                Thread.Sleep(1000);
+                TryFindElementInFrame(By.Id("slideBg"), out IWebElement slideBg, LoginFrame);
+                var bgImg = slideBg.GetCssValue("background-image");
+                Match match = Regex.Match(bgImg, "url\\(\"(.*?)\"\\)");
+                if (match.Success)
+                {
+                    Logger.WriteLog($"开始下载验证图片");
+                    string imgURL = match.Groups[1].Value;
+                    HttpDownload(imgURL, $"{AppDomain.CurrentDomain.BaseDirectory}VerifyBack.png");
+                    Logger.WriteLog($"下载完成");
+                }
+                else
+                {
+                    Logger.WriteLog($"获取图片下载地址 ,格式匹配失败");
+                    Logger.WriteLog($"地址：{bgImg}");
+                }
+        
+            }
+            catch (Exception e)
+            {
+                Logger.WriteLog($"下载图片出错{e}");
             }
         }
 
-        void ScreenshotElement(string filename, IWebElement element)
+        /// <summary>
+        /// 通过ML.Net机器学习模型获取验证图片缺口位置
+        /// </summary>
+        public bool GetGapPosByMLNet(out double horizontalPos)
         {
-            //element.save(save_path)
+            horizontalPos = 0;
+            // Create single instance of sample data from first line of dataset for model input.
+            var image = MLImage.CreateFromFile($"{AppDomain.CurrentDomain.BaseDirectory}VerifyBack.png");
+            Slider.ModelInput sampleData = new Slider.ModelInput()
+            {
+                Image = image,
+            };
+            // Make a single prediction on the sample data and print results.
+            var predictionResult = Slider.Predict(sampleData);
+            Console.WriteLine("\n\nPredicted Boxes:\n");
+            if (predictionResult.PredictedBoundingBoxes == null)
+            {
+                Logger.WriteLog($"预测失败");
+                return false;
+            }
+            Logger.WriteLog($"预测完成");
+            var boxes =
+                predictionResult.PredictedBoundingBoxes.Chunk(4)
+                    .Select(x => new { XTop = x[0], YTop = x[1], XBottom = x[2], YBottom = x[3] })
+                    .Zip(predictionResult.Score, (a, b) => new { Box = a, Score = b });
+
+            foreach (var item in boxes)
+            {
+                Logger.WriteLog($"XTop: {item.Box.XTop},YTop: {item.Box.YTop},XBottom: {item.Box.XBottom},YBottom: {item.Box.YBottom}, Score: {item.Score}");
+            }
+            var maxScoreBox = boxes.OrderByDescending(b => b.Score).First();
+            horizontalPos = maxScoreBox.Box.XTop + (maxScoreBox.Box.XBottom - maxScoreBox.Box.XTop) / 2;
+            Logger.WriteLog($"缺口水平像素值:{horizontalPos}");
+            return true; 
+
         }
 
+        void SliderVerification()
+        {
+            double pos = 0;
+            int i = 0;
+            for (; i < 50; i++)
+            {
+                DownloadImage();
+                if (GetGapPosByMLNet(out pos))
+                {
+                    break;
+                }
+                else
+                {
+
+                    Logger.WriteLog($"刷新新的验证图片");
+                    TryFindElementInFrame(By.Id("reload"), out IWebElement reload, LoginFrame);
+                    reload.Click();
+                    Thread.Sleep(2000);
+                }
+            }
+            if(pos == 0 && i == 49)
+            {
+                Logger.WriteLog($"50次预测没有成功，结束本次任务！");
+                throw new Exception("图片缺口预测失败");
+            }
+
+            var sliderWidth = 65.77;
+            var sliderLeft = 22.76;
+            //672 /340 = pos / x;
+            var zoomXPos = 340 * pos / 672;
+            var horDistance = zoomXPos - sliderLeft - (sliderWidth/2);
+            //找到滑块元素
+            TryFindElementInFrame(By.ClassName("tc-slider-normal"), out IWebElement slide, LoginFrame);
+    
+            var action = new Actions(LoginFrame);
+            //模仿人工滑动
+            action.ClickAndHold(slide).Perform(); //点击并按住滑块元素
+            Logger.WriteLog("按住");
+            action.MoveByOffset((int)horDistance, 0).Perform();
+            Logger.WriteLog("拖动");
+            driver.GetScreenshot().SaveAsFile($"{AppDomain.CurrentDomain.BaseDirectory}MoveSliderScreenshot.png");
+            action.Release().Perform();
+            Logger.WriteLog("释放");
+
+            Thread.Sleep(1000);
+
+        }
+        #endregion
 
         /// <summary>
         /// 寻找第一个匹配的节点
@@ -844,7 +1002,7 @@ namespace Selenium
         }
 
         /// <summary>
-        /// 寻找第一个匹配的节点
+        /// 寻找匹配的所有节点
         /// </summary>
         /// <param name="by"></param>
         /// <param name="element">找到节点并赋值给该对象，没有则为null</param>
@@ -901,9 +1059,13 @@ namespace Selenium
         public void StartExecuteTask()
         {
             TimerList.Add(CreateDailyScheduledTask(0, 0));
+            TimerList.Add(CreateDailyScheduledTask(3, 0));
             TimerList.Add(CreateDailyScheduledTask(6, 0));
+            TimerList.Add(CreateDailyScheduledTask(9, 0));
             TimerList.Add(CreateDailyScheduledTask(12, 0));
+            TimerList.Add(CreateDailyScheduledTask(15, 0));
             TimerList.Add(CreateDailyScheduledTask(18, 0));
+            TimerList.Add(CreateDailyScheduledTask(21, 0));
 
             //TimerList.Add(CreateDailyScheduledTask(20, 3));
         }
@@ -1015,6 +1177,7 @@ namespace Selenium
                 }
                 catch (Exception e)
                 {
+                    Logger.WriteLog(e.Message);
                 }
             }
         }

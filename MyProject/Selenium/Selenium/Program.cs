@@ -1,22 +1,12 @@
-﻿using AutomationServices.EmguCv;
-using AutomationServices.EmguCv.Helper;
-using ICSharpCode.SharpZipLib.Zip;
+﻿using Microsoft.ML.Data;
 using Microsoft.Win32;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Edge;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Selenium
 {
@@ -25,10 +15,9 @@ namespace Selenium
         private static Mutex mutex;
         static void Main(string[] args)
         {
-            //Test(); return;
-            //单例程序
-            if (SingleProcess())
-                return;
+            //Test();
+            //return;
+
 
 
 #if DEBUG
@@ -39,6 +28,10 @@ namespace Selenium
             };
             selenium.StartTask();
 #else
+
+            //单例程序
+            if (SingleProcess())
+                return;
             //定时任务
             new ScheduledTask().StartExecuteTask();
             //开机启动
@@ -55,40 +48,35 @@ namespace Selenium
 
         public static void Test()
         {
-            //aaa();
-            string minImg = AppDomain.CurrentDomain.BaseDirectory + "min.png";
-            string maxImg = AppDomain.CurrentDomain.BaseDirectory + "max.png";
+            // Create single instance of sample data from first line of dataset for model input.
+            var image = MLImage.CreateFromFile(@"D:\360MoveData\Users\YR\Desktop\SliderVerificationCode\Bg\26.png");
+            Slider.ModelInput sampleData = new Slider.ModelInput()
+            {
+                Image = image,
+            };
+            // Make a single prediction on the sample data and print results.
+            var predictionResult = Slider.Predict(sampleData);
+            Console.WriteLine("\n\nPredicted Boxes:\n");
+            if (predictionResult.PredictedBoundingBoxes == null)
+            {
+                Console.WriteLine("No Predicted Bounding Boxes");
+                return;
+            }
+            var boxes =
+                predictionResult.PredictedBoundingBoxes.Chunk(4)
+                    .Select(x => new { XTop = x[0], YTop = x[1], XBottom = x[2], YBottom = x[3] })
+                    .Zip(predictionResult.Score, (a, b) => new { Box = a, Score = b });
 
-            //EmguCvHelper.GetMatchPos(maxImg, @"C:\Users\YR\Desktop\r.png" );
-            EmguCvHelper.SliderVerifi(maxImg, @"C:\Users\YR\Desktop\r.png" );
+            foreach (var item in boxes)
+            {
+                Console.WriteLine($"XTop: {item.Box.XTop},YTop: {item.Box.YTop},XBottom: {item.Box.XBottom},YBottom: {item.Box.YBottom}, Score: {item.Score}");
+            }
+
+            return;
+
         }
 
-
-        static void aaa()
-        {
-            string minImg = AppDomain.CurrentDomain.BaseDirectory + "min.png";
-            //读入原图，这张原图尺寸为533*300
-            Bitmap src_jpg = new Bitmap(minImg);
-
-            //原图中的要抠出的一小块图，这一小块的左上角的坐标为(50, 0)，长为300，高为300
-            Rectangle srcRect = new Rectangle(145, 488, 110, 95);
-
-            //新图在画布上的左上角坐标为(0, 0)，新图长300，高300
-            Rectangle destRect = new Rectangle(0, 0, 110, 95);
-
-            //放置新图的画布，照搬新图的的大小
-            Bitmap new_jpg = new Bitmap(destRect.Width, destRect.Height);
-
-            //g就像一只画笔，准备在new_jpg上作画
-            Graphics g = Graphics.FromImage(new_jpg);                        
-            g.DrawImage(src_jpg, destRect, srcRect, GraphicsUnit.Pixel);
-
-            //保存图片
-            new_jpg.Save(@"C:\Users\YR\Desktop\r.png");
-
-            //类似于关闭文件流，否则程序不终止，"pikachu.jpg"就处于被占用的状态
-            src_jpg.Dispose();                       
-        }
+  
 
         static bool SingleProcess()
         {
@@ -185,6 +173,78 @@ namespace Selenium
 
 
 
+    public static partial class Enumerable
+    {
+        /// <summary>
+        /// Split the elements of a sequence into chunks of size at most <paramref name="size"/>.
+        /// </summary>
+        /// <remarks>
+        /// Every chunk except the last will be of size <paramref name="size"/>.
+        /// The last chunk will contain the remaining elements and may be of a smaller size.
+        /// </remarks>
+        /// <param name="source">
+        /// An <see cref="IEnumerable{T}"/> whose elements to chunk.
+        /// </param>
+        /// <param name="size">
+        /// Maximum size of each chunk.
+        /// </param>
+        /// <typeparam name="TSource">
+        /// The type of the elements of source.
+        /// </typeparam>
+        /// <returns>
+        /// An <see cref="IEnumerable{T}"/> that contains the elements the input sequence split into chunks of size <paramref name="size"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="source"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="size"/> is below 1.
+        /// </exception>
+        public static IEnumerable<TSource[]> Chunk<TSource>(this IEnumerable<TSource> source, int size)
+        {
+            if (source == null)
+            {
+                //ThrowHelper.ThrowArgumentNullException(ExceptionArgument.source);
+                throw new ArgumentNullException("source");
+            }
 
- 
+            if (size < 1)
+            {
+                //ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.size);
+                throw new ArgumentNullException("size");
+            }
+
+            return ChunkIterator(source, size);
+        }
+
+        private static IEnumerable<TSource[]> ChunkIterator<TSource>(IEnumerable<TSource> source, int size)
+        {
+            using (IEnumerator<TSource> e = source.GetEnumerator())
+            {
+                while (e.MoveNext())
+                {
+                    TSource[] chunk = new TSource[size];
+                    chunk[0] = e.Current;
+
+                    int i = 1;
+                    for (; i < chunk.Length && e.MoveNext(); i++)
+                    {
+                        chunk[i] = e.Current;
+                    }
+
+                    if (i == chunk.Length)
+                    {
+                        yield return chunk;
+                    }
+                    else
+                    {
+                        Array.Resize(ref chunk, i);
+                        yield return chunk;
+                        yield break;
+                    }
+                }
+            }
+        }
+    }
+
 }
