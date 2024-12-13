@@ -1,0 +1,20 @@
+﻿<Window x:Class="SkipDrama_YuanShen.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SkipDrama_YuanShen"
+        mc:Ignorable="d"
+           Title="MainWindow" Height="300" Width="230">
+  
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="快捷键：Ctrl + ?/" FontSize="16" Margin="0 0 0 20"/>
+            <TextBlock FontSize="14">
+          <Run Text="当前任务状态："/>
+          <Run x:Name="info" FontSize="16" FontWeight="Bold" Text="暂停"/>
+          <Run x:Name="count" Text=""/>
+            </TextBlock>
+        </StackPanel>
+    </Grid>
+</Window>
