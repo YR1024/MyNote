@@ -19,14 +19,19 @@ namespace Selenium
     /// <summary>
     /// 自动化操作类
     /// </summary>
-    class AutomatedSelenium :IDisposable
+    public class AutomatedSelenium : IDisposable
     {
         private EdgeDriver driver;
         private EdgeDriverService driverService;
         private IWebDriver LoginFrame;
 
-
+        public Logger Logger;
         public bool ShowBrowserWnd = false;
+
+        public AutomatedSelenium()
+        {
+            Logger = new Logger(driver);
+        }
 
         public void StartTask()
         {
@@ -42,7 +47,7 @@ namespace Selenium
                 Farm();
                 Pasture();
             }
-            catch(Exception e) 
+            catch (Exception e)
             {
                 Logger.WriteLog("发生错误异常：" + e.Message + e);
                 //throw e;
@@ -77,7 +82,7 @@ namespace Selenium
             }
         }
 
-        private static void DownloadMsedgedriver(string fileVersion)
+        private void DownloadMsedgedriver(string fileVersion)
         {
             //https://msedgedriver.azureedge.net/105.0.1343.33/edgedriver_win64.zip
             var url = "https://msedgedriver.azureedge.net/" + fileVersion + "/edgedriver_win64.zip";
@@ -118,7 +123,7 @@ namespace Selenium
         /// </summary>
         /// <param name="url">下载文件地址</param>
         /// <returns></returns>
-        public static void HttpDownload(string url,string localFileAddr)
+        public static void HttpDownload(string url, string localFileAddr)
         {
             using (var client = new WebDownload())
             {
@@ -155,7 +160,7 @@ namespace Selenium
                     Thread.Sleep(2000);
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e);
                 throw e;
@@ -180,7 +185,7 @@ namespace Selenium
             //return dr == DialogResult.Yes;
             return true;
         }
-      
+
 
         #endregion
 
@@ -197,6 +202,7 @@ namespace Selenium
                 options.AddArgument("--headless"); //浏览器静默模式启动
             }
             driver = new EdgeDriver(driverService, options);
+            Logger.driver = driver;
             Logger.WriteLog("浏览器已启动");
         }
 
@@ -221,7 +227,7 @@ namespace Selenium
                 Thread.Sleep(1500);
                 login.Click(); //点击登录按钮
                 Thread.Sleep(5000);
-             
+
                 if (TryFindElement(By.LinkText("个人中心"), out IWebElement personalCenter))
                 {
                     Logger.WriteLog("登录成功");
@@ -234,7 +240,7 @@ namespace Selenium
                     //driver.SwitchTo().DefaultContent(); 
                     if (TryFindElementInFrame(By.Id("instructionText"), out IWebElement instructionText, LoginFrame))
                     {
-                        for (int j = 0; j < 3; j++)
+                        for (int j = 0; j < 10; j++)
                         {
                             if (instructionText.Text.Contains("请选择最符合"))
                             {
@@ -242,7 +248,7 @@ namespace Selenium
                                 Logger.WriteLog("跳过此种验证方式，点击'我不会'");
                                 TryFindElementInFrame(By.Id("agedText"), out IWebElement Iwont, LoginFrame);
                                 Iwont.Click();
-                                Thread.Sleep(1000);
+                                Thread.Sleep(2500);
                                 continue;
                             }
                             if (instructionText.Text == "拖动下方滑块完成拼图")
@@ -270,7 +276,7 @@ namespace Selenium
                         }
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     //return false;
                     throw e;
@@ -346,13 +352,11 @@ namespace Selenium
                     Logger.WriteLog("有可播种的土地，开始播种");
                     Thread.Sleep(1500);
 
-
-
                     while (TryFindElement(By.LinkText("种植"), out _))
                     {
                         if (TryFindElements(By.ClassName("bg-alter"), out ReadOnlyCollection<IWebElement> zhongzis))
                         {
-                            IWebElement zhongzi = zhongzis[0];
+                            IWebElement zhongzi = null;
                             foreach (var item in zhongzis)
                             {
                                 if (item.FindElement(By.ClassName("txt-fade")).Text.Contains("金"))
@@ -366,19 +370,22 @@ namespace Selenium
                                 }
                             }
 
-                            zhongzi.FindElement(By.LinkText("种植")).Click();
-                            Thread.Sleep(1500);
-                            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                            if (zhongzi != null)
+                            {
+                                zhongzi.FindElement(By.LinkText("种植")).Click();
+                                Thread.Sleep(1500);
+                                Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+                            }
+                            else
+                            {
+                                Logger.WriteLog("只有金种子或没有可种植的种子");
+                                GoStorePurchaseSeeds();
+                            }
+
+
                         }
                     }
-               
 
-                    //while (TryFindElement(By.LinkText("种植"), out IWebElement plant))
-                    //{
-                    //    plant.Click();
-                    //    Thread.Sleep(1500);
-                    //    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                    //}
                 }
             }
             Logger.WriteLog("返回我的农场");
@@ -391,7 +398,7 @@ namespace Selenium
                 Logger.WriteLog("有可播种的土地，开始播种");
                 Thread.Sleep(1500);
 
-                if(TryFindElement(By.XPath("/html/body/div[2]/div[1]/div"),out IWebElement BackpackInfo))
+                if (TryFindElement(By.XPath("/html/body/div[2]/div[1]/div"), out IWebElement BackpackInfo))
                 {
                     var a = BackpackInfo.Text;
                     if (BackpackInfo.Text.Contains("你没有符合种植条件的种子"))
@@ -418,7 +425,7 @@ namespace Selenium
                                     }
                                 }
 
-                                if(zhongzi != null)
+                                if (zhongzi != null)
                                 {
                                     zhongzi.FindElement(By.LinkText("种植")).Click();
                                     Thread.Sleep(1500);
@@ -430,7 +437,7 @@ namespace Selenium
                                     GoStorePurchaseSeeds();
                                 }
 
-                                
+
                             }
                         }
                     }
@@ -512,7 +519,7 @@ namespace Selenium
         /// <summary>
         /// 我的池塘
         /// </summary>
-        private void MyPond()
+        private void MyPond(int retryCount = 0)
         {
             TryFindElement(By.LinkText("我的池塘"), out IWebElement fishPond);
             fishPond.Click();
@@ -522,6 +529,10 @@ namespace Selenium
             {
                 Logger.WriteLog(html.Text);
                 driver.Navigate().Back();
+                if (retryCount < 3)
+                {
+                    MyPond(retryCount++);
+                }
                 return;
             }
 
@@ -597,7 +608,7 @@ namespace Selenium
             TryFindElement(By.LinkText("我的牧场"), out IWebElement backPasture3);
             backPasture3.Click();
             Thread.Sleep(1500);
-        
+
             if (TryFindElement(By.LinkText("签到送好礼"), out IWebElement SignIn2))
             {
                 SignIn2.Click();
@@ -673,33 +684,23 @@ namespace Selenium
                 if (GetInfo(By.ClassName("txt-warning2")).Contains("请在商店购买"))
                 {
                     string cubType = GetInfo(By.ClassName("txt-warning2")).Substring(9, 1);
-                    if (cubType == "窝")
-                    {
-                        GetFirstNestPurchase().Click();
-                        Thread.Sleep(1500);
-                    }
-                    else if (cubType == "棚")
-                    {
-                        GetFirstShedPurchase().Click();
-                        Thread.Sleep(1500);
-                    }
-                    Logger.WriteLog(GetInfo(By.ClassName("farm-special")));
-                    TryFindElement(By.ClassName("btn-s"), out IWebElement confirmBtn);
-                    confirmBtn.Click();
-                    Thread.Sleep(1500);
-                    Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
-                    TryFindElement(By.LinkText("我的牧场"), out IWebElement backPasture4);
-                    backPasture4.Click();
-                    Thread.Sleep(1500);
+                    PurchaseCubs(cubType);
                 }
                 else
                 {
                     GetAnimalNumber(out int WoAnimalNum, out int PengAnimalNum);
                     if (WoAnimalNum < 10) //窝的动物数量小于10
                     {
-                        GetFirstRaise(true).Click();
+                        var raiseElemt = GetFirstRaise(true);
+                        if (raiseElemt == null)
+                        {
+                            TryFindElement(By.LinkText("商店"), out IWebElement store);
+                            store.Click();
+                            PurchaseCubs("窝");
+                            continue;
+                        }
+                        raiseElemt.Click();
                         Thread.Sleep(1000);
-                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
                         Logger.WriteLog(GetInfo(By.ClassName("module-content")));
                         if (TryFindElement(By.Name("sb"), out IWebElement confirm)) //确定
                         {
@@ -710,9 +711,16 @@ namespace Selenium
                     }
                     else if (PengAnimalNum < 10) //棚的动物数量小于10
                     {
-                        GetFirstRaise(false).Click();
+                        var raiseElemt = GetFirstRaise(false);
+                        if (raiseElemt == null)
+                        {
+                            TryFindElement(By.LinkText("商店"), out IWebElement store);
+                            store.Click();
+                            PurchaseCubs("棚");
+                            continue;
+                        }
+                        raiseElemt.Click();
                         Thread.Sleep(1000);
-                        Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
                         Logger.WriteLog(GetInfo(By.ClassName("module-content")));
                         if (TryFindElement(By.Name("sb"), out IWebElement confirm)) //确定
                         {
@@ -738,12 +746,14 @@ namespace Selenium
             Logger.WriteLog(Animal);
             var s1 = Animal.Split(' ')[0];
             var s2 = Animal.Split(' ')[1];
-            string woAnimal_n = s1.Substring(s1.IndexOf('(') + 1, s1.IndexOf('/') - (s1.IndexOf('(')+1));
+            string woAnimal_n = s1.Substring(s1.IndexOf('(') + 1, s1.IndexOf('/') - (s1.IndexOf('(') + 1));
             string woAnimal_s = s2.Substring(s2.IndexOf('(') + 1, s2.IndexOf('/') - (s2.IndexOf('(') + 1));
             WoAnimalNum = Convert.ToInt32(woAnimal_n);
             PengAnimalNum = Convert.ToInt32(woAnimal_s);
         }
 
+
+        string[] ExcludedAnimals = new string[1] { "金兔子" };
         /// <summary>
         /// 获取第一个窝/棚的动物饲养 标签
         /// </summary>
@@ -755,23 +765,65 @@ namespace Selenium
             if (!IsAnimalsLiveInNest)
                 AnimalTag = "棚";
             IWebElement el = null;
-            int index = 0;
+            int index = -1;
             var MyAnimalInfo = driver.FindElement(By.XPath("/html/body/div[2]/div[3]/div[2]")).Text;
             var MyAnimalInfoList = MyAnimalInfo.Split('\n');
             for (int i = 0; i < MyAnimalInfoList.Length; i++)
             {
                 if (MyAnimalInfoList[i].Contains(AnimalTag))
                 {
+                    //排除不可养殖的动物
+                    if(ExcludedAnimals.Where(a => MyAnimalInfoList[i].Contains(a)).Count() != 0)
+                    {
+                        Logger.WriteLog($"{ExcludedAnimals} 不可养殖，跳过。");
+                        continue;
+                    }
+                    Logger.WriteLog($"找到动物{MyAnimalInfoList[i]}。");
                     index = i;
                     break;
                 }
             }
+            if(index == -1)
+            {
+                Logger.WriteLog($"没有找到可养殖的动物。");
+                return null;
+            }
+
             ReadOnlyCollection<IWebElement> elements = driver.FindElements(By.LinkText("饲养"));
             if (elements.Count > 0)
             {
                 el = elements[index];
             }
             return el;
+        }
+
+        /// <summary>
+        /// 购买幼崽
+        /// </summary>
+        void PurchaseCubs(string cubType)
+        {
+            if (cubType == "窝")
+            {
+                GetFirstNestPurchase().Click();
+                Thread.Sleep(1500);
+            }
+            else if (cubType == "棚")
+            {
+                GetFirstShedPurchase().Click();
+                Thread.Sleep(1500);
+            }
+            else
+            {
+                return;
+            }
+            Logger.WriteLog(GetInfo(By.ClassName("farm-special")));
+            TryFindElement(By.ClassName("btn-s"), out IWebElement confirmBtn);
+            confirmBtn.Click();
+            Thread.Sleep(1500);
+            Logger.WriteLog(GetInfo(By.ClassName("txt-warning2")));
+            TryFindElement(By.LinkText("我的牧场"), out IWebElement backPasture4);
+            backPasture4.Click();
+            Thread.Sleep(1500);
         }
 
 
@@ -1040,6 +1092,10 @@ namespace Selenium
                     info += em.Text + "; ";
                 }
             }
+            else
+            {
+                Logger.WriteLog($"GetInfo({by}) 没有找到此节点.");
+            }
             return info;
         }
 
@@ -1115,7 +1171,7 @@ namespace Selenium
             var timerObj = TimerList.Where(t => t.TimeID == timeState.TimeID).FirstOrDefault();
             if (timerObj != null)
                 TimerList.Remove(timerObj);
-            Logger.WriteLog("TimerList数量:"+ TimerList.Count);
+            //Logger.WriteLog("TimerList数量:"+ TimerList.Count);
         }
     }
 
@@ -1143,14 +1199,22 @@ namespace Selenium
     /// </summary>
     public class Logger
     {
+        public EdgeDriver driver { get; set; }
+
+        public Logger(EdgeDriver _driver)
+        {
+            driver = _driver;
+        }
 
         private static string LogPath = AppDomain.CurrentDomain.BaseDirectory + "Log.txt";
+
+        private int logCount = 0;
 
         /// <summary>
         /// 记录日志
         /// </summary>
         /// <param name="strInfo"></param>
-        public static void WriteLog(string strInfo)
+        public void WriteLog(string strInfo)
         {
             //string strPath = ConfigurationManager.AppSettings["FilePath"];
             FileExist(LogPath);
@@ -1161,9 +1225,59 @@ namespace Selenium
                 sw.Close();
             }
 
+            if (string.IsNullOrWhiteSpace(strInfo))
+            {
+                DirExist($"{AppDomain.CurrentDomain.BaseDirectory}DebugScreenshot\\");
+
+                if(logCount < 5)
+                {
+                    driver.GetScreenshot().SaveAsFile($"{AppDomain.CurrentDomain.BaseDirectory}DebugScreenshot\\{DateTime.Now.ToString("yy-MM-dd HHmmss")}.png");
+                    var debugHtmlPath = $"{AppDomain.CurrentDomain.BaseDirectory}DebugScreenshot\\{DateTime.Now.ToString("yy-MM-dd HHmmss")}.html";
+                    FileExist(debugHtmlPath);
+                    using (StreamWriter sw = new StreamWriter(debugHtmlPath, true))
+                    {
+                        sw.WriteLine(driver.PageSource);
+                        sw.Dispose();
+                        sw.Close();
+                    }
+                    logCount++;
+                }
+            }
+            else
+            {
+                if (!strInfo.Contains("没有找到此节点"))
+                {
+                    logCount = 0;
+                }
+
+                if (strInfo.Contains("异常"))
+                {
+                    try
+                    {
+                        if(driver != null)
+                        {
+                            driver.GetScreenshot().SaveAsFile($"{AppDomain.CurrentDomain.BaseDirectory}DebugScreenshot\\{DateTime.Now.ToString("异常-yy-MM-dd HHmmss")}.png");
+                            var debugHtmlPath = $"{AppDomain.CurrentDomain.BaseDirectory}DebugScreenshot\\{DateTime.Now.ToString("异常-yy-MM-dd HHmmss")}.html";
+                            FileExist(debugHtmlPath);
+                            using (StreamWriter sw = new StreamWriter(debugHtmlPath, true))
+                            {
+                                sw.WriteLine(driver.PageSource);
+                                sw.Dispose();
+                                sw.Close();
+                            }
+                        }
+                    }
+                    catch(Exception e)
+                    {
+
+                    }
+                   
+                }
+            }
+
         }
 
-        private static void FileExist(string fileName)
+        private void FileExist(string fileName)
         {
             //判断文件是否存在
             if (!File.Exists(fileName))
@@ -1177,10 +1291,29 @@ namespace Selenium
                 }
                 catch (Exception e)
                 {
-                    Logger.WriteLog(e.Message);
+                    //Logger.WriteLog(e.Message);
                 }
             }
         }
+
+
+        private void DirExist(string pathName)
+        {
+            //判断文件是否存在
+            if (!Directory.Exists(pathName))
+            {
+                //创建文件
+                try
+                {
+                    Directory.CreateDirectory(pathName);
+                }
+                catch (Exception e)
+                {
+                    WriteLog("创建目录失败：" + e.Message);
+                }
+            }
+        }
+
     }
 
 
