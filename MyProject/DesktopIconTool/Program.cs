@@ -16,13 +16,12 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
-using static DesktopIconTool.Helper;
+using DesktopIconTool.Helper;
 
 namespace DesktopIconTool
 {
     class Program
     {
-        private static Mutex mutex;
 
         [STAThread]
         static void Main(string[] args)
@@ -31,12 +30,17 @@ namespace DesktopIconTool
             //IsHasWindowActive();
 
             //单例程序
-            if (SingleProcess())
+            if (ProgramTool.SingleProcess("DesktopIconTool"))
                 return;
 
             Console.Title = "DesktopIconTool";
-            while(!ShowWindow(FindWindow(null, "DesktopIconTool"), 0)){
+            while(!Win32Helper.ShowWindow(Win32Helper.FindWindow(null, "DesktopIconTool"), 0)){
 
+            }
+
+            if (Properties.Settings.Default.StartUp)
+            {
+                ProgramTool.StartUp();
             }
 
             Application.EnableVisualStyles();
@@ -44,33 +48,9 @@ namespace DesktopIconTool
             Application.Run(new IconTool());
 
 
-
-            //隐藏控制台窗口
-            //while (!ShowWindow(FindWindow(null, "DesktopIconTool"), 0))
-            //{
-
-            //}
-            //Console.ReadLine();
-            
-            mutex.ReleaseMutex();
+            ProgramTool.ReleaseSingleProcess();
         }
-          
-
-
-        [DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
-        static extern bool ShowWindow(IntPtr hWnd, uint nCmdShow);
-        [DllImport("user32.dll", EntryPoint = "FindWindow", SetLastError = true)]
-        public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        static bool SingleProcess()
-        {
-            mutex = new Mutex(true, "DesktopIconTool");
-            if (!mutex.WaitOne(0, false))
-            {
-                return true;
-            }
-            return false;
-        }
+  
 
     }
 
@@ -79,27 +59,9 @@ namespace DesktopIconTool
     public partial class IconTool : ApplicationContext
     {
 
-        ResourceManager rm;
-
-        Config _config;
         public IconTool()
         {
-
-            //string serverIP = ConfigurationManager.AppSettings["StartUp"];
-            //string dataBase = ConfigurationManager.AppSettings["IsRun"];
-            //string user = ConfigurationManager.AppSettings["HiddenToolBar"];
-            //string password = ConfigurationManager.AppSettings["GifSpeed"];
-
-            Helper.rm = rm = Resources.ResourceManager;
-            //Helper.LoadConfig(rm.GetObject($"config").ToString());
-            Helper.LoadConfig();
-            _config = Helper.config;
-
-            if (_config.StartUp)
-            {
-                Helper.StartUp();
-            }
-
+       
             InitializeComponent();
             MouseMoveTask();
             AutoHiddenDesktopIconAndTaskBarThread();
@@ -110,7 +72,12 @@ namespace DesktopIconTool
 
 
         public static bool ShowDesktopIcon = false;
-        public POINT CurrentMousePoint = new POINT(0, 0);
+        public POINT CurrentMousePoint = new POINT(0, 0); //记录当前鼠标的位置
+        int curTimes = 0; //鼠标未移动的时间计数
+        readonly int Times = 10; //定义鼠标未移动多少秒后隐藏图标
+        public Action MousePointChanged = delegate { };
+        List<Icon> icons = new List<Icon>(); //循环替换程序Icon，实现动图效果
+        int IconRefreshTimeSpan = 100; //刷新图标的间隔，ms 
 
         /// <summary>
         ///监控鼠标位置 线程
@@ -121,7 +88,7 @@ namespace DesktopIconTool
             Task.Run(() => {
                 while (true)
                 {
-                    Helper.GetCursorPos(out POINT lpPoint);
+                    Win32Helper.GetCursorPos(out POINT lpPoint);
                     if (lpPoint.X != CurrentMousePoint.X || lpPoint.Y != CurrentMousePoint.Y)
                     {
                         MousePointChanged();
@@ -155,9 +122,9 @@ namespace DesktopIconTool
                     }
                     ShowDesktopIcon = false;
                     ShowHiddenIcon(false); //隐藏
-                    if (_config.HiddenToolBar)
+                    if (Properties.Settings.Default.HiddenToolBar)
                     {
-                        if (!Helper.IsHasWindowActive())
+                        if (!Win32Helper.IsHasWindowActive())
                         {
                             ShowTaskbar(false);
                         }
@@ -168,21 +135,11 @@ namespace DesktopIconTool
         }
 
         /// <summary>
-        /// 鼠标未移动的时间
-        /// </summary>
-        int curTimes = 0;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        readonly int Times = 10;
-
-        /// <summary>
         /// 鼠标位置发生变化
         /// </summary>
         public void MousePointChange()
         {
-            if (_config.IsRun)
+            if (Properties.Settings.Default.IsRun)
             {
                 curTimes = 0;
             }
@@ -195,37 +152,39 @@ namespace DesktopIconTool
             {
                 ShowDesktopIcon = true;
                 ShowHiddenIcon(true);//显示桌面图标
-                if (_config.HiddenToolBar) 
+                if (Properties.Settings.Default.HiddenToolBar) 
                 {
                     ShowTaskbar(true); //显示任务栏
                 }
             }
         }
 
-        public Action MousePointChanged = delegate { };
-
+        /// <summary>
+        /// 显示或隐藏图标
+        /// </summary>
+        /// <param name="isShow"></param>
         private static void ShowHiddenIcon(bool isShow)
         {
 
             // 遍历顶级窗口
-            EnumWindows((hwnd, lParam) =>
+            Win32Helper.EnumWindows((hwnd, lParam) =>
             {
                 // 找到第一个 WorkerW 窗口，此窗口中有子窗口 SHELLDLL_DefView，所以先找子窗口
-                var shellDll = FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null);
+                var shellDll = Win32Helper.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null);
                 if (shellDll != IntPtr.Zero)
                 {
                     // 找到当前第一个 WorkerW 窗口的，后一个窗口，及第二个 WorkerW 窗口。
                     //IntPtr tempHwnd = Win32Func.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
 
-                    IntPtr Idesk1 = FindWindowEx(shellDll, IntPtr.Zero, "SysListView32", "FolderView"); //获取桌面 
+                    IntPtr Idesk1 = Win32Helper.FindWindowEx(shellDll, IntPtr.Zero, "SysListView32", "FolderView"); //获取桌面 
 
 
                     //Win32Func.ShowWindow(Idesk, b % 5);  //value=5时显示，value=0时隐藏
                     int value = isShow ? 5 : 0;
-                    ShowWindow(Idesk1, value);  //value=5时显示，value=0时隐藏
+                    Win32Helper.ShowWindow(Idesk1, value);  //value=5时显示，value=0时隐藏
                 }
                 return true;
-            }, IntPtr.Zero.ToInt32());
+            }, IntPtr.Zero);
 
         }
 
@@ -235,70 +194,71 @@ namespace DesktopIconTool
         /// <param name="Taskbar"></param>
         private static void ShowTaskbar(bool Taskbar)
         {
-            IntPtr trayHwnd = FindWindow("Shell_TrayWnd", null);
+            IntPtr trayHwnd = Win32Helper.FindWindow("Shell_TrayWnd", null);
             if (trayHwnd != IntPtr.Zero)
             {
                 //ShowWindow(desktopPtr, );//隐藏桌面图标 （0是隐藏，1是显示）
-                ShowWindow(trayHwnd, Taskbar ? 1 : 0);//隐藏任务栏（0是隐藏，1是显示）
+                Win32Helper.ShowWindow(trayHwnd, Taskbar ? 1 : 0);//隐藏任务栏（0是隐藏，1是显示）
                 //ShowWindow(hStar, );//隐藏windows 按钮
             }
         }
 
-
-        [DllImport("User32.dll", EntryPoint = "FindWindow")]
-        public extern static IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        [DllImport("user32.dll", EntryPoint = "ShowWindow", CharSet = CharSet.Auto)]
-        public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
-
-        [DllImport("user32.dll", EntryPoint = "FindWindowEx", SetLastError = true)]
-        static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
-
-
-        public delegate bool EnumWindowsCallback(IntPtr hwnd, int lParam);
-        [DllImport("user32.dll")]
-        private static extern int EnumWindows(EnumWindowsCallback callPtr, int lParam);
-
+   
         private void 运行ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
-                _config.IsRun = true;
+                Properties.Settings.Default.IsRun = true;
             }
             else
             {
-                _config.IsRun = false;
+                Properties.Settings.Default.IsRun = false;
             }
-            Helper.SaveConfig();
+            Properties.Settings.Default.Save();
 
+        }
+
+        private void 插件管理ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(PluginManageWin.Instacne == null)
+            {
+                PluginManageWin.CreateInstance();
+                PluginManageWin.Instacne.Show();
+            }
+            else
+            {
+                PluginManageWin.Instacne.Activate();
+            }
         }
 
         private void 隐藏任务栏ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
-                _config.HiddenToolBar = true;
+                Properties.Settings.Default.HiddenToolBar = true;
             }
             else
             {
-                _config.HiddenToolBar = false;
+                Properties.Settings.Default.HiddenToolBar = false;
             }
-            Helper.SaveConfig();
+            Properties.Settings.Default.Save();
+
         }
 
         private void 开机启动ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
             {
-                Helper.StartUp();
-                _config.StartUp = true;
+                ProgramTool.StartUp();
+                Properties.Settings.Default.StartUp = true;
             }
             else
             {
-                Helper.CancelStartUp();
-                _config.StartUp = false;
+                ProgramTool.CancelStartUp();
+                Properties.Settings.Default.StartUp = false;
             }
-            Helper.SaveConfig();
+            Properties.Settings.Default.Save();
+
         }
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -308,7 +268,6 @@ namespace DesktopIconTool
             Application.Exit();
         }
 
-        List<Icon> icons = new List<Icon>();
 
         /// <summary>
         /// 循环icon实现动态icon 线程
@@ -318,7 +277,7 @@ namespace DesktopIconTool
             for (int i = 0; i < 18; i++)
             {
                 //icons.Add(new Icon(AppDomain.CurrentDomain.BaseDirectory + "icons\\" + (i + 1) + ".ico"));
-                icons.Add((Icon)rm.GetObject($"_{i + 1}"));
+                icons.Add((Icon)Resources.ResourceManager.GetObject($"_{i + 1}"));
             }
 
             Task.Run(() =>
@@ -337,7 +296,6 @@ namespace DesktopIconTool
             });
         }
 
-        int IconRefreshTimeSpan = 100; //ms
         private void Speend_Click(object sender, EventArgs e)
         {
             ((ToolStripMenuItem)SpeedMenuItem.DropDownItems[0]).Checked = false;
@@ -349,24 +307,25 @@ namespace DesktopIconTool
             if (item.Text == "起飞")
             {
                 IconRefreshTimeSpan = 5;
-                _config.GifSpeed = 3;
+                Properties.Settings.Default.GifSpeed = 3;
             }
             if (item.Text == "快")
             {
                 IconRefreshTimeSpan = 35;
-                _config.GifSpeed = 2;
+                Properties.Settings.Default.GifSpeed = 2;
             }
             if (item.Text == "正常")
             {
                 IconRefreshTimeSpan = 100;
-                _config.GifSpeed = 1;
+                Properties.Settings.Default.GifSpeed = 1;
             }
             if (item.Text == "慢")
             {
                 IconRefreshTimeSpan = 200;
-                _config.GifSpeed = 0;
+                Properties.Settings.Default.GifSpeed = 0;
             }
-            Helper.SaveConfig();
+            Properties.Settings.Default.Save();
+
         }
 
         /// <summary>
@@ -378,7 +337,8 @@ namespace DesktopIconTool
             {
                 while (true)
                 {
-                    var cpuUsage = Helper.GetCpuUsage();
+                    var cpuUsage = ProgramTool.GetCpuUsage();
+                    NotIcon.Text = $"cpu:{cpuUsage.ToString()}%";
                     Console.Write(cpuUsage);
                     if (0<= cpuUsage && cpuUsage <= 10)
                     {
@@ -429,12 +389,21 @@ namespace DesktopIconTool
                 }
             });
         }
+
     }
 
 
     public partial class IconTool
     {
-       
+        private NotifyIcon NotIcon { get; set; }
+        private ContextMenuStrip contextMenu;
+        private ToolStripMenuItem PluginMangageMenuItem;
+        private ToolStripMenuItem PluginsMenuItem;
+        private ToolStripMenuItem RunMenuItem;
+        private ToolStripMenuItem StartUpMenuItem;
+        private ToolStripMenuItem ExitMenuItem;
+        private ToolStripMenuItem HiddenTaskBarMenuItem;
+        private ToolStripMenuItem SpeedMenuItem;
 
         #region Windows 窗体设计器生成的代码
 
@@ -445,13 +414,14 @@ namespace DesktopIconTool
         private void InitializeComponent()
         {
 
+            PluginMangageMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             RunMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             StartUpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             HiddenTaskBarMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             SpeedMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
-            if (_config.IsRun)
+            if (Properties.Settings.Default.IsRun)
             {
                 RunMenuItem.Checked = true;
             }
@@ -460,7 +430,7 @@ namespace DesktopIconTool
             RunMenuItem.Text = "运行";
             RunMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
 
-            if (_config.StartUp)
+            if (Properties.Settings.Default.StartUp)
             {
                 StartUpMenuItem.Checked = true;
             }
@@ -471,6 +441,9 @@ namespace DesktopIconTool
        
             ExitMenuItem.Text = "退出";
             ExitMenuItem.Click += new System.EventHandler(this.退出ToolStripMenuItem_Click);
+
+            PluginMangageMenuItem.Text = "插件管理";
+            PluginMangageMenuItem.Click += new System.EventHandler(this.插件管理ToolStripMenuItem_Click);
 
             SpeedMenuItem.Text = "速度";
             SpeedMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { 
@@ -497,7 +470,7 @@ namespace DesktopIconTool
             SpeedMenuItem.DropDownItems[1].Click += Speend_Click; 
             SpeedMenuItem.DropDownItems[2].Click += Speend_Click; 
             SpeedMenuItem.DropDownItems[3].Click += Speend_Click;
-            switch (_config.GifSpeed)
+            switch (Properties.Settings.Default.GifSpeed)
             {
                 case 0: (SpeedMenuItem.DropDownItems[3] as ToolStripMenuItem).Checked = true; break;
                 case 1: (SpeedMenuItem.DropDownItems[2] as ToolStripMenuItem).Checked = true; break;
@@ -506,7 +479,7 @@ namespace DesktopIconTool
             }
 
 
-            if (_config.HiddenToolBar)
+            if (Properties.Settings.Default.HiddenToolBar)
             {
                 HiddenTaskBarMenuItem.Checked = true;
             }
@@ -517,6 +490,7 @@ namespace DesktopIconTool
             contextMenu = new ContextMenuStrip(new Container());
             contextMenu.Items.AddRange(new ToolStripItem[] 
             {
+                PluginMangageMenuItem,
                 SpeedMenuItem,
                 HiddenTaskBarMenuItem,
                 RunMenuItem,
@@ -536,412 +510,16 @@ namespace DesktopIconTool
         }
 
 
- 
+
+
+
 
         #endregion
 
-        private NotifyIcon NotIcon { get; set; }
-        private ContextMenuStrip contextMenu;
-        private ToolStripMenuItem RunMenuItem;
-        private ToolStripMenuItem StartUpMenuItem;
-        private ToolStripMenuItem ExitMenuItem;
-        private ToolStripMenuItem HiddenTaskBarMenuItem;
-        private ToolStripMenuItem SpeedMenuItem;
+      
     }
 
 
-
-    public class Helper
-    {
-        [DllImport("user32.dll")]
-        public static extern bool GetCursorPos(out POINT lpPoint);
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
-        {
-            public int X;
-            public int Y;
-            public POINT(int x, int y)
-            {
-                this.X = x;
-                this.Y = y;
-            }
-        }
-
-        /// <summary>
-        /// 开机启动
-        /// </summary>
-        public static void StartUp()
-        {
-            //获取程序执行路径..
-            string starupPath = AppDomain.CurrentDomain.BaseDirectory + Assembly.GetExecutingAssembly().GetName().Name + ".exe";
-            //class Micosoft.Win32.RegistryKey. 表示Window注册表中项级节点,此类是注册表装.
-            //RegistryKey loca = Registry.LocalMachine;
-            RegistryKey loca = Registry.CurrentUser;
-            RegistryKey run = loca.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run");
-
-            try
-            {
-                //SetValue:存储值的名称
-                run.SetValue("DesktopIconHidden", starupPath);
-                loca.Close();
-            }
-            catch (Exception ee)
-            {
-                //throw ee;
-            }
-        }
-
-        /// <summary>
-        /// 取消开机启动
-        /// </summary>
-        public static void CancelStartUp()
-        {
-            //获取程序执行路径..
-            string starupPath = AppDomain.CurrentDomain.BaseDirectory + Assembly.GetExecutingAssembly().GetName().Name + ".exe";
-            //class Micosoft.Win32.RegistryKey. 表示Window注册表中项级节点,此类是注册表装.
-            //RegistryKey loca = Registry.LocalMachine;
-            RegistryKey loca = Registry.CurrentUser;
-            RegistryKey run = loca.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run");
-
-            try
-            {
-                //SetValue:存储值的名称
-                run.DeleteValue("DesktopIconHidden");
-                loca.Close();
-            }
-            catch (Exception ee)
-            {
-                //throw ee;
-            }
-        }
-
-        #region 当前是否有激活窗口
-        private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        private static extern bool EnumWindows(EnumWindowsCallback lpEnumFunc, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        private static extern bool IsWindowVisible(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool IsIconic(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
-
-        [DllImport("user32.dll")]
-        private static extern long GetWindowLong(IntPtr hWnd, int nIndex);
-
-        private static bool EnumWindowsCallbackMethod(IntPtr hWnd, IntPtr lParam)
-        {
-            // 检查窗口是否可见和非最小化
-            if (IsWindowVisible(hWnd) && !IsIconic(hWnd))
-            {
-                // 获取窗口标题
-                const int MaxWindowTitleLength = 256;
-                StringBuilder windowTitleBuilder = new StringBuilder(MaxWindowTitleLength);
-                GetWindowText(hWnd, windowTitleBuilder, MaxWindowTitleLength);
-
-                // 输出窗口标题和进程名
-                Console.WriteLine("窗口标题: " + windowTitleBuilder.ToString());
-                uint processId;
-                GetWindowThreadProcessId(hWnd, out processId);
-                Process process = Process.GetProcessById((int)processId);
-                Console.WriteLine("进程名: " + process.ProcessName);
-                Console.WriteLine("-----------------------------------------");
-
-                // 如果有任何窗口是激活或非最小化状态，则返回 true
-                if (hWnd == GetForegroundWindow())
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT
-        {
-            public int Left; //最左坐标
-            public int Top; //最上坐标
-            public int Right; //最右坐标
-            public int Bottom; //最下坐标
-        }
-
-        public static Rectangle GetWindowLocationSize(IntPtr h)
-        {
-            RECT fx = new RECT();
-            GetWindowRect(h, ref fx);//h为窗口句柄
-            int width = fx.Right - fx.Left;                        //窗口的宽度
-            int height = fx.Bottom - fx.Top;                   //窗口的高度
-            int x = fx.Left;
-            int y = fx.Top;
-            return new Rectangle(x, y, width, height);
-        }
-
-
-        const int GWL_EXSTYLE = (-20); //扩展窗口样式
-        const int GWL_STYLE = (-16); //窗口样式
-        const uint WS_VISIBLE = 0x10000000;
-
-        public static bool IsHasWindowActive()
-        {
-            //var style = GetWindowLong(hwnd, GWL.GWL_EXSTYLE);
-
-            //List<IntPtr> WindowHandleList = new List<IntPtr>();
-            List<Process> Processlist = new List<Process>();
-            List<WindowInfo> WindowInfolist = new List<WindowInfo>();
-            // 获取所有进程
-            Process[] processes = Process.GetProcesses();
-
-            // 遍历每个进程并检查MainWindowHandle属性
-            foreach (Process process in processes)
-            {
-                IntPtr mainWindowHandle = process.MainWindowHandle;
-
-                // 如果MainWindowHandle不为空，则表示该进程有前台窗口
-                if (mainWindowHandle != IntPtr.Zero)
-                {
-                    //Console.WriteLine("进程名称: {0}   ", process.ProcessName);
-                    //Console.WriteLine("窗口标题: {0}   ", process.MainWindowTitle);
-                    //Processlist.Add(process);
-                    //Console.WriteLine("显示状态: {0}   ", IsWindowVisible(mainWindowHandle));
-                    //Console.WriteLine("最小化: {0}   ", IsIconic(mainWindowHandle));
-                    //var exstyle = GetWindowLong(mainWindowHandle, GWL_EXSTYLE);
-                    //var style = GetWindowLong(mainWindowHandle, GWL_STYLE);
-                    //Console.WriteLine("Exstyle: {0}   ", exstyle);
-                    //Console.WriteLine("Style: {0}   ", style);
-                    //bool bVisible = (GetWindowLong(mainWindowHandle, GWL_STYLE) & WS_VISIBLE) != 0;
-                    //Console.WriteLine("bVisible: {0}   ", bVisible);
-                    //Console.WriteLine("");
-
-                    WindowInfo windowInfo = new WindowInfo()
-                    {
-                        Process = process.ProcessName,
-                        Title = process.MainWindowTitle,
-                        Handle = process.MainWindowHandle,
-                        IsMinimize = IsIconic(mainWindowHandle),
-                        Exstyle = GetWindowLong(mainWindowHandle, GWL_EXSTYLE),
-                        Style = GetWindowLong(mainWindowHandle, GWL_STYLE),
-                        //Rect = GetWindowLocationSize(mainWindowHandle),
-                    };
-                    WindowInfolist.Add(windowInfo);
-                }
-            }
-
-            foreach (var wi in WindowInfolist)
-            {
-                if(wi.Title == "媒体播放器" || string.IsNullOrWhiteSpace(wi.Title))
-                {
-                    continue;
-                }
-                if(wi.Style == 6777995264)
-                {
-                    continue;
-                }
-                if (!wi.IsMinimize)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-        #endregion
-
-
-        static PerformanceCounter cpuCounter = new PerformanceCounter("Processor Information", "% Processor Utility", "_Total");
-
-        /// <summary>
-        /// 获取CPU使用率
-        /// </summary>
-        /// <returns></returns>
-        public static int GetCpuUsage()
-        {
-            //PerformanceCounter cpuCounter;
-            //PerformanceCounter ramCounter;
-            //cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            //cpuCounter = new PerformanceCounter("Processor Information", "% Processor Utility", "_Total");
-            //ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-            //return ramCounter.NextValue() + "MB";
-            return (int)cpuCounter.NextValue();
-        }
-     
-        private static string _configPath = AppDomain.CurrentDomain.BaseDirectory + "config.config";
-        public static Config config;
-        public static ResourceManager rm;
-        public static void SaveConfig()
-        {
-            //using (XmlTextWriter xw = new XmlTextWriter(_configPath, Encoding.Default))
-            //{
-            //    xw.Formatting = Formatting.Indented;
-            //    xw.IndentChar = '\t';
-            //    xw.Indentation = 1;
-            //    try
-            //    {
-            //        XmlSerializer seriesr = new XmlSerializer(config.GetType());
-            //        seriesr.Serialize(xw, config);
-            //    }
-            //    catch (Exception e)
-            //    {
-            //        throw e.InnerException;
-            //    }
-            //}
-
-
-            /*
-            Stream sm = new MemoryStream();
-            using (XmlTextWriter xw = new XmlTextWriter(sm, Encoding.Default))
-            {
-                xw.Formatting = Formatting.Indented;
-                xw.IndentChar = '\t';
-                xw.Indentation = 1;
-                try
-                {
-                    XmlSerializer seriesr = new XmlSerializer(config.GetType());
-                    seriesr.Serialize(xw, config);
-                }
-                catch (Exception e)
-                {
-                    throw e.InnerException;
-                }
-
-                var value = StreamToStr(sm);
-                UpdateResource(value);
-            }
-            */
-         
-            Properties.Settings.Default.StartUp = config.StartUp;
-            Properties.Settings.Default.IsRun = config.IsRun;
-            Properties.Settings.Default.HiddenToolBar = config.HiddenToolBar;
-            Properties.Settings.Default.GifSpeed = config.GifSpeed;
-            Properties.Settings.Default.Save();
-
-        }
-
-        static void UpdateResource(string value)
-        {
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.Load(rm.BaseName);
-            XmlNodeList xnlist = xmlDoc.GetElementsByTagName("data");//这个data是固定
-            foreach (XmlNode node in xnlist)
-            {
-                if (node.Attributes != null)
-                {
-                    if (node.Attributes["xml:space"].Value == "preserve")//这个preserve也是固定的
-                    {
-                        if (node.Attributes["name"].Value == "config")//String1是你想要编辑的
-                        {
-                            node.InnerText = value;//给他赋值就OK了
-                        }
-                    }
-                }
-            }
-            xmlDoc.Save(rm.BaseName);//别忘记保存
-        }
-
-        public static void LoadConfig()
-        {
-            //try
-            //{
-            //    //rm.GetObject($"config");
-            //    var serializer = new XmlSerializer(typeof(Config));
-            //    //var fs = new FileStream(_configPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            //    var stm = strToStream(configStr);
-            //    config = (Config)serializer.Deserialize(stm);
-            //    stm.Close();
-            //}
-            //catch (Exception e)
-            //{
-            //    Console.WriteLine(e);
-            //    config = Config.Instacnce;
-            //}
-
-            config = new Config()
-            {
-                StartUp = Properties.Settings.Default.StartUp,
-                IsRun = Properties.Settings.Default.IsRun,
-                HiddenToolBar = Properties.Settings.Default.HiddenToolBar,
-                GifSpeed = Properties.Settings.Default.GifSpeed
-            };
-          
-        }
-
-        static Stream strToStream(string xml)
-        {
-            //string test = “This is string″;
-
-            // convert string to stream
-            MemoryStream stream = new MemoryStream();
-            StreamWriter writer = new StreamWriter(stream);
-            writer.Write(xml);
-            writer.Flush();
-
-            stream.Position = 0;
-            //or 
-            //stream.Seek(0, SeekOrigin.Begin);
-            return stream;
-
-            //// convert stream to string
-            //stream.Position = 0;
-            //StreamReader reader = new StreamReader(stream);
-            //string text = reader.ReadToEnd();
-        }
-
-        static string StreamToStr(Stream stream)
-        {
-            //// convert stream to string
-            stream.Position = 0;
-            StreamReader reader = new StreamReader(stream);
-            string xmlStr = reader.ReadToEnd();
-            return xmlStr;
-        }
-
-    }
-
-    [Serializable]
-    public class Config
-    {
-
-        public static Config Instacnce = new Config();
-
-        public bool StartUp { get; set; } = true;
-
-        public bool IsRun { get; set; } = true;
-
-        public bool HiddenToolBar { get; set; } = false;
-
-        public int GifSpeed { get; set; } = 1;
-    }
-
-
-    public class WindowInfo
-    {
-        public string Process { get; set; }
-
-        public string Title { get; set; }
-
-        public IntPtr Handle { get; set; }
-
-        public bool IsMinimize { get; set; }
-
-        public long Exstyle { get; set; }
-        
-        public long Style { get; set; }
-
-        public Rectangle Rect { get; set; }
-    }
+   
 }
 
