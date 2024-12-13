@@ -43,16 +43,18 @@ namespace SMSService.Helper
         }
 
 
-        private static string GetCode(string cont)
+        public static string GetCode(string cont)
         {
-            //string input = "我的字符串包含6位连续的数字123456，还有其他数字，例如78901234567890";
-            string pattern = @"\b\d{6}\b"; // 匹配6位连续的数字  
+            string input = "我的字符串包含6位连续的数字123456，还有其他数字，例如78901234567890";
+            //string pattern = @"\b\d{6}\b"; // 匹配6位连续的数字  
+            string pattern = @"\d{6}"; // 匹配6位连续的数字  
 
             // 创建正则表达式对象  
             Regex regex = new Regex(pattern);
 
             // 匹配字符串中的6位数字  
-            Match match = regex.Match(cont);
+            //Match match = regex.Match(input);
+            Match match = Regex.Match(input, pattern);
 
             // 如果找到匹配项，则输出数字  
             if (match.Success)

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SMSService.DataBase;
+using SMSService.Helper;
 using SMSService.Models;
 using SMSService.Server;
 
@@ -16,7 +17,8 @@ namespace SMSService
         static void Main(string[] args)
         {
 
-
+            //SMSHeler.GetCode("腾讯科技你正在修改QQ的密保手机，验证码580947。提供给他人会导致QQ被盗，若非本人操作，请修改密码。");
+            SMSHeler.GetCode("sdasd580947gasga");
             HttpServer httpServer = new HttpServer();
             httpServer.StartUp();
 
