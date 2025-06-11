@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoWeb.Server", "VideoWeb.Server\VideoWeb.Server.csproj", "{854AD973-5BB2-4358-88E4-DDE9EFDA1CB5}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "videoweb.client", "videoweb.client\videoweb.client.esproj", "{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{854AD973-5BB2-4358-88E4-DDE9EFDA1CB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{854AD973-5BB2-4358-88E4-DDE9EFDA1CB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{854AD973-5BB2-4358-88E4-DDE9EFDA1CB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{854AD973-5BB2-4358-88E4-DDE9EFDA1CB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDB6C408-12AF-4A5B-B0D9-DC86A06F15EA}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3EF02CB1-CCE6-4080-9AA2-752451A76946}
+	EndGlobalSection
+EndGlobal
