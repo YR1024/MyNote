@@ -8,13 +8,14 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>SkipDrama_YuanShen</RootNamespace>
     <AssemblyName>SkipDrama_YuanShen</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -44,9 +45,6 @@
     </Reference>
     <Reference Include="AForge.Math, Version=2.2.5.0, Culture=neutral, PublicKeyToken=abba2e25397ee8c9, processorArchitecture=MSIL">
       <HintPath>..\packages\AForge.Math.2.2.5\lib\AForge.Math.dll</HintPath>
-    </Reference>
-    <Reference Include="Emgu.CV.World">
-      <HintPath>..\MyProject\AutoQQSignIn\AutoQQSignIn\bin\Debug\Emgu.CV.World.dll</HintPath>
     </Reference>
     <Reference Include="SimWinGamePad, Version=1.1.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SimWinGamePad.1.1.1\lib\net40\SimWinGamePad.dll</HintPath>
@@ -82,7 +80,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Hotkey.cs" />
-    <Compile Include="ImageRecognition.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

@@ -17,7 +17,6 @@ namespace SkipDrama_YuanShen
         public MainWindow()
         {
             //ImageRecognition.Test();
-            EmguCVImageRecognition.Test();
             InitializeComponent();
             SimGamePad.Instance.Initialize(); //
             SimGamePad.Instance.PlugIn();
