@@ -1,4 +1,5 @@
-﻿using SimWinInput;
+﻿using SharpDX.XInput;
+using SimWinInput;
 using System;
 using System.ComponentModel;
 using System.Threading;
@@ -14,6 +15,11 @@ namespace SkipDrama_YuanShen
     /// </summary>
     public partial class MainWindow : Window
     {
+
+        // 在 MainWindow 类中添加字段
+        Controller controller = new Controller(UserIndex.One);
+        bool lastButtonState = false;
+
         public MainWindow()
         {
             //ImageRecognition.Test();
@@ -22,14 +28,68 @@ namespace SkipDrama_YuanShen
             SimGamePad.Instance.PlugIn();
             Closing += MainWindow_Closing;
 
+
+            // 启动手柄监听
+            StartGamepadHotkeyListener();
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             Hotkey.UnRegist(new WindowInteropHelper(this).Handle, HotKeyPressd);
+            Hotkey.UnRegist(new WindowInteropHelper(this).Handle, GamePadHotKey);
             //UnregisterHotkey();
-            SimGamePad.Instance.Unplug();
+            SimGamePad.Instance.Unplug();//拔下虚拟 GamePad
             SimGamePad.Instance.ShutDown();
+        }
+
+
+        /// <summary>
+        /// 监听手柄A键长按3秒
+        /// </summary>
+        private void StartGamepadHotkeyListener()
+        {
+            //return;
+            Task.Run(() =>
+            {
+                bool isAPressed = false;
+                DateTime aPressedStart = DateTime.MinValue;
+
+                while (true)
+                {
+                    if (controller.IsConnected)
+                    {
+                        var state = controller.GetState();
+                        bool currentAPressed = (state.Gamepad.Buttons & GamepadButtonFlags.A) != 0;
+
+                        if (currentAPressed)
+                        {
+                            if (!isAPressed)
+                            {
+                                // 第一次按下A键，记录时间
+                                aPressedStart = DateTime.Now;
+                                isAPressed = true;
+                            }
+                            else
+                            {
+                                // 已经按下，判断是否超过3秒
+                                if ((DateTime.Now - aPressedStart).TotalSeconds >= 3)
+                                {
+                                    // 只触发一次
+                                    this.Dispatcher.Invoke(() => HotKeyPressd());
+                                    // 避免重复触发，直到松开再允许
+                                    isAPressed = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // 松开A键，重置状态
+                            isAPressed = false;
+                        }
+                    }
+                    Thread.Sleep(50); // 轮询间隔
+                }
+            });
         }
 
 
@@ -67,6 +127,16 @@ namespace SkipDrama_YuanShen
         }
 
 
+
+        public void GamePadHotKey()
+        {
+            SimGamePad.Instance.Use(GamePadControl.A, 0, 3000);
+        }
+
+
+        /// <summary>
+        /// 热键（快捷键）触发事件
+        /// </summary>
         public void HotKeyPressd()
         {
             if (hasStoped)
@@ -99,6 +169,7 @@ namespace SkipDrama_YuanShen
         protected override void OnSourceInitialized(EventArgs e)
         {
             Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemQuestion, HotKeyPressd);
+            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.M, GamePadHotKey);
             //Hotkey.UnRegist(new WindowInteropHelper(this).Handle, () =>
             //{
             //    Console.WriteLine("取消快捷键");
