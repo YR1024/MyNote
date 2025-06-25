@@ -17,6 +17,8 @@ using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
 using DesktopIconTool.Helper;
+using static DesktopIconTool.Helper.TaskbarStyle;
+using TaskbarHook;
 
 namespace DesktopIconTool
 {
@@ -34,9 +36,11 @@ namespace DesktopIconTool
                 return;
 
             Console.Title = "DesktopIconTool";
-            while(!Win32Helper.ShowWindow(Win32Helper.FindWindow(null, "DesktopIconTool"), 0)){
-
-            }
+            //var handle = Win32Helper.FindWindow(null, "DesktopIconTool");
+            //while (!Win32Helper.ShowWindow(Win32Helper.FindWindow(null, "DesktopIconTool"), 0))
+            //{
+            //    //var handle2 = Win32Helper.FindWindow(null, "DesktopIconTool");
+            //}
 
             if (Properties.Settings.Default.StartUp)
             {
@@ -245,6 +249,34 @@ namespace DesktopIconTool
 
         }
 
+        private void 任务栏透明ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ((ToolStripMenuItem)TaskBarTransparentMenuItem.DropDownItems[0]).Checked = false;
+            ((ToolStripMenuItem)TaskBarTransparentMenuItem.DropDownItems[1]).Checked = false;
+            ((ToolStripMenuItem)TaskBarTransparentMenuItem.DropDownItems[2]).Checked = false;
+            var item = (System.Windows.Forms.ToolStripMenuItem)sender;
+            item.Checked = true;
+            if (item.Text == "默认")
+            {
+                Properties.Settings.Default.TransparentTaskBar = 0;
+                TaskbarStyle.SetTaskbarTransparency(AccentState.ACCENT_DISABLED);
+            }
+            if (item.Text == "透明")
+            {
+                Properties.Settings.Default.TransparentTaskBar = 1;
+                TaskbarStyle.SetTaskbarTransparency(AccentState.ACCENT_ENABLE_TRANSPARENTGRADIENT);
+                TaskbarStyle.SetTaskbarTransparency(AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND);
+            }
+            if (item.Text == "亚克力")
+            {
+                Properties.Settings.Default.TransparentTaskBar = 2;
+                TaskbarStyle.SetTaskbarTransparency(AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND);
+                TaskbarStyle.SetTaskbarTransparency(AccentState.ACCENT_ENABLE_BLURBEHIND);
+            }
+            Properties.Settings.Default.Save();
+        }
+
+
         private void 开机启动ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
@@ -296,43 +328,12 @@ namespace DesktopIconTool
             });
         }
 
-        private void Speend_Click(object sender, EventArgs e)
-        {
-            ((ToolStripMenuItem)SpeedMenuItem.DropDownItems[0]).Checked = false;
-            ((ToolStripMenuItem)SpeedMenuItem.DropDownItems[1]).Checked = false;
-            ((ToolStripMenuItem)SpeedMenuItem.DropDownItems[2]).Checked = false;
-            ((ToolStripMenuItem)SpeedMenuItem.DropDownItems[3]).Checked = false;
-            var item = (System.Windows.Forms.ToolStripMenuItem)sender;
-            item.Checked = true;
-            if (item.Text == "起飞")
-            {
-                IconRefreshTimeSpan = 5;
-                Properties.Settings.Default.GifSpeed = 3;
-            }
-            if (item.Text == "快")
-            {
-                IconRefreshTimeSpan = 35;
-                Properties.Settings.Default.GifSpeed = 2;
-            }
-            if (item.Text == "正常")
-            {
-                IconRefreshTimeSpan = 100;
-                Properties.Settings.Default.GifSpeed = 1;
-            }
-            if (item.Text == "慢")
-            {
-                IconRefreshTimeSpan = 200;
-                Properties.Settings.Default.GifSpeed = 0;
-            }
-            Properties.Settings.Default.Save();
-
-        }
-
         /// <summary>
         /// 刷新获取CPU使用率 线程
         /// </summary>
         void UpDateCpuUsageTask() 
         {
+            LaunchInTaskBar();
             Task.Run(() =>
             {
                 while (true)
@@ -390,6 +391,13 @@ namespace DesktopIconTool
             });
         }
 
+        private async void LaunchInTaskBar()
+        {
+            var taskbar = TaskBarFactory.GetTaskbar();
+            var process = await taskbar.AddToTaskbar();
+            process.SetPosition(0, 0);
+        }
+
     }
 
 
@@ -403,7 +411,7 @@ namespace DesktopIconTool
         private ToolStripMenuItem StartUpMenuItem;
         private ToolStripMenuItem ExitMenuItem;
         private ToolStripMenuItem HiddenTaskBarMenuItem;
-        private ToolStripMenuItem SpeedMenuItem;
+        private ToolStripMenuItem TaskBarTransparentMenuItem;
 
         #region Windows 窗体设计器生成的代码
 
@@ -419,80 +427,85 @@ namespace DesktopIconTool
             StartUpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             HiddenTaskBarMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            SpeedMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            TaskBarTransparentMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
-            if (Properties.Settings.Default.IsRun)
             {
-                RunMenuItem.Checked = true;
-            }
-            RunMenuItem.CheckOnClick = true;
-            //RunMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            RunMenuItem.Text = "运行";
-            RunMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
-
-            if (Properties.Settings.Default.StartUp)
-            {
-                StartUpMenuItem.Checked = true;
-            }
-            StartUpMenuItem.CheckOnClick = true;
-            //StartUpMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            StartUpMenuItem.Text = "开机启动";
-            StartUpMenuItem.Click += new System.EventHandler(this.开机启动ToolStripMenuItem_Click);
-       
-            ExitMenuItem.Text = "退出";
-            ExitMenuItem.Click += new System.EventHandler(this.退出ToolStripMenuItem_Click);
-
-            PluginMangageMenuItem.Text = "插件管理";
-            PluginMangageMenuItem.Click += new System.EventHandler(this.插件管理ToolStripMenuItem_Click);
-
-            SpeedMenuItem.Text = "速度";
-            SpeedMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { 
-                new System.Windows.Forms.ToolStripMenuItem()
+                if (Properties.Settings.Default.IsRun)
                 {
-                    Text = "起飞",
-                },
-                new System.Windows.Forms.ToolStripMenuItem()
-                {
-                    Text = "快",
-                },
-                new System.Windows.Forms.ToolStripMenuItem()
-                {
-                    Text = "正常",
-
-                    //Checked = true,
-                },
-                new System.Windows.Forms.ToolStripMenuItem()
-                {
-                    Text = "慢",
-                },
-            });
-            SpeedMenuItem.DropDownItems[0].Click += Speend_Click; 
-            SpeedMenuItem.DropDownItems[1].Click += Speend_Click; 
-            SpeedMenuItem.DropDownItems[2].Click += Speend_Click; 
-            SpeedMenuItem.DropDownItems[3].Click += Speend_Click;
-            switch (Properties.Settings.Default.GifSpeed)
-            {
-                case 0: (SpeedMenuItem.DropDownItems[3] as ToolStripMenuItem).Checked = true; break;
-                case 1: (SpeedMenuItem.DropDownItems[2] as ToolStripMenuItem).Checked = true; break;
-                case 2: (SpeedMenuItem.DropDownItems[1] as ToolStripMenuItem).Checked = true; break;
-                case 3: (SpeedMenuItem.DropDownItems[0] as ToolStripMenuItem).Checked = true; break;
+                    RunMenuItem.Checked = true;
+                }
+                RunMenuItem.CheckOnClick = true;
+                //RunMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+                RunMenuItem.Text = "运行";
+                RunMenuItem.Click += new System.EventHandler(this.运行ToolStripMenuItem_Click);
             }
 
 
-            if (Properties.Settings.Default.HiddenToolBar)
             {
-                HiddenTaskBarMenuItem.Checked = true;
+                if (Properties.Settings.Default.StartUp)
+                {
+                    StartUpMenuItem.Checked = true;
+                }
+                StartUpMenuItem.CheckOnClick = true;
+                //StartUpMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+                StartUpMenuItem.Text = "开机启动";
+                StartUpMenuItem.Click += new System.EventHandler(this.开机启动ToolStripMenuItem_Click);
             }
-            HiddenTaskBarMenuItem.CheckOnClick = true;
-            HiddenTaskBarMenuItem.Text = "隐藏任务栏";
-            HiddenTaskBarMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
+
+            {
+                ExitMenuItem.Text = "退出";
+                ExitMenuItem.Click += new System.EventHandler(this.退出ToolStripMenuItem_Click);
+            }
+
+            {
+                PluginMangageMenuItem.Text = "插件管理";
+                PluginMangageMenuItem.Click += new System.EventHandler(this.插件管理ToolStripMenuItem_Click);
+            }        
+
+            {
+                if (Properties.Settings.Default.HiddenToolBar)
+                {
+                    HiddenTaskBarMenuItem.Checked = true;
+                }
+                HiddenTaskBarMenuItem.CheckOnClick = true;
+                HiddenTaskBarMenuItem.Text = "隐藏任务栏";
+                HiddenTaskBarMenuItem.Click += new System.EventHandler(this.隐藏任务栏ToolStripMenuItem_Click);
+            }
+
+            {
+                TaskBarTransparentMenuItem.Text = "任务栏透明";
+                TaskBarTransparentMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                    new System.Windows.Forms.ToolStripMenuItem()
+                    {
+                        Text = "默认",
+                    },
+                    new System.Windows.Forms.ToolStripMenuItem()
+                    {
+                        Text = "透明",
+                    },
+                    new System.Windows.Forms.ToolStripMenuItem()
+                    {
+                        Text = "亚克力",
+                    },
+                });
+                TaskBarTransparentMenuItem.DropDownItems[0].Click += 任务栏透明ToolStripMenuItem_Click;
+                TaskBarTransparentMenuItem.DropDownItems[1].Click += 任务栏透明ToolStripMenuItem_Click;
+                TaskBarTransparentMenuItem.DropDownItems[2].Click += 任务栏透明ToolStripMenuItem_Click;
+                switch (Properties.Settings.Default.TransparentTaskBar)
+                {
+                    case 0: (TaskBarTransparentMenuItem.DropDownItems[0] as ToolStripMenuItem).Checked = true; break;
+                    case 1: (TaskBarTransparentMenuItem.DropDownItems[1] as ToolStripMenuItem).Checked = true; break;
+                    case 2: (TaskBarTransparentMenuItem.DropDownItems[2] as ToolStripMenuItem).Checked = true; break;
+                }
+            }
+           
 
             contextMenu = new ContextMenuStrip(new Container());
             contextMenu.Items.AddRange(new ToolStripItem[] 
             {
                 PluginMangageMenuItem,
-                SpeedMenuItem,
                 HiddenTaskBarMenuItem,
+                TaskBarTransparentMenuItem,
                 RunMenuItem,
                 StartUpMenuItem,
                 ExitMenuItem

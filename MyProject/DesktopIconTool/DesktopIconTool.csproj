@@ -65,6 +65,9 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\Demo\人脸相似度识别\sdk\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.AppContext, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\..\packages\System.AppContext.4.3.0\lib\net463\System.AppContext.dll</HintPath>
@@ -202,9 +205,13 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
+    <Reference Include="TaskbarHook, Version=1.2.0.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\TaskBarHook.1.2.5\lib\net45\TaskbarHook.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helper\ProgramTool.cs" />
+    <Compile Include="Helper\TaskbarEffect.cs" />
     <Compile Include="Helper\Win32Helper.cs" />
     <Compile Include="PluginManageWin.cs">
       <SubType>Form</SubType>

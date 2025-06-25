@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -13,6 +14,21 @@ namespace DesktopIconTool
     public partial class PluginManageWin : Form
     {
         private List<PluginModel> pluginList = new List<PluginModel>();
+        public List<PluginModel> PluginModels
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Properties.Settings.Default.Plugins))
+                {
+                    return new List<PluginModel>();
+                }
+                return JsonConvert.DeserializeObject<List<PluginModel>>(Properties.Settings.Default.Plugins);
+            }
+            set
+            {
+                Properties.Settings.Default.Plugins = JsonConvert.SerializeObject(value);
+            }
+        }
 
         public static PluginManageWin Instacne;
         private PluginManageWin()
@@ -21,9 +37,9 @@ namespace DesktopIconTool
             GridStyle();
 
             // 加载保存的 pluginList 到 dataGridView1
-            if (Properties.Settings.Default.Plugins != null)
+            if (PluginModels != null)
             {
-                pluginList = Properties.Settings.Default.Plugins;
+                pluginList = PluginModels;
                 UpdateDataGridView();
             }
             FormClosed += PluginManageWin_FormClosed;
@@ -75,7 +91,7 @@ namespace DesktopIconTool
             // 更新 dataGridView1 的显示
             UpdateDataGridView();
             // 保存 pluginList 到 Properties.Settings.Default.Plugins
-            Properties.Settings.Default.Plugins = pluginList;
+            PluginModels = pluginList;
             Properties.Settings.Default.Save();
         }
 
@@ -109,7 +125,7 @@ namespace DesktopIconTool
                 UpdateDataGridView();
 
                 // 保存 pluginList 到 Properties.Settings.Default.Plugins
-                Properties.Settings.Default.Plugins = pluginList;
+                PluginModels = pluginList;
                 Properties.Settings.Default.Save();
             }
         }

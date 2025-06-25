@@ -14,7 +14,10 @@
     <Setting Name="GifSpeed" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">1</Value>
     </Setting>
-    <Setting Name="Plugins" Type="System.Int64" Scope="User">
+    <Setting Name="Plugins" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="TransparentTaskBar" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
   </Settings>
