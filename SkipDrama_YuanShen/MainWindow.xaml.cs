@@ -1,7 +1,9 @@
-﻿using SharpDX.XInput;
+﻿using HidSharp;
+using SharpDX.XInput;
 using SimWinInput;
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,27 +19,39 @@ namespace SkipDrama_YuanShen
     {
 
         // 在 MainWindow 类中添加字段
+        State previousState = new State();
+        State currentState = new State();
         Controller controller = new Controller(UserIndex.One);
-        bool lastButtonState = false;
 
         public MainWindow()
         {
-            //ImageRecognition.Test();
             InitializeComponent();
+
             SimGamePad.Instance.Initialize(); //
             SimGamePad.Instance.PlugIn();
-            Closing += MainWindow_Closing;
-
-
-            // 启动手柄监听
             StartGamepadHotkeyListener();
+
+            Loaded += MainWindow_Loaded;
+            // 启动手柄监听
+            Closing += MainWindow_Closing;
         }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            ListenXboxControllerByHID();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            // 注册热键
+            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemQuestion, HotKeyPressd);
+        }
+
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
+            // 注销热键
             Hotkey.UnRegist(new WindowInteropHelper(this).Handle, HotKeyPressd);
-            Hotkey.UnRegist(new WindowInteropHelper(this).Handle, GamePadHotKey);
-            //UnregisterHotkey();
             SimGamePad.Instance.Unplug();//拔下虚拟 GamePad
             SimGamePad.Instance.ShutDown();
         }
@@ -89,6 +103,39 @@ namespace SkipDrama_YuanShen
                     }
                     Thread.Sleep(50); // 轮询间隔
                 }
+
+
+
+                {
+                    /*
+                    // 获取控制器状态
+                    controller.GetState(out currentState);
+
+                    // 检查按钮状态
+                    if (previousState.Gamepad.Buttons != currentState.Gamepad.Buttons)
+                    {
+                        // 按键状态发生了改变
+                        if (currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
+                        {
+                            // A 按钮按下
+                            Console.WriteLine("A 按钮按下");
+                        }
+                        else if (currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A) && !previousState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
+                        {
+                            // A 按钮按住不放
+                            Console.WriteLine("A 按钮按住不放");
+                        }
+                        else if (!currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A) && previousState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
+                        {
+                            // A 按钮释放
+                            Console.WriteLine("A 按钮释放");
+                        }
+
+                        // 更新上一次的状态
+                        previousState = currentState;
+                    }
+                    */
+                }
             });
         }
 
@@ -96,6 +143,9 @@ namespace SkipDrama_YuanShen
         bool startLoop = false;
         bool hasStoped = true;
         int loopCount = 0;
+        /// <summary>
+        /// 循环点击 手柄 A键
+        /// </summary>
         void LoopClickGamePadTask()
         {
             startLoop = true;
@@ -118,7 +168,8 @@ namespace SkipDrama_YuanShen
                     //SimGamePad.Instance.Use(GamePadControl.RightStickLeft);
 
                     loopCount++;
-                    this.Dispatcher.Invoke(() => {
+                    this.Dispatcher.Invoke(() =>
+                    {
                         count.Text = $"{loopCount}";
                     });
                 }
@@ -127,11 +178,6 @@ namespace SkipDrama_YuanShen
         }
 
 
-
-        public void GamePadHotKey()
-        {
-            SimGamePad.Instance.Use(GamePadControl.A, 0, 3000);
-        }
 
 
         /// <summary>
@@ -147,12 +193,14 @@ namespace SkipDrama_YuanShen
             else
             {
                 startLoop = false;
-                Task.Run(() => {
+                Task.Run(() =>
+                {
                     while (!hasStoped)
                     {
                         Thread.Sleep(5);
                     }
-                    this.Dispatcher.Invoke(() => {
+                    this.Dispatcher.Invoke(() =>
+                    {
                         info.Text = "暂停";
                         count.Text = "";
                     });
@@ -164,42 +212,56 @@ namespace SkipDrama_YuanShen
         }
 
 
-        #region 快捷键
-
-        protected override void OnSourceInitialized(EventArgs e)
+        #region HID 方式监听手柄
+        void ListenXboxControllerByHID()
         {
-            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemQuestion, HotKeyPressd);
-            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.M, GamePadHotKey);
-            //Hotkey.UnRegist(new WindowInteropHelper(this).Handle, () =>
-            //{
-            //    Console.WriteLine("取消快捷键");
-            //    System.Windows.MessageBox.Show("取消快捷键");
+            // 1. 查找 Xbox 手柄设备
+            var devices = DeviceList.Local.GetHidDevices();
+            var xboxController = devices.FirstOrDefault(d =>
+                d.VendorID == 0x045E && d.ProductID == 0x0B13 // 0x0B13为Xbox Series手柄，其他型号请查实际PID
+            );
 
-            //});
+            if (xboxController == null)
+            {
+                Console.WriteLine("未找到Xbox手柄。");
+                return;
+            }
+
+            // 2. 打开输入流
+            using (var stream = xboxController.Open())
+            {
+                byte[] buffer = new byte[xboxController.MaxInputReportLength];
+                Console.WriteLine("开始监听手柄输入...");
+                while (true)
+                {
+                    int count = stream.Read(buffer, 0, buffer.Length);
+                    if (count > 0)
+                    {
+                        // 3. 解析报文，查找“分享键”状态
+                        bool sharePressed = IsShareButtonPressed(buffer);
+                        if (sharePressed)
+                        {
+                            Console.WriteLine("分享键被按下！");
+                        }
+                    }
+                }
+            }
         }
 
-        //private GlobalHotkey hotkey;
-
-        //public void RegisterHotkey()
-        //{
-        //    hotkey = new GlobalHotkey(new WindowInteropHelper(this).Handle, 1);
-        //    hotkey.HotkeyPressed += Hotkey_HotkeyPressed;
-        //}
-
-        //private void Hotkey_HotkeyPressed(object sender, HotkeyEventArgs e)
-        //{
-        //    // 处理全局热键按下事件
-        //    if (e.Modifiers == ModifierKeys.Control && e.Key == Key.F12)
-        //    {
-        //        // 在这里执行你的自定义操作
-        //        System.Windows.MessageBox.Show("全局热键 Ctrl + F12 被按下了");
-        //    }
-        //}
-
-        //private void UnregisterHotkey()
-        //{
-        //    hotkey.UnregisterHotkey();
-        //}
+        // 解析HID报文，判断“分享键”状态
+        static bool IsShareButtonPressed(byte[] report)
+        {
+            // 以Xbox Series手柄为例，USB有线模式下
+            // 通常第4字节的bit4为“分享键”
+            // 具体bit位置请用HID工具抓包确认
+            // 例如: report[4] & 0x10 != 0
+            if (report.Length > 4)
+            {
+                return (report[4] & 0x10) != 0;
+            }
+            return false;
+        }
         #endregion
+
     }
 }
