@@ -1,14 +1,21 @@
-﻿using HidSharp;
+﻿using Device.Net;
+using Hid.Net.Windows;
+using Microsoft.Extensions.Logging;
 using SharpDX.XInput;
 using SimWinInput;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using WpfApp2;
+
 
 namespace SkipDrama_YuanShen
 {
@@ -19,8 +26,6 @@ namespace SkipDrama_YuanShen
     {
 
         // 在 MainWindow 类中添加字段
-        State previousState = new State();
-        State currentState = new State();
         Controller controller = new Controller(UserIndex.One);
 
         public MainWindow()
@@ -29,8 +34,7 @@ namespace SkipDrama_YuanShen
 
             SimGamePad.Instance.Initialize(); //
             SimGamePad.Instance.PlugIn();
-            StartGamepadHotkeyListener();
-
+            StartGamepadHotkeyListener2();
             Loaded += MainWindow_Loaded;
             // 启动手柄监听
             Closing += MainWindow_Closing;
@@ -38,15 +42,10 @@ namespace SkipDrama_YuanShen
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            ListenXboxControllerByHID();
-        }
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
+            //ListenGamepadHID();
             // 注册热键
             Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemQuestion, HotKeyPressd);
         }
-
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
@@ -58,84 +57,113 @@ namespace SkipDrama_YuanShen
 
 
         /// <summary>
-        /// 监听手柄A键长按3秒
+        /// 监听手柄左扳机 + X 键组合（按住超过 0.5 秒触发一次）
         /// </summary>
-        private void StartGamepadHotkeyListener()
+        private void StartGamepadHotkeyListener2()
         {
-            //return;
             Task.Run(() =>
             {
-                bool isAPressed = false;
-                DateTime aPressedStart = DateTime.MinValue;
+                bool isComboPressed = false;    // 当前是否处于“按下”状态（用于记录按下时刻）
+                bool hasTriggered = false;      // 本次按住是否已触发过事件（触发后必须松开才能再次触发）
+
+                bool isLeftPressed = false;      // 左键是否处于“按下”状态（用于记录按下时刻）
+                bool lhasTriggered = false;      // 本次按住是否已触发过事件（触发后必须松开才能再次触发）
+                DateTime comboPressedStart = DateTime.MinValue;
+                DateTime leftPressedStart = DateTime.MinValue;
+
+                const byte leftTriggerThreshold = 30; // 阈值，可按需调整 (0-255)
+                const double holdSecondsToTrigger = 0.05; // 持续时间阈值
 
                 while (true)
                 {
-                    if (controller.IsConnected)
+                    try
                     {
-                        var state = controller.GetState();
-                        bool currentAPressed = (state.Gamepad.Buttons & GamepadButtonFlags.A) != 0;
-
-                        if (currentAPressed)
+                        if (controller.IsConnected)
                         {
-                            if (!isAPressed)
+                            var state = controller.GetState();
+
+                            bool leftTriggerActive = state.Gamepad.LeftTrigger > leftTriggerThreshold;
+                            bool xButtonPressed = (state.Gamepad.Buttons & GamepadButtonFlags.X) != 0;
+
+                            bool currentCombo = leftTriggerActive && xButtonPressed;
+                           
+
+                            if (currentCombo)
                             {
-                                // 第一次按下A键，记录时间
-                                aPressedStart = DateTime.Now;
-                                isAPressed = true;
+                                if (!isComboPressed)
+                                {
+                                    // 第一次检测到组合按下，记录时间
+                                    comboPressedStart = DateTime.Now;
+                                    isComboPressed = true;
+                                }
+                                else if (!hasTriggered)
+                                {
+                                    // 已处于按住状态且尚未触发过，判断是否超过阈值时长
+                                    if ((DateTime.Now - comboPressedStart).TotalSeconds >= holdSecondsToTrigger)
+                                    {
+                                        // 触发一次，并标记已触发，直到松开任意键才允许下一次触发
+                                        this.Dispatcher.Invoke(() => HotKeyPressd());
+                                        hasTriggered = true;
+                                    }
+                                }
+                                // 如果 hasTriggered 已为 true，则保持等待释放，不重复触发
                             }
                             else
                             {
-                                // 已经按下，判断是否超过3秒
-                                if ((DateTime.Now - aPressedStart).TotalSeconds >= 3)
+                                // 组合松开（任意一个键松开），重置状态，允许下一次触发
+                                isComboPressed = false;
+                                hasTriggered = false;
+                            }
+
+
+                            #region 左键截图
+                            bool lButtonPressed = (state.Gamepad.Buttons & GamepadButtonFlags.DPadLeft) != 0;
+                            bool isScreenshot = false;
+                            this.Dispatcher.Invoke(() => {
+                                isScreenshot = screenshotChkBox.IsChecked.Value;
+                            });
+                            if (lButtonPressed && isScreenshot)
+                            {
+                                if (!isLeftPressed)
                                 {
-                                    // 只触发一次
-                                    this.Dispatcher.Invoke(() => HotKeyPressd());
-                                    // 避免重复触发，直到松开再允许
-                                    isAPressed = false;
+                                    // 第一次检测到组合按下，记录时间
+                                    leftPressedStart = DateTime.Now;
+                                    isLeftPressed = true;
+                                }
+                                else if (!lhasTriggered)
+                                {
+                                    // 已处于按住状态且尚未触发过，判断是否超过阈值时长
+                                    if ((DateTime.Now - leftPressedStart).TotalSeconds >= holdSecondsToTrigger)
+                                    {
+                                        // 触发一次，并标记已触发，直到松开任意键才允许下一次触发
+                                        //SimKeyboard.KeyDown(18); //alt
+                                        //SimKeyboard.KeyDown(112);  //f1
+                                        //SimKeyboard.KeyUp(112);
+                                        //SimKeyboard.KeyUp(18);
+                                        ScreenshotHelper.Screenshot();
+                                        lhasTriggered = true;
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            // 松开A键，重置状态
-                            isAPressed = false;
+                            else
+                            {
+                                // 组合松开（任意一个键松开），重置状态，允许下一次触发
+                                isLeftPressed = false;
+                                lhasTriggered = false;
+                            }
+
+                            #endregion
+
                         }
                     }
-                    Thread.Sleep(50); // 轮询间隔
-                }
-
-
-
-                {
-                    /*
-                    // 获取控制器状态
-                    controller.GetState(out currentState);
-
-                    // 检查按钮状态
-                    if (previousState.Gamepad.Buttons != currentState.Gamepad.Buttons)
+                    catch
                     {
-                        // 按键状态发生了改变
-                        if (currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
-                        {
-                            // A 按钮按下
-                            Console.WriteLine("A 按钮按下");
-                        }
-                        else if (currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A) && !previousState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
-                        {
-                            // A 按钮按住不放
-                            Console.WriteLine("A 按钮按住不放");
-                        }
-                        else if (!currentState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A) && previousState.Gamepad.Buttons.HasFlag(GamepadButtonFlags.A))
-                        {
-                            // A 按钮释放
-                            Console.WriteLine("A 按钮释放");
-                        }
-
-                        // 更新上一次的状态
-                        previousState = currentState;
+                        // 忽略临时读取异常，继续轮询
                     }
-                    */
+
+                    Thread.Sleep(5); // 轮询间隔
                 }
+
             });
         }
 
@@ -178,8 +206,6 @@ namespace SkipDrama_YuanShen
         }
 
 
-
-
         /// <summary>
         /// 热键（快捷键）触发事件
         /// </summary>
@@ -212,55 +238,113 @@ namespace SkipDrama_YuanShen
         }
 
 
-        #region HID 方式监听手柄
-        void ListenXboxControllerByHID()
-        {
-            // 1. 查找 Xbox 手柄设备
-            var devices = DeviceList.Local.GetHidDevices();
-            var xboxController = devices.FirstOrDefault(d =>
-                d.VendorID == 0x045E && d.ProductID == 0x0B13 // 0x0B13为Xbox Series手柄，其他型号请查实际PID
-            );
 
-            if (xboxController == null)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #region HidLibrary
+        private IDevice _gamepadDevice;
+
+        private async void ListenGamepadHID()
+        {
+            // 替换为您的手柄 VendorId 和 ProductId
+            var filter = new FilterDeviceDefinition(vendorId: 0x045E, productId: 0x02FF, usagePage: 0x01, label: "Xbox Controller");
+            var factory = filter.CreateWindowsHidDeviceFactory(loggerFactory: null, writeBufferSize: 100);
+
+            var devices = (await factory.GetConnectedDeviceDefinitionsAsync()).ToList();
+            if (devices.Count == 0)
             {
-                Console.WriteLine("未找到Xbox手柄。");
+                MessageBox.Show("未找到手柄设备");
                 return;
             }
 
-            // 2. 打开输入流
-            using (var stream = xboxController.Open())
+            _gamepadDevice = await factory.GetDeviceAsync(devices.First());
+            await _gamepadDevice.InitializeAsync();
+
+            // 持续读取数据
+            _ = Task.Run(async () =>
             {
-                byte[] buffer = new byte[xboxController.MaxInputReportLength];
-                Console.WriteLine("开始监听手柄输入...");
                 while (true)
                 {
-                    int count = stream.Read(buffer, 0, buffer.Length);
-                    if (count > 0)
+                    var readResult = await _gamepadDevice.ReadAsync();
+                    if (readResult.Data != null && readResult.Data.Length > 0)
                     {
-                        // 3. 解析报文，查找“分享键”状态
-                        bool sharePressed = IsShareButtonPressed(buffer);
-                        if (sharePressed)
+                        // 解析按键数据（具体格式需参考手柄 HID 报告描述符）
+                        Dispatcher.Invoke(() =>
                         {
-                            Console.WriteLine("分享键被按下！");
-                        }
+                            // 示例：显示原始数据
+                            info.Text = BitConverter.ToString(readResult.Data);
+                        });
                     }
+                    await Task.Delay(10);
                 }
-            }
+            });
         }
 
-        // 解析HID报文，判断“分享键”状态
-        static bool IsShareButtonPressed(byte[] report)
-        {
-            // 以Xbox Series手柄为例，USB有线模式下
-            // 通常第4字节的bit4为“分享键”
-            // 具体bit位置请用HID工具抓包确认
-            // 例如: report[4] & 0x10 != 0
-            if (report.Length > 4)
-            {
-                return (report[4] & 0x10) != 0;
-            }
-            return false;
-        }
+        //private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        //{
+        //    ListenGamepadHID();
+        //}
+
+        #endregion
+
+
+        #region RawInputHid
+        //private RawInputHidListener _listener;
+
+        //protected override void OnSourceInitialized(EventArgs e)
+        //{
+        //    base.OnSourceInitialized(e);
+
+        //    var hwnd = new WindowInteropHelper(this).Handle;
+
+        //    _listener = new RawInputHidListener(hwnd);
+        //    _listener.HidReport += OnHidReport;
+
+        //    _listener.Start();
+        //    Debug.WriteLine("RawInput HID listener started.");
+        //}
+
+        //private void OnHidReport(object sender, HidReportEventArgs e)
+        //{
+        //    // 这里就是你后续解析 Share 键/按键位的地方
+        //    // 你现在可以先只打印报文（不要在这里做耗时工作）
+        //    Debug.WriteLine($"HID Report: bytes={e.Report.Length}, data={BitConverter.ToString(e.Report)}");
+
+        //    // 示例：如果你要判断某个 bit，就在这里做：
+        //    if (e.Report.Length > 4 && (e.Report[12] & 0x08) != 0) 
+        //    {
+        //        //SimKeyboard.Press((byte)'q');
+        //        SimKeyboard.KeyDown(18); //alt
+        //        SimKeyboard.KeyDown(112);  //f1
+        //        SimKeyboard.KeyUp(112);
+        //        SimKeyboard.KeyUp(18);
+        //    }
+        //}
+        ////HID Report: bytes=16, data=00-43-85-84-80-05-7D-66-86-00-80-00-08-00-00-00 //Share键按下
+        ////HID Report: bytes=16, data=00-43-85-84-80-05-7D-66-86-00-80-00-00-00-00-00
+        ////HID Report: bytes=16, data=00-43-85-84-80-05-7D-66-86-00-80-00-04-00-00-00 //西瓜键按下
+        ////HID Report: bytes=16, data=00-43-85-84-80-05-7D-66-86-00-80-00-00-00-00-00
+        //protected override void OnClosed(EventArgs e)
+        //{
+        //    base.OnClosed(e);
+        //    if (_listener != null)
+        //    {
+        //        _listener.Dispose();
+        //        _listener = null;
+        //    }
+        //}
         #endregion
 
     }

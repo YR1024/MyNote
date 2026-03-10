@@ -11,10 +11,11 @@
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBlock Text="快捷键：Ctrl + ?/" FontSize="16" Margin="0 0 0 20"/>
             <TextBlock FontSize="14">
-          <Run Text="当前任务状态："/>
-          <Run x:Name="info" FontSize="16" FontWeight="Bold" Text="暂停"/>
-          <Run x:Name="count" Text=""/>
+                <Run Text="当前任务状态："/>
+                <Run x:Name="info" FontSize="16" FontWeight="Bold" Text="暂停"/>
+                <Run x:Name="count" Text=""/>
             </TextBlock>
+            <CheckBox x:Name="screenshotChkBox" Content="左键截图" Margin="0 20"/>
         </StackPanel>
     </Grid>
 </Window>
