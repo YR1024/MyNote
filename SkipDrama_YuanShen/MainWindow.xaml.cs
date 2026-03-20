@@ -83,6 +83,25 @@ namespace SkipDrama_YuanShen
                             var state = controller.GetState();
 
                             bool leftTriggerActive = state.Gamepad.LeftTrigger > leftTriggerThreshold;
+
+                            // --- LT 按住触发宏的逻辑 ---
+                            if (leftTriggerActive && !_isLtMacroRunning)
+                            {
+                                // 刚刚按下 LT，开始执行宏
+                                _isLtMacroRunning = true;
+                                _ltMacroCts = new CancellationTokenSource();
+
+                                this.Dispatcher.Invoke(() => { info.Text = "执行大招宏"; });
+                                StartLTMacroTask(_ltMacroCts.Token);
+                            }
+                            else if (!leftTriggerActive && _isLtMacroRunning)
+                            {
+                                // 松开了 LT，立即中止宏
+                                _isLtMacroRunning = false;
+                                _ltMacroCts?.Cancel(); // 触发 Cancellation，打断全部 Task.Delay
+                            }
+                            // ---------------------------
+
                             bool xButtonPressed = (state.Gamepad.Buttons & GamepadButtonFlags.X) != 0;
 
                             bool currentCombo = leftTriggerActive && xButtonPressed;
@@ -241,7 +260,102 @@ namespace SkipDrama_YuanShen
 
 
 
+        #region 火神双玛头
+        // 控制 LT 宏的取消令牌
+        private CancellationTokenSource _ltMacroCts;
+        // 标记宏是否正在运行
+        private bool _isLtMacroRunning = false;
+        
+        /// <summary>
+        /// 模拟手柄按键按下
+        /// </summary>
+        private void SimGamepadButtonDown(GamePadControl button)
+        {
+            // 默认给 0 号控制器（第一个手柄）发送按下指令
+            SimGamePad.Instance.SetControl(button, 0);
+        }
 
+        /// <summary>
+        /// 模拟手柄按键抬起
+        /// </summary>
+        private void SimGamepadButtonUp(GamePadControl button)
+        {
+            // 默认给 0 号控制器（第一个手柄）发送松开指令
+            SimGamePad.Instance.ReleaseControl(button, 0);
+        }
+
+        /// <summary>
+        /// 强制释放宏中用到的所有按键（防止中断时按键卡死）
+        /// </summary>
+        private void ReleaseAllMacroButtons()
+        {
+            SimGamepadButtonUp(GamePadControl.RightShoulder); // RB 抬起
+            SimGamepadButtonUp(GamePadControl.B);             // B 抬起
+        }
+        /// <summary>
+        /// 循环执行：原神大招拾取宏
+        /// </summary>
+        private void StartLTMacroTask(CancellationToken token)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        // 1. RB ↓ -> 200ms
+                        SimGamepadButtonDown(GamePadControl.RightShoulder);
+                        await Task.Delay(200, token);
+
+                        // 2. B ↓ -> 50ms
+                        SimGamepadButtonDown(GamePadControl.B);
+                        await Task.Delay(50, token);
+
+                        // 3. B ↑ -> 70ms
+                        SimGamepadButtonUp(GamePadControl.B);
+                        await Task.Delay(70, token);
+
+                        // 4. RB ↑ -> 50ms
+                        SimGamepadButtonUp(GamePadControl.RightShoulder);
+                        await Task.Delay(50, token);
+
+                        // 5. RB ↓ -> 200ms
+                        SimGamepadButtonDown(GamePadControl.RightShoulder);
+                        await Task.Delay(200, token);
+
+                        // 6. B ↓ -> 50ms
+                        SimGamepadButtonDown(GamePadControl.B);
+                        await Task.Delay(50, token);
+
+                        // 7. B ↑ -> 1050ms
+                        SimGamepadButtonUp(GamePadControl.B);
+                        await Task.Delay(1050, token);
+
+                        // 8. RB ↑
+                        SimGamepadButtonUp(GamePadControl.RightShoulder);
+
+                        // 给一个极短的缓冲时间，防止死循环占用过高 CPU
+                        await Task.Delay(10, token);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    // 捕获到取消异常，说明用户松开了 LT，属于正常打断逻辑
+                }
+                finally
+                {
+                    // 无论宏是正常结束还是被打断，必须确保按键被释放
+                    ReleaseAllMacroButtons();
+
+                    // 可选：在 UI 上更新状态
+                    this.Dispatcher.Invoke(() =>
+                    {
+                        info.Text = "宏已停止";
+                    });
+                }
+            }, token);
+        }
+        #endregion
 
 
 
