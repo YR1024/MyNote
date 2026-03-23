@@ -18,7 +18,8 @@ using System.Xml;
 using System.Xml.Serialization;
 using DesktopIconTool.Helper;
 using static DesktopIconTool.Helper.TaskbarStyle;
-using TaskbarHook;
+using ScheduleReminder;
+
 
 namespace DesktopIconTool
 {
@@ -29,18 +30,18 @@ namespace DesktopIconTool
         static void Main(string[] args)
         {
 
-            //IsHasWindowActive();
+            //Win32Helper.IsHasWindowActive();
 
             //单例程序
             if (ProgramTool.SingleProcess("DesktopIconTool"))
                 return;
 
             Console.Title = "DesktopIconTool";
-            //var handle = Win32Helper.FindWindow(null, "DesktopIconTool");
-            //while (!Win32Helper.ShowWindow(Win32Helper.FindWindow(null, "DesktopIconTool"), 0))
-            //{
-            //    //var handle2 = Win32Helper.FindWindow(null, "DesktopIconTool");
-            //}
+#if !DEBUG
+            while (!Win32Helper.ShowWindow(Win32Helper.FindWindow(null, "DesktopIconTool"), 0))
+            {
+            }
+#endif
 
             if (Properties.Settings.Default.StartUp)
             {
@@ -62,46 +63,103 @@ namespace DesktopIconTool
 
     public partial class IconTool : ApplicationContext
     {
-
+        IScheduleReminder scheduleReminder;
         public IconTool()
         {
-       
-            InitializeComponent();
-            MouseMoveTask();
-            AutoHiddenDesktopIconAndTaskBarThread();
-            SwitchIconTask();
-            UpDateCpuUsageTask();
-            MousePointChanged += MousePointChange;
+            try
+            {
+                scheduleReminder = new Schedule();
+                scheduleReminder.Start();
+                InitializeComponent();
+                AutoHiddenDesktopIconAndTaskBarThread();
+                SwitchIconTask();
+                UpDateCpuUsageTask();
+
+                //MouseMoveTask(); //改为Hook方式
+                HookTool.MouseMoved += MouseMoveEvent;
+                //HookTool.MouseLeftButtonDown += MouseLeftButtonDown;
+                HookTool.KeyDown += KeyDown;
+                HookTool.Start();
+                if (Properties.Settings.Default.KeyboardHookEnabled)
+                {
+                    HookTool.StartKeyboardHook();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+           
         }
+
+        private bool KeyDown(Keys keys, int downup)
+        {
+            Console.WriteLine("按键：" + keys);
+            //if (keys == Keys.Escape)
+            if (keys == Keys.LControlKey)
+            {
+
+                var hwnd = Win32Helper.GetForegroundWindow();
+                if (hwnd != IntPtr.Zero)
+                {
+                    StringBuilder title = new StringBuilder(MaxWindowTitleLength);
+                    Win32Helper.GetWindowText(hwnd, title, MaxWindowTitleLength);
+
+                    if (string.IsNullOrEmpty(title.ToString()))
+                    {
+                        string processName = Win32Helper.GetProcessNameFromHandle(hwnd);
+                        var Exstyle = Win32Helper.GetWindowLong(hwnd, -20);
+                        if (processName == "QQ" && Exstyle == 4295491976) //视频播放
+                        {
+                            Win32Helper.ResizeWindow(hwnd, 300, 300);
+                            return true;
+                        }
+                    }
+                    else if (title.ToString().Contains("的聊天记录"))
+                    {
+                        Win32Helper.SendMessage(hwnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return false;
+        }
+
+        //private async void MouseLeftButtonDown(int x, int y)
+        //{
+        //    await Task.Run(async () => {
+        //        await Task.Delay(1000);
+        //        var h = Win32Helper.GetForegroundWindow();
+        //        Console.WriteLine("窗口句柄：" + h);
+        //        Console.WriteLine("窗口句柄INT：" + h.ToInt32());
+        //    });
+          
+        //}
+
+        private async void MouseMoveEvent(int x, int y)
+        {
+            //Console.WriteLine("鼠标位置：" + x + " " + y);
+            await MousePointChange();
+            //CurrentMousePoint = new POINT(x, y);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            HookTool.Stop();
+            base.Dispose(disposing);
+        }
+
 
 
         public static bool ShowDesktopIcon = false;
-        public POINT CurrentMousePoint = new POINT(0, 0); //记录当前鼠标的位置
+        //public POINT CurrentMousePoint = new POINT(0, 0); //记录当前鼠标的位置
         int curTimes = 0; //鼠标未移动的时间计数
         readonly int Times = 10; //定义鼠标未移动多少秒后隐藏图标
-        public Action MousePointChanged = delegate { };
         List<Icon> icons = new List<Icon>(); //循环替换程序Icon，实现动图效果
         int IconRefreshTimeSpan = 100; //刷新图标的间隔，ms 
+        const int MaxWindowTitleLength = 256;
 
-        /// <summary>
-        ///监控鼠标位置 线程
-        /// </summary>
-        void MouseMoveTask()
-        {
-            //50ms 获取记录一次鼠标位置， 若位置发生变化则通知时间
-            Task.Run(() => {
-                while (true)
-                {
-                    Win32Helper.GetCursorPos(out POINT lpPoint);
-                    if (lpPoint.X != CurrentMousePoint.X || lpPoint.Y != CurrentMousePoint.Y)
-                    {
-                        MousePointChanged();
-                        CurrentMousePoint = lpPoint;
-                    }
-                    Thread.Sleep(50);
-                }
-            });
-        }
 
         /// <summary>
         /// 自动隐藏桌面图标和任务栏 线程
@@ -141,26 +199,25 @@ namespace DesktopIconTool
         /// <summary>
         /// 鼠标位置发生变化
         /// </summary>
-        public void MousePointChange()
+        public async Task MousePointChange()
         {
-            if (Properties.Settings.Default.IsRun)
+            await Task.Run(() =>
             {
-                curTimes = 0;
-            }
-            else
-            {
-                curTimes = int.MaxValue;
-            }
+                if (Properties.Settings.Default.IsRun)
+                    curTimes = 0;
+                else
+                    curTimes = int.MaxValue;
 
-            if (ShowDesktopIcon == false) //如果是隐藏则立马显现，如果是显示则不做操作
-            {
-                ShowDesktopIcon = true;
-                ShowHiddenIcon(true);//显示桌面图标
-                if (Properties.Settings.Default.HiddenToolBar) 
+                if (ShowDesktopIcon == false) //如果是隐藏则立马显现，如果是显示则不做操作
                 {
-                    ShowTaskbar(true); //显示任务栏
+                    ShowDesktopIcon = true;
+                    ShowHiddenIcon(true);//显示桌面图标
+                    if (Properties.Settings.Default.HiddenToolBar)
+                    {
+                        ShowTaskbar(true); //显示任务栏
+                    }
                 }
-            }
+            });
         }
 
         /// <summary>
@@ -246,8 +303,37 @@ namespace DesktopIconTool
                 Properties.Settings.Default.HiddenToolBar = false;
             }
             Properties.Settings.Default.Save();
-
         }
+
+
+
+        private void 键盘钩子ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (((System.Windows.Forms.ToolStripMenuItem)sender).Checked)
+            {
+                Properties.Settings.Default.KeyboardHookEnabled = true;
+            }
+            else
+            {
+                Properties.Settings.Default.KeyboardHookEnabled = false;
+            }
+            Properties.Settings.Default.Save();
+
+            if (Properties.Settings.Default.KeyboardHookEnabled)
+            {
+                HookTool.StartKeyboardHook();
+            }
+            else
+            {
+                HookTool.StopKeyboardHook();
+            }
+        }
+
+        private void 日程提醒ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            scheduleReminder.ShowWindow();
+        }
+
 
         private void 任务栏透明ToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -333,14 +419,13 @@ namespace DesktopIconTool
         /// </summary>
         void UpDateCpuUsageTask() 
         {
-            LaunchInTaskBar();
             Task.Run(() =>
             {
                 while (true)
                 {
                     var cpuUsage = ProgramTool.GetCpuUsage();
                     NotIcon.Text = $"cpu:{cpuUsage.ToString()}%";
-                    Console.Write(cpuUsage);
+                    //Console.Write(cpuUsage);
                     if (0<= cpuUsage && cpuUsage <= 10)
                     {
                         IconRefreshTimeSpan = 150;
@@ -391,13 +476,7 @@ namespace DesktopIconTool
             });
         }
 
-        private async void LaunchInTaskBar()
-        {
-            var taskbar = TaskBarFactory.GetTaskbar();
-            var process = await taskbar.AddToTaskbar();
-            process.SetPosition(0, 0);
-        }
-
+       
     }
 
 
@@ -412,6 +491,7 @@ namespace DesktopIconTool
         private ToolStripMenuItem ExitMenuItem;
         private ToolStripMenuItem HiddenTaskBarMenuItem;
         private ToolStripMenuItem TaskBarTransparentMenuItem;
+        private ToolStripMenuItem ExtensionMenuItem;
 
         #region Windows 窗体设计器生成的代码
 
@@ -428,6 +508,7 @@ namespace DesktopIconTool
             ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             HiddenTaskBarMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             TaskBarTransparentMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            ExtensionMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
             {
                 if (Properties.Settings.Default.IsRun)
@@ -461,6 +542,7 @@ namespace DesktopIconTool
                 PluginMangageMenuItem.Text = "插件管理";
                 PluginMangageMenuItem.Click += new System.EventHandler(this.插件管理ToolStripMenuItem_Click);
             }        
+
 
             {
                 if (Properties.Settings.Default.HiddenToolBar)
@@ -498,11 +580,31 @@ namespace DesktopIconTool
                     case 2: (TaskBarTransparentMenuItem.DropDownItems[2] as ToolStripMenuItem).Checked = true; break;
                 }
             }
-           
+
+            //扩展
+            {
+                ExtensionMenuItem.Text = "扩展";
+                ToolStripMenuItem qqMenuItem = new System.Windows.Forms.ToolStripMenuItem("键盘钩子(QQ聊天辅助)");
+                ExtensionMenuItem.DropDownItems.Add(qqMenuItem);
+                if (Properties.Settings.Default.KeyboardHookEnabled)
+                {
+                    qqMenuItem.Checked = true;
+                }
+                qqMenuItem.CheckOnClick = true;
+                qqMenuItem.Click += new System.EventHandler(this.键盘钩子ToolStripMenuItem_Click);
+
+                ToolStripMenuItem srMenuItem = new System.Windows.Forms.ToolStripMenuItem("日程提醒");
+                ExtensionMenuItem.DropDownItems.Add(srMenuItem);
+                srMenuItem.Click += new System.EventHandler(this.日程提醒ToolStripMenuItem_Click);
+
+
+            }
+
 
             contextMenu = new ContextMenuStrip(new Container());
             contextMenu.Items.AddRange(new ToolStripItem[] 
             {
+                ExtensionMenuItem,
                 PluginMangageMenuItem,
                 HiddenTaskBarMenuItem,
                 TaskBarTransparentMenuItem,

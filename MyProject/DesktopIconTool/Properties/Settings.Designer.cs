@@ -25,7 +25,7 @@ namespace DesktopIconTool.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool StartUp {
             get {
                 return ((bool)(this["StartUp"]));
@@ -92,6 +92,22 @@ namespace DesktopIconTool.Properties {
             }
             set {
                 this["TransparentTaskBar"] = value;
+            }
+        }
+
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool KeyboardHookEnabled
+        {
+            get
+            {
+                return ((bool)(this["KeyboardHookEnabled"]));
+            }
+            set
+            {
+                this["KeyboardHookEnabled"] = value;
             }
         }
     }
