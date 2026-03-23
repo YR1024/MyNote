@@ -10,6 +10,7 @@ namespace VideoWeb.Controllers
     {
         static string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video\\";
         static string avpath = path + "AV\\";
+        static string starVideoConfig = AppDomain.CurrentDomain.BaseDirectory + "StarVideoConfig.json";
 
         static List<VideoFile> VideoFiles = new List<VideoFile>();
 
@@ -27,6 +28,7 @@ namespace VideoWeb.Controllers
             ViewBag.ServerPath = avpath;
 
             VideoFiles.Clear();
+            var starVideos = GetStarVideo();
             foreach (FileInfo item in sortedFiles)
             {
                 var f = new VideoFile();
@@ -35,11 +37,46 @@ namespace VideoWeb.Controllers
                 f.LastWriteTime = item.LastWriteTime;
                 f.Size =(float)Math.Round(item.Length /1024f / 1024f /1024f, 2);
                 f.ReleatviePath = item.FullName.Substring(avpath.Length, item.FullName.Length - avpath.Length).Replace("\\","/");
+                f.IsStar = starVideos.Exists(s => s == f.FullPath);
                 VideoFiles.Add(f);
             }
             ViewBag.Videos = VideoFiles;
 
             return View();
+        }
+
+        List<string> GetStarVideo()
+        {
+            List<string> starVideo;
+            starVideo = JsonSerializeHelper.ReadJsonFile<List<string>>(starVideoConfig);
+            if (starVideo == null) { 
+                starVideo = new List<string>();
+            }
+            return starVideo;
+        }
+
+
+
+        [HttpGet]
+        public bool Star(string FilePath, bool IsStar)
+        {
+            List<string> starVideo = GetStarVideo()?? new List<string>();
+            if (IsStar)
+            {
+                if (!starVideo.Contains(FilePath))
+                {
+                    starVideo.Add(FilePath);
+                }
+            }
+            else
+            {
+                if (starVideo.Contains(FilePath))
+                {
+                    starVideo.Remove(FilePath);
+                }
+            }
+            JsonSerializeHelper.SaveObjectToJsonFile(starVideo, starVideoConfig);
+            return true;
         }
 
         [HttpGet]

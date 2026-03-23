@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -98,5 +99,44 @@ namespace VideoWeb.Helper
             }
         }
 
+
     }
+
+    public class JsonSerializeHelper
+    {
+        public static string SerializeObject(object obj)
+        {
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(obj);
+            return json;
+        }
+
+        public static T DeserializeObject<T>(string json)
+        {
+            T obj = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json);
+            return obj;
+        }
+
+
+        // 新增方法：从指定路径读取JSON文件并反序列化为对象
+        public static T ReadJsonFile<T>(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                //创建文件
+                File.Create(filePath).Close();
+                return default;
+            }
+
+            string json = File.ReadAllText(filePath);
+            T obj = JsonConvert.DeserializeObject<T>(json);
+            return obj;
+        }
+
+        // 新增方法：将对象序列化为JSON格式并保存到指定路径的文件中
+        public static void SaveObjectToJsonFile(object obj, string filePath)
+        {
+            string json = JsonConvert.SerializeObject(obj, Formatting.Indented);
+            File.WriteAllText(filePath, json);
+        }
+    }   
 }

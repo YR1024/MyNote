@@ -11,5 +11,6 @@
         public string FullPath { get; set; } = ""; 
 
         public DateTime LastWriteTime { get; internal set; }
+        public bool IsStar { get; set; }
     }
 }

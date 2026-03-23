@@ -22,6 +22,16 @@
                 <p>
                     <input type="checkbox" class="CheckboxHeBing" id="checkbox_@i" value="@i" />
                     <span>@videoFile.Name</span>
+                    
+                    @if (videoFile.IsStar)
+                    {
+                        <a onclick="Star(@i,false)" style="color:red;">取消收藏</a>
+                    }
+                    else
+                    {
+                        <a onclick="Star(@i,true)" style="color:#333;">收藏</a>
+                    }
+              
                 </p>
                 <span>@videoFile.Size G</span>
                 <span> 丨 </span>
@@ -36,7 +46,7 @@
                     <button onclick="ShowRename(this,@i)">重命名</button>
                     <input type="text" value="@videoFile.Name" id="renametextBox_@i" style="display:none;width:300px" />
                     <button onclick="Rename(this,@i)" id="renameBtn_@i" style="display:none">确定</button>
-                    <div id="videoBox_@i" data-video-path ="@videoFile.ReleatviePath"></div>
+                    <div id="videoBox_@i" data-video-path="@videoFile.ReleatviePath" data-video-full-path="@videoFile.FullPath"></div>
                 </div>
 
                 <p style="height:60px">----------</p>
@@ -69,6 +79,25 @@
                 }
                 else{
                     alert("删除失败！");
+                }
+            }
+        };
+    }
+    function Star(index, isStar) {
+        // console.log("123");
+        var xhr = new XMLHttpRequest();//第一步：新建对象
+        var url = '/Home/Star?FilePath=' + GetFullFileName(index) + "&IsStar=" + isStar;
+        xhr.open('GET', url, true);//第二步：打开连接  将请求参数写在url中
+        xhr.send();//第三步：发送请求  将请求参数写在URL中
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var res = xhr.responseText;//获取到json字符串，解析
+                if(res == "true"){
+                    // var videoInfoPanel = document.querySelector("#videoInfoPanel_" + index);
+                    // videoInfoPanel.style.display = "none";
+                }
+                else{
+                    // alert("收藏失败！");
                 }
             }
         };
@@ -131,6 +160,11 @@
     function GetFileName(index){
         var videoBox = document.querySelector("#videoBox_" + index);
         var path = videoBox.getAttribute("data-video-path");
+        return path;
+    }
+    function GetFullFileName(index){
+        var videoBox = document.querySelector("#videoBox_" + index);
+        var path = videoBox.getAttribute("data-video-full-path");
         return path;
     }
 
@@ -203,3 +237,20 @@
         var a=1;
     }
 </script>
+
+<style>
+    .star {
+        cursor: pointer;
+        display: inline-block;
+        font-size: 24px;
+        transition: color 0.2s ease;
+    }
+
+    .star-checked {
+        color: gold; /* 已收藏的星星颜色 */
+    }
+
+    .star-unchecked {
+        color: gray; /* 未收藏的星星颜色 */
+    }
+ </style>
