@@ -45,6 +45,8 @@ namespace SkipDrama_YuanShen
             //ListenGamepadHID();
             // 注册热键
             Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemQuestion, HotKeyPressd);
+            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemComma, SwitchDoubleMaTou); //逗号
+            Hotkey.Regist(this, HotkeyModifiers.MOD_CONTROL, Key.OemPeriod, SwitchDoubleMaTouCP); //句号
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
@@ -84,23 +86,30 @@ namespace SkipDrama_YuanShen
 
                             bool leftTriggerActive = state.Gamepad.LeftTrigger > leftTriggerThreshold;
 
-                            // --- LT 按住触发宏的逻辑 ---
-                            if (leftTriggerActive && !_isLtMacroRunning)
+                            // 双玛头宏
                             {
-                                // 刚刚按下 LT，开始执行宏
-                                _isLtMacroRunning = true;
-                                _ltMacroCts = new CancellationTokenSource();
+                                // --- LT 按住触发宏的逻辑 ---
+                                if (MavuikaMacroEnabled)
+                                {
+                                    if (leftTriggerActive && !_isLtMacroRunning)
+                                    {
+                                        // 刚刚按下 LT，开始执行宏
+                                        _isLtMacroRunning = true;
+                                        _ltMacroCts = new CancellationTokenSource();
 
-                                this.Dispatcher.Invoke(() => { info.Text = "执行大招宏"; });
-                                StartLTMacroTask(_ltMacroCts.Token);
+                                        this.Dispatcher.Invoke(() => { info.Text = "执行大招宏"; });
+                                        StartLTMacroTask(_ltMacroCts.Token);
+                                    }
+                                    else if (!leftTriggerActive && _isLtMacroRunning)
+                                    {
+                                        // 松开了 LT，立即中止宏
+                                        _isLtMacroRunning = false;
+                                        _ltMacroCts?.Cancel(); // 触发 Cancellation，打断全部 Task.Delay
+                                    }
+                                }
+                             
+                                // ---------------------------
                             }
-                            else if (!leftTriggerActive && _isLtMacroRunning)
-                            {
-                                // 松开了 LT，立即中止宏
-                                _isLtMacroRunning = false;
-                                _ltMacroCts?.Cancel(); // 触发 Cancellation，打断全部 Task.Delay
-                            }
-                            // ---------------------------
 
                             bool xButtonPressed = (state.Gamepad.Buttons & GamepadButtonFlags.X) != 0;
 
@@ -265,7 +274,41 @@ namespace SkipDrama_YuanShen
         private CancellationTokenSource _ltMacroCts;
         // 标记宏是否正在运行
         private bool _isLtMacroRunning = false;
-        
+
+        private bool doubleMaTouEnabled = false;
+        private bool doubleMaTouCPEnabled = false;
+        private bool MavuikaMacroEnabled = false; // //玛头牛逼
+        private void MTNB1_Checked(object sender, RoutedEventArgs e)
+        {
+            doubleMaTouEnabled = true;
+            doubleMaTou_CP.IsChecked = false;
+            MavuikaMacroEnabled = doubleMaTouEnabled || doubleMaTouCPEnabled;
+        }
+        private void MTNB2_Checked(object sender, RoutedEventArgs e)
+        {
+            doubleMaTouCPEnabled = true;
+            doubleMaTou.IsChecked = false;
+            MavuikaMacroEnabled = doubleMaTouEnabled || doubleMaTouCPEnabled;
+        }
+        private void MTNB1_UnChecked(object sender, RoutedEventArgs e)
+        {
+            doubleMaTouEnabled = false;
+            MavuikaMacroEnabled = doubleMaTouEnabled || doubleMaTouCPEnabled;
+        }
+        private void MTNB2_UnChecked(object sender, RoutedEventArgs e)
+        {
+            doubleMaTouCPEnabled = false;
+            MavuikaMacroEnabled = doubleMaTouEnabled || doubleMaTouCPEnabled;
+        }
+
+        public void SwitchDoubleMaTou()
+        {
+            doubleMaTou.IsChecked = !doubleMaTou.IsChecked;
+        }
+        public void SwitchDoubleMaTouCP()
+        {
+            doubleMaTou_CP.IsChecked = !doubleMaTou_CP.IsChecked;
+        }
         /// <summary>
         /// 模拟手柄按键按下
         /// </summary>
@@ -303,39 +346,61 @@ namespace SkipDrama_YuanShen
                 {
                     while (!token.IsCancellationRequested)
                     {
-                        // 1. RB ↓ -> 200ms
-                        SimGamepadButtonDown(GamePadControl.RightShoulder);
-                        await Task.Delay(200, token);
+                        if (doubleMaTouCPEnabled) //藏劈
+                        {
+                            // B ↓ -> 200ms
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(200, token);
+                            //RB ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.RightShoulder); await Task.Delay(50, token);
+                            //RB ↑ -> 70s
+                            SimGamepadButtonUp(GamePadControl.RightShoulder); await Task.Delay(70, token);
+                            // B ↑ -> 50s
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(50, token);
 
-                        // 2. B ↓ -> 50ms
-                        SimGamepadButtonDown(GamePadControl.B);
-                        await Task.Delay(50, token);
+                            // B ↓ -> 200s
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(200, token);
+                            //RB ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.RightShoulder); await Task.Delay(50, token);
+                            //RB ↑ -> 70s
+                            SimGamepadButtonUp(GamePadControl.RightShoulder); await Task.Delay(70, token);
+                            // B ↑ -> 50ms
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(50, token);
 
-                        // 3. B ↑ -> 70ms
-                        SimGamepadButtonUp(GamePadControl.B);
-                        await Task.Delay(70, token);
+                            // B ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(50, token);
+                            // B ↑ -> 50ms
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(50, token);
+                            // B ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(50, token);
+                            // B ↑ -> 1200s
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(1050, token);
+                            await Task.Delay(400, token);
+                        }
 
-                        // 4. RB ↑ -> 50ms
-                        SimGamepadButtonUp(GamePadControl.RightShoulder);
-                        await Task.Delay(50, token);
+                        else if (doubleMaTouEnabled) //跳劈
+                        {
+                            // 1. RB ↓ -> 200ms
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(190, token);
+                            // 2. B ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.RightShoulder); await Task.Delay(50, token);
+                            // 3. B ↑ -> 70ms
+                            SimGamepadButtonUp(GamePadControl.RightShoulder); await Task.Delay(70, token);
+                            // 4. RB ↑ -> 50ms
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(50, token);
+                            // 5. RB ↓ -> 200ms
+                            SimGamepadButtonDown(GamePadControl.B); await Task.Delay(200, token);
+                            // 6. B ↓ -> 50ms
+                            SimGamepadButtonDown(GamePadControl.RightShoulder); await Task.Delay(50, token);
+                            // 7. B ↑ -> 1050ms
+                            SimGamepadButtonUp(GamePadControl.RightShoulder); await Task.Delay(980, token);
+                            // 8. RB ↑
+                            SimGamepadButtonUp(GamePadControl.B); await Task.Delay(800, token);
+                        }
 
-                        // 5. RB ↓ -> 200ms
-                        SimGamepadButtonDown(GamePadControl.RightShoulder);
-                        await Task.Delay(200, token);
 
-                        // 6. B ↓ -> 50ms
-                        SimGamepadButtonDown(GamePadControl.B);
-                        await Task.Delay(50, token);
-
-                        // 7. B ↑ -> 1050ms
-                        SimGamepadButtonUp(GamePadControl.B);
-                        await Task.Delay(1050, token);
-
-                        // 8. RB ↑
-                        SimGamepadButtonUp(GamePadControl.RightShoulder);
 
                         // 给一个极短的缓冲时间，防止死循环占用过高 CPU
-                        await Task.Delay(10, token);
+                        //await Task.Delay(10, token);
                     }
                 }
                 catch (TaskCanceledException)
@@ -406,13 +471,14 @@ namespace SkipDrama_YuanShen
             });
         }
 
+
+
         //private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         //{
         //    ListenGamepadHID();
         //}
 
         #endregion
-
 
         #region RawInputHid
         //private RawInputHidListener _listener;
@@ -461,5 +527,6 @@ namespace SkipDrama_YuanShen
         //}
         #endregion
 
+    
     }
 }
