@@ -1,0 +1,70 @@
+﻿<Window x:Class="ScheduleReminder.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ScheduleReminder"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="550" Width="600" WindowStartupLocation="CenterScreen">
+    <TabControl>
+        <TabItem Header="闹钟">
+            <StackPanel Margin="10">
+
+                <!-- 时间设置 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,10">
+                    <TextBlock Text="设置时间:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox x:Name="HourComboBox" Width="60" SelectedIndex="0" Margin="10,0,0,0"/>
+                    <TextBlock Text="时" VerticalAlignment="Center" Margin="5,0"/>
+                    <ComboBox x:Name="MinuteComboBox" Width="60" SelectedIndex="0" Margin="10,0,0,0"/>
+                    <TextBlock Text="分" VerticalAlignment="Center" Margin="5,0"/>
+                </StackPanel>
+
+                <!-- 星期选择 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,20">
+                    <TextBlock Text="重复:" Margin="0,0,10,0" VerticalAlignment="Top"/>
+                    <StackPanel>
+                        <RadioButton x:Name="OnlyOnce" Content="只响一次" Click="RepeatType_Click"  GroupName="repeat" VerticalAlignment="Center" Margin="0,0,0,10" IsChecked="True"/>
+                        <RadioButton x:Name="EveryDay" Content="每天"     Click="RepeatType_Click"  GroupName="repeat" VerticalAlignment="Center" Margin="0,0,0,10"/>
+                        <RadioButton x:Name="WorkDays" Content="工作日"   Click="RepeatType_Click"  GroupName="repeat" VerticalAlignment="Center" Margin="0,0,0,10"/>
+                        <RadioButton x:Name="Holidays" Content="节假日"   Click="RepeatType_Click"  GroupName="repeat" VerticalAlignment="Center" Margin="0,0,0,10"/>
+                        <StackPanel x:Name="WeekBox" Orientation="Horizontal">
+                            <CheckBox Content="周一" Tag="1" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周二" Tag="2" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周三" Tag="3" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周四" Tag="4" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周五" Tag="5" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周六" Tag="6" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                            <CheckBox Content="周日" Tag="7" Margin="0 0 20 0" Click="RepeatType_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 星期选择 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,20">
+                    <TextBlock Text="铃声:" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBox x:Name="SoundPath"  Width="230"/> 
+                    <Button x:Name="SelectButton" Content="选择" Width="50" Height="20" Click="SelectButton_Click" Margin="10,0,0,0"/>
+                    <Button x:Name="PlayButton" Content="播放" Width="50" Height="20" Click="TestPlay_Click" Margin="10,0,0,0"/>
+                </StackPanel>
+
+
+                <!-- 闹钟列表 -->
+                <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                    <TextBlock Text="已设置的闹钟:" FontWeight="Bold"/>
+                    <ListBox x:Name="AlarmList" Height="100" Margin="0,5"/>
+                </StackPanel>
+
+                <!-- 控制按钮 -->
+                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="AddButton" Content="添加闹钟" Width="100" Height="30" Click="AddButton_Click" Margin="0,20,10,0"/>
+                    <Button x:Name="RemoveButton" Content="删除闹钟" Width="100" Height="30" Click="RemoveButton_Click" Margin="10,20,0,0"/>
+                </StackPanel>
+            </StackPanel>
+        </TabItem>
+
+        <TabItem Header="日程">
+
+        </TabItem>
+    </TabControl>
+    
+</Window>
