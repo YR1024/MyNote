@@ -60,6 +60,7 @@ namespace DesktopIconTool.Helper
             }
         }
 
+
         private static Mutex mutex;
         public static bool SingleProcess(string processFlag)
         {
@@ -75,6 +76,7 @@ namespace DesktopIconTool.Helper
         {
             mutex.ReleaseMutex();
         }
+
 
 
 

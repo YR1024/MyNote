@@ -15,6 +15,7 @@
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -27,7 +28,6 @@
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -67,6 +67,9 @@
     </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\..\Demo\人脸相似度识别\sdk\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="ScheduleReminder">
+      <HintPath>..\ScheduleReminder\bin\ScheduleReminder.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.AppContext, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -205,11 +208,10 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
-    <Reference Include="TaskbarHook, Version=1.2.0.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\TaskBarHook.1.2.5\lib\net45\TaskbarHook.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helper\HookTool.cs" />
+    <Compile Include="Helper\Logger.cs" />
     <Compile Include="Helper\ProgramTool.cs" />
     <Compile Include="Helper\TaskbarEffect.cs" />
     <Compile Include="Helper\Win32Helper.cs" />

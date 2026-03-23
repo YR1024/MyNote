@@ -1,4 +1,6 @@
-﻿using Microsoft.Win32;
+﻿using DesktopIconTool.Helper;
+using Microsoft.Win32;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,6 +18,8 @@ namespace DesktopIconTool
 {
     public class Win32Helper
     {
+ 
+
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -27,6 +31,17 @@ namespace DesktopIconTool
 
         [DllImport("user32.dll", EntryPoint = "FindWindowEx", SetLastError = true)]
         public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool CloseWindow(IntPtr hWnd); // 关闭窗口(实际是最小化)
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool DestroyWindow(IntPtr hWnd);
+
 
         #region 当前是否有激活窗口
         public delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
@@ -44,13 +59,13 @@ namespace DesktopIconTool
         private static extern bool GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
+        public static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
 
         [DllImport("user32.dll")]
-        private static extern long GetWindowLong(IntPtr hWnd, int nIndex);
+        public static extern long GetWindowLong(IntPtr hWnd, int nIndex);
 
         private static bool EnumWindowsCallbackMethod(IntPtr hWnd, IntPtr lParam)
         {
@@ -142,13 +157,14 @@ namespace DesktopIconTool
 
                     WindowInfo windowInfo = new WindowInfo()
                     {
+                        Id = process.Id,
                         Process = process.ProcessName,
                         Title = process.MainWindowTitle,
                         Handle = process.MainWindowHandle,
                         IsMinimize = IsIconic(mainWindowHandle),
                         Exstyle = GetWindowLong(mainWindowHandle, GWL_EXSTYLE),
                         Style = GetWindowLong(mainWindowHandle, GWL_STYLE),
-                        //Rect = GetWindowLocationSize(mainWindowHandle),
+                        Rect = GetWindowLocationSize(mainWindowHandle),
                     };
                     WindowInfolist.Add(windowInfo);
                 }
@@ -160,26 +176,94 @@ namespace DesktopIconTool
                 {
                     continue;
                 }
-                if (wi.Style == 6777995264)
+                if (wi.Style == 6777995264 || wi.Exstyle == 4295491720 || wi.Exstyle == 4297064704)
                 {
                     continue;
                 }
                 if (!wi.IsMinimize)
                 {
+                    Logger.Info(JsonConvert.SerializeObject(wi));
                     return true;
                 }
             }
             return false;
         }
+
+
         #endregion
 
 
+        /// <summary>
+        /// 根据窗口句柄获取进程名称
+        /// </summary>
+        /// <param name="windowHandle">目标窗口句柄</param>
+        /// <returns>进程名称（失败返回 null）</returns>
+        public static string GetProcessNameFromHandle(IntPtr windowHandle)
+        {
+            try
+            {
+                // 1. 通过窗口句柄获取进程ID
+                GetWindowThreadProcessId(windowHandle, out uint processId);
+
+                if (processId == 0)
+                {
+                    Logger.Info("无法获取进程ID");
+                    return null;
+                }
+
+                // 2. 通过进程ID获取进程对象
+                using (Process process = Process.GetProcessById((int)processId))
+                {
+                    return process.ProcessName;
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                Logger.Info($"无效的进程ID: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Info($"发生错误: {ex.Message}");
+            }
+            return null;
+        }
 
 
+        #region 修改窗口尺寸
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+       int x, int y, int cx, int cy, uint uFlags);
 
+        // 常量定义
+        private const uint SWP_NOMOVE = 0x0002;      // 保留当前位置（忽略x,y）
+        private const uint SWP_NOZORDER = 0x0004;    // 保留Z轴顺序
+        private const uint SWP_SHOWWINDOW = 0x0040;  // 显示窗口
+
+        // 组合标志：不移动位置 + 不修改层级 + 立即生效
+        private const uint FLAGS = SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW;
+
+        /// <summary>
+        /// 修改指定窗口的大小
+        /// </summary>
+        /// <param name="hWnd">窗口句柄</param>
+        /// <param name="width">新宽度</param>
+        /// <param name="height">新高度</param>
+        /// <returns>操作是否成功</returns>
+        public static bool ResizeWindow(IntPtr hWnd, int width, int height)
+        {
+            // 参数说明：
+            // hWnd: 目标窗口句柄
+            // IntPtr.Zero: 不修改Z轴顺序
+            // 0, 0: 忽略位置坐标（使用SWP_NOMOVE）
+            // width, height: 新的尺寸
+            // FLAGS: 控制参数
+            return SetWindowPos(hWnd, IntPtr.Zero, 0, 0, width, height, FLAGS);
+        }
+        #endregion
 
     }
+
 
 
     [StructLayout(LayoutKind.Sequential)]
@@ -197,6 +281,9 @@ namespace DesktopIconTool
 
     public class WindowInfo
     {
+
+        public int Id { get; set; }
+
         public string Process { get; set; }
 
         public string Title { get; set; }
