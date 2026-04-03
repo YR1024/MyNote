@@ -30,6 +30,17 @@ namespace DesktopIconTool
         static void Main(string[] args)
         {
 
+            // ================= 新增：全局异常捕获 =================
+            // 设置捕获UI线程的异常
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            // 处理UI线程异常
+            Application.ThreadException += Application_ThreadException;
+            // 处理非UI线程异常（如 Task, Thread）
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            // 处理未观察到的Task异常
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+            // ======================================================
+
             //Win32Helper.IsHasWindowActive();
 
             //单例程序
@@ -55,8 +66,63 @@ namespace DesktopIconTool
 
             ProgramTool.ReleaseSingleProcess();
         }
-  
 
+        // --- 以下为新增的异常处理和日志写入方法 ---
+
+        private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
+        {
+            WriteCrashLog("UI线程异常 (ThreadException)", e.Exception);
+            Logger.Info(e.Exception.ToString());
+        }
+
+        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            WriteCrashLog("非UI线程异常 (UnhandledException)", e.ExceptionObject as Exception);
+            Logger.Info((e.ExceptionObject as Exception).ToString());
+
+        }
+
+        private static void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+        {
+            WriteCrashLog("Task内部异常 (UnobservedTaskException)", e.Exception);
+            Logger.Info(e.Exception.ToString());
+            e.SetObserved(); // 标记异常已观察，防止程序因此崩溃
+        }
+
+        private static void WriteCrashLog(string exceptionType, Exception ex)
+        {
+            try
+            {
+                if (ex == null) return;
+
+                string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+                if (!Directory.Exists(logDir))
+                {
+                    Directory.CreateDirectory(logDir);
+                }
+
+                string logFile = Path.Combine(logDir, $"CrashLog_{DateTime.Now:yyyyMMdd}.txt");
+
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("=========================================================");
+                sb.AppendLine($"时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                sb.AppendLine($"类型: {exceptionType}");
+                sb.AppendLine($"异常信息: {ex.Message}");
+                sb.AppendLine($"堆栈跟踪:\r\n{ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    sb.AppendLine($"内部异常: {ex.InnerException.Message}");
+                    sb.AppendLine($"内部堆栈:\r\n{ex.InnerException.StackTrace}");
+                }
+                sb.AppendLine("=========================================================\r\n");
+
+                File.AppendAllText(logFile, sb.ToString());
+            }
+            catch
+            {
+                // 日志写入失败时忽略，防止引发新的崩溃
+            }
+        }
     }
 
 

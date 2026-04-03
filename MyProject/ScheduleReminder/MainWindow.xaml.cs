@@ -207,10 +207,16 @@ namespace ScheduleReminder
         private Alarm alarm;
         private bool isRunning;
 
+        // 新增：用于保存创建时的 UI 线程调度器
+        private readonly Dispatcher _uiDispatcher;
+
         public AlarmClock(Alarm alarm)
         {
             this.alarm = alarm;
             this.isRunning = false;
+
+            // 核心修改：在实例化时（此时在主UI线程），获取并保存当前的 Dispatcher
+            this._uiDispatcher = Dispatcher.CurrentDispatcher;
         }
 
         public void Start()
@@ -312,13 +318,11 @@ namespace ScheduleReminder
         //计时结束触发事件
         private void AlarmCallback(object state)
         {
-            //Console.WriteLine($"闹钟触发！时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            Task.Run(() => {
-              
-                //MessageBox.Show("叮！叮！叮！叮！叮！叮！叮！叮！叮！叮！叮！叮！叮！");
-                Thread notificationThread = new Thread(() =>
-                {
-
+            //Task.Run(() => {
+            //Thread notificationThread = new Thread(() =>
+            //{
+            _uiDispatcher.InvokeAsync(() => // 回到主 UI 线程执行弹窗操作
+            {
                     MediaPlayer player = null;
                     if (!string.IsNullOrEmpty(alarm.Ringtone) && System.IO.File.Exists(alarm.Ringtone))
                     {
@@ -345,15 +349,15 @@ namespace ScheduleReminder
                         player?.Stop();
                         player = null;
                     };
-                    System.Windows.Threading.Dispatcher.Run();
-                });
+                    //System.Windows.Threading.Dispatcher.Run();
+                    //});
 
-                notificationThread.SetApartmentState(ApartmentState.STA);
-                notificationThread.IsBackground = true;
-                notificationThread.Start();
-             
+                //notificationThread.SetApartmentState(ApartmentState.STA);
+                //notificationThread.IsBackground = true;
+                //notificationThread.Start();
+
             });
-            
+
             AlarmClockTriggered?.Invoke(this.alarm);
 
             // 根据重复类型决定是否继续
@@ -366,6 +370,7 @@ namespace ScheduleReminder
                 // 重新计算下一次触发时间
                 CalculateNextTriggerTime();
             }
+            
         }
 
 
