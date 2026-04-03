@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LanTransferApp.MainPage"
+             Title="局域网互联">
+
+    <Grid>
+        <VerticalStackLayout x:Name="ContainerLogin" VerticalOptions="Center" HorizontalOptions="Center" Spacing="20">
+            <ActivityIndicator x:Name="loadingIndicator" IsRunning="True" Color="#4CAF50" />
+            <Label x:Name="lblStatus" Text="正在局域网寻找电脑端..." HorizontalOptions="Center" FontSize="16"/>
+
+            <VerticalStackLayout x:Name="ContainerManual" IsVisible="False" Spacing="15" WidthRequest="250">
+                <Entry x:Name="txtIp" Placeholder="请输入电脑 IP" Keyboard="Telephone" />
+                <Entry x:Name="txtPort" Text="8888" Placeholder="端口号" Keyboard="Numeric" />
+                <Button Text="手动连接" BackgroundColor="#4CAF50" TextColor="White" Clicked="BtnManualConnect_Clicked" />
+                <Button Text="打开设置" BackgroundColor="Transparent" TextColor="Gray" Clicked="BtnOpenSettings_Clicked" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+
+        <Grid x:Name="ContainerChat" IsVisible="False" Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,10">
+                <Button x:Name="btnReconnect" Text="断线重连" BackgroundColor="#F44336" TextColor="White" 
+                        HeightRequest="35" HorizontalOptions="Start" IsVisible="False" Clicked="BtnReconnect_Clicked"/>
+                <Button Text="⚙ 设置" BackgroundColor="Transparent" TextColor="Gray" 
+                        HorizontalOptions="End" Clicked="BtnOpenSettings_Clicked"/>
+            </Grid>
+
+            <ScrollView Grid.Row="1" x:Name="scrollMessages" Margin="0,0,0,10">
+                <VerticalStackLayout x:Name="lstMessages" Spacing="5" />
+            </ScrollView>
+
+            <Grid Grid.Row="2" ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Text="+" WidthRequest="45" HeightRequest="45" CornerRadius="22" FontSize="20" Clicked="BtnAddFile_Clicked"/>
+                <Entry Grid.Column="1" x:Name="txtInput" Placeholder="输入消息..." ReturnType="Send" Completed="TxtInput_Completed"/>
+                <Button Grid.Column="2" Text="发送" WidthRequest="70" Clicked="BtnSend_Clicked" />
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="ContainerSettings" BackgroundColor="#CC000000" IsVisible="False">
+            <Frame VerticalOptions="Center" HorizontalOptions="Center" WidthRequest="300" BackgroundColor="{AppThemeBinding Light=White, Dark=#333333}">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="系统设置" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center"/>
+                    <Label Text="默认连接配置:" FontSize="14" TextColor="Gray"/>
+                    <Entry x:Name="txtSettingIp" Placeholder="默认 IP (如 192.168.1.100)"/>
+                    <Entry x:Name="txtSettingPort" Placeholder="默认端口 (如 8888)"/>
+
+                    <Label Text="文件保存路径 (系统沙盒):" FontSize="14" TextColor="Gray" Margin="0,10,0,0"/>
+                    <Editor x:Name="txtSettingPath" IsReadOnly="True" FontSize="12" AutoSize="TextChanges"/>
+
+                    <Button Text="保存并关闭" BackgroundColor="#4CAF50" TextColor="White" Margin="0,15,0,0" Clicked="BtnSaveSettings_Clicked"/>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

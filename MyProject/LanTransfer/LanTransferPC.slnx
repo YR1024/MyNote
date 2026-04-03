@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="LanTransferApp/LanTransferApp.csproj" Id="7b4c1a2a-bdaf-4dd0-beb9-8aa259f6a52e" />
+  <Project Path="LanTransferPC/LanTransferPC.csproj" Id="628e16ae-90aa-4e08-884d-4bd8b20e3707" />
+</Solution>
