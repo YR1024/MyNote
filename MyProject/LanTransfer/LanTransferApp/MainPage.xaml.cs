@@ -186,53 +186,65 @@ public partial class MainPage : ContentPage
         }
     }
 
+    // ==================== 新增：中断传输事件 ====================
+    private async void BtnCancelTransfer_Clicked(object sender, EventArgs e)
+    {
+        if (_isTransferring && _tcpClient != null)
+        {
+            bool result = await DisplayAlert("取消传输", "确定要中断传输吗？这会导致当前连接断开。", "确定", "取消");
+            if (result)
+            {
+                // 粗暴但最安全的打断方式，触发异常走清理逻辑
+                _tcpClient.Close();
+            }
+        }
+    }
+
+
     // ==================== 2. 收发协议升级 (包含文件名) ====================
+    // ==================== 2. 接收数据 (完整版) ====================
     private async Task ReceiveDataAsync(CancellationToken token)
     {
+        string currentReceivingFilePath = null; // 用于记录当前接收路径，防止中断产生废文件
+
         try
         {
-            byte[] headerBuffer = new byte[5];
             while (!token.IsCancellationRequested && _tcpClient.Connected)
             {
-                int bytesRead = await ReadExactBytesAsync(_netStream, headerBuffer, 5, token);
-                if (bytesRead == 0) break; // 断线触发
+                byte[] typeBuf = new byte[1];
+                if (await ReadExactBytesAsync(_netStream, typeBuf, 1, token) == 0) break;
+                byte dataType = typeBuf[0];
 
-                byte dataType = headerBuffer[0];
-                int dataLength = BitConverter.ToInt32(headerBuffer, 1);
-
-                byte[] payloadBuffer = new byte[dataLength];
-                await ReadExactBytesAsync(_netStream, payloadBuffer, dataLength, token);
-
-                if (dataType == 0)
+                if (dataType == 0) // 收到文本
                 {
-                    string message = Encoding.UTF8.GetString(payloadBuffer);
-                    LogTextMessage("电脑", message);
+                    byte[] lenBuf = new byte[4];
+                    await ReadExactBytesAsync(_netStream, lenBuf, 4, token);
+                    int textLen = BitConverter.ToInt32(lenBuf, 0);
+
+                    byte[] textBuf = new byte[textLen];
+                    await ReadExactBytesAsync(_netStream, textBuf, textLen, token);
+
+                    LogTextMessage("电脑", Encoding.UTF8.GetString(textBuf));
                 }
                 else if (dataType == 1) // 收到文件
                 {
-                    // 解析文件名
-                    int nameLength = BitConverter.ToInt32(payloadBuffer, 0);
-                    string fileName = Encoding.UTF8.GetString(payloadBuffer, 4, nameLength);
+                    _isTransferring = true;
 
-                    // 提取文件数据
-                    int fileDataLength = payloadBuffer.Length - 4 - nameLength;
-                    byte[] fileData = new byte[fileDataLength];
-                    Array.Copy(payloadBuffer, 4 + nameLength, fileData, 0, fileDataLength);
+                    byte[] headerBuf = new byte[12];
+                    await ReadExactBytesAsync(_netStream, headerBuf, 12, token);
+                    long fileSize = BitConverter.ToInt64(headerBuf, 0);
+                    int nameLength = BitConverter.ToInt32(headerBuf, 8);
 
-                    // ==================== 修改保存路径 ====================
-                    string saveDir = FileSystem.AppDataDirectory; // 默认 fallback
-                    #if ANDROID
-                    // 拿到系统真实的 /storage/emulated/0/Download 路径
-                    saveDir = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads).AbsolutePath;
-                    // 建议在 Download 里建一个咱们 App 专属的文件夹，更清爽
-                    saveDir = Path.Combine(saveDir, "LanTransfer");
-                    if (!Directory.Exists(saveDir))
-                    {
-                        Directory.CreateDirectory(saveDir);
-                    }
-                    #endif
+                    byte[] nameBuf = new byte[nameLength];
+                    await ReadExactBytesAsync(_netStream, nameBuf, nameLength, token);
+                    string fileName = Encoding.UTF8.GetString(nameBuf);
 
-                    // 保存文件并防重名
+                    string saveDir = FileSystem.AppDataDirectory;
+#if ANDROID
+                    saveDir = Path.Combine(Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads).AbsolutePath, "LanTransfer");
+                    if (!Directory.Exists(saveDir)) Directory.CreateDirectory(saveDir);
+#endif
+
                     string finalFilePath = Path.Combine(saveDir, fileName);
                     int count = 1;
                     while (File.Exists(finalFilePath))
@@ -243,23 +255,61 @@ public partial class MainPage : ContentPage
                         count++;
                     }
 
-                    File.WriteAllBytes(finalFilePath, fileData);
+                    // 标记文件路径
+                    currentReceivingFilePath = finalFilePath;
+
+                    MainThread.BeginInvokeOnMainThread(() => UpdateProgressUI(true, $"接收中: {fileName} (0%)", 0));
+
+                    using (FileStream fs = new FileStream(finalFilePath, FileMode.Create, FileAccess.Write))
+                    {
+                        byte[] buffer = new byte[64 * 1024];
+                        long totalRead = 0;
+
+                        while (totalRead < fileSize)
+                        {
+                            int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
+                            int readBytes = await ReadExactBytesAsync(_netStream, buffer, bytesToRead, token);
+                            if (readBytes == 0) throw new Exception("网络异常断开");
+
+                            await fs.WriteAsync(buffer, 0, readBytes, token);
+                            totalRead += readBytes;
+
+                            double percent = (double)totalRead / fileSize;
+                            MainThread.BeginInvokeOnMainThread(() => UpdateProgressUI(true, $"接收中: {fileName} ({(int)(percent * 100)}%)", percent));
+                        }
+                    }
+
+                    // 正常完成，清空记录
+                    currentReceivingFilePath = null;
                     LogFileMessage("电脑", Path.GetFileName(finalFilePath), finalFilePath);
 
-                    // 弹窗通知 (Issue 6)
+                    _isTransferring = false;
+                    MainThread.BeginInvokeOnMainThread(() => UpdateProgressUI(false));
+
                     MainThread.BeginInvokeOnMainThread(async () => {
-                        await DisplayAlert("接收完毕", $"文件已存至:\n{finalFilePath}", "确定");
+                        await DisplayAlert("接收完毕", $"文件已接收: {Path.GetFileName(finalFilePath)}", "确定");
                     });
                 }
             }
         }
-        catch (Exception) { }
+        catch (Exception)
+        {
+            // 异常说明断线或被取消了
+        }
         finally
         {
-            // 只要跳出循环，就意味着断线
+            _isTransferring = false;
+
+            // 核心：清理没传完的半截文件
+            if (!string.IsNullOrEmpty(currentReceivingFilePath) && File.Exists(currentReceivingFilePath))
+            {
+                try { File.Delete(currentReceivingFilePath); } catch { }
+            }
+
             MainThread.BeginInvokeOnMainThread(() => {
-                LogTextMessage("系统提示", "已与电脑断开连接！");
-                btnReconnect.IsVisible = true; // 显示重连按钮
+                UpdateProgressUI(false);
+                LogTextMessage("系统", "已断开连接。");
+                btnReconnect.IsVisible = true;
             });
         }
     }
@@ -279,51 +329,108 @@ public partial class MainPage : ContentPage
     private void BtnSend_Clicked(object sender, EventArgs e) => SendMessage();
     private void TxtInput_Completed(object sender, EventArgs e) => SendMessage();
 
+    // ==================== 3. 发送文本消息 (完整版) ====================
     private void SendMessage()
     {
+        if (_isTransferring) return; // 传文件时静默拦截发消息
+
         string message = txtInput.Text?.Trim();
         if (string.IsNullOrEmpty(message) || _tcpClient == null || !_tcpClient.Connected) return;
 
         try
         {
             byte[] payload = Encoding.UTF8.GetBytes(message);
-            SendData(0, payload);
+
+            byte[] header = new byte[5];
+            header[0] = 0; // 文本类型
+            BitConverter.GetBytes(payload.Length).CopyTo(header, 1);
+
+            _netStream.Write(header, 0, header.Length);
+            _netStream.Write(payload, 0, payload.Length);
+            _netStream.Flush();
+
             LogTextMessage("我", message);
             txtInput.Text = string.Empty;
         }
-        catch (Exception) { 
-            LogTextMessage("系统提示", "发送失败！已断开");
+        catch (Exception)
+        {
+            LogTextMessage("系统", "发送失败，已断开");
         }
     }
 
+    private bool _isTransferring = false;
+
+    // ==================== 1. 发送文件 (完整版) ====================
     private async void BtnAddFile_Clicked(object sender, EventArgs e)
     {
         if (_tcpClient == null || !_tcpClient.Connected) return;
+        if (_isTransferring)
+        {
+            await DisplayAlert("提示", "当前正在传输文件，请稍候。", "确定");
+            return;
+        }
+
         try
         {
             var result = await FilePicker.Default.PickAsync();
             if (result != null)
             {
-                using var stream = await result.OpenReadAsync();
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
+                _isTransferring = true;
+                UpdateProgressUI(true, "准备发送...");
 
                 string fileName = result.FileName;
-                byte[] fileData = memoryStream.ToArray();
+                using var stream = await result.OpenReadAsync();
+                long fileSize = stream.Length;
+
                 byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
 
-                // 组装协议：[文件名长度(4字节)] + [文件名字节] + [文件内容字节]
-                byte[] payload = new byte[4 + nameBytes.Length + fileData.Length];
-                BitConverter.GetBytes(nameBytes.Length).CopyTo(payload, 0);
-                nameBytes.CopyTo(payload, 4);
-                fileData.CopyTo(payload, 4 + nameBytes.Length);
+                // 发送协议头: [Type(1)] + [Size(8)] + [NameLen(4)] + [NameBytes]
+                byte[] header = new byte[1 + 8 + 4 + nameBytes.Length];
+                header[0] = 1;
+                BitConverter.GetBytes(fileSize).CopyTo(header, 1);
+                BitConverter.GetBytes(nameBytes.Length).CopyTo(header, 9);
+                nameBytes.CopyTo(header, 13);
+                await _netStream.WriteAsync(header, 0, header.Length);
 
-                SendData(1, payload);
-                LogTextMessage("系统提示", $"[文件发出]: {fileName}");
+                // 分块流式读取与发送
+                byte[] buffer = new byte[64 * 1024];
+                int readBytes;
+                long totalSent = 0;
 
+                while ((readBytes = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await _netStream.WriteAsync(buffer, 0, readBytes);
+                    totalSent += readBytes;
+
+                    double percent = (double)totalSent / fileSize;
+                    UpdateProgressUI(true, $"发送中: {fileName} ({(int)(percent * 100)}%)", percent);
+                }
+
+                await _netStream.FlushAsync();
+
+                // 传输完成，直接用双击打开的方法渲染 UI
+                LogFileMessage("我", fileName, result.FullPath);
             }
         }
-        catch (Exception ex) { await DisplayAlert("错误", $"发送文件失败: {ex.Message}", "确定"); }
+        catch (Exception ex)
+        {
+            await DisplayAlert("错误", $"发送失败: {ex.Message}", "确定");
+        }
+        finally
+        {
+            _isTransferring = false;
+            UpdateProgressUI(false);
+        }
+    }
+    // ==================== 辅助方法 (完整版) ====================
+    private void UpdateProgressUI(bool isVisible, string text = "", double progress = 0)
+    {
+        // MAUI的UI更新必须放在主线程
+        MainThread.BeginInvokeOnMainThread(() => {
+            panelProgress.IsVisible = isVisible;
+            txtProgress.Text = text;
+            pbTransfer.Progress = progress;
+        });
     }
 
     private void SendData(byte type, byte[] payload)

@@ -31,9 +31,28 @@
                         HorizontalOptions="End" Clicked="BtnOpenSettings_Clicked"/>
             </Grid>
 
-            <ScrollView Grid.Row="1" x:Name="scrollMessages" Margin="0,0,0,10">
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+                <ScrollView x:Name="scrollMessages">
+                    <VerticalStackLayout x:Name="lstMessages" Spacing="5" />
+                </ScrollView>
+
+                <Frame x:Name="panelProgress" IsVisible="False" VerticalOptions="End" BackgroundColor="#E8F5E9" Padding="10" Margin="10" CornerRadius="8">
+                    <VerticalStackLayout>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" x:Name="txtProgress" Text="传输中..." FontAttributes="Bold" TextColor="#2E7D32" VerticalOptions="Center"/>
+                            <Button Grid.Column="1" Text="取消" BackgroundColor="#F44336" TextColor="White" HeightRequest="30" Padding="10,0" Clicked="BtnCancelTransfer_Clicked"/>
+                        </Grid>
+                        <ProgressBar x:Name="pbTransfer" Progress="0" ProgressColor="#4CAF50" Margin="0,5,0,0"/>
+                    </VerticalStackLayout>
+                </Frame>
+            </Grid>
+            <!--<ScrollView Grid.Row="1" x:Name="scrollMessages" Margin="0,0,0,10">
                 <VerticalStackLayout x:Name="lstMessages" Spacing="5" />
-            </ScrollView>
+            </ScrollView>-->
 
             <Grid Grid.Row="2" ColumnSpacing="10">
                 <Grid.ColumnDefinitions>

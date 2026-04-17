@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LanTransferPC"
         mc:Ignorable="d"
-      Title="局域网互联 PC端" Height="450" Width="700" WindowStartupLocation="CenterScreen">
+    Title="局域网互联 PC端" Height="450" Width="700" WindowStartupLocation="CenterScreen"
+        AllowDrop="True" Drop="Window_Drop" KeyDown="Window_KeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -30,6 +31,18 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+
+            <StackPanel x:Name="panelProgress" Grid.Row="0" VerticalAlignment="Bottom" Background="#F0F0F0" Visibility="Collapsed" Margin="5" >
+                <TextBlock x:Name="txtProgress" Text="正在传输: 0%" FontWeight="Bold" Margin="0,0,0,5"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar x:Name="pbTransfer" Grid.Column="0" Height="15" Minimum="0" Maximum="100"/>
+                    <Button Grid.Column="1" Content="取消" Width="50" Margin="5,0,0,0" Background="#F44336" Foreground="White" BorderThickness="0" Click="BtnCancelTransfer_Click"/>
+                </Grid>
+            </StackPanel>
 
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>

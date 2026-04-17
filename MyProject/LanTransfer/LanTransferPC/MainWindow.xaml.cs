@@ -11,7 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Diagnostics;
 using FolderBrowserDialog =  System.Windows.Forms.FolderBrowserDialog;
-
+using System.Windows.Media.Imaging; // 处理剪贴板图片所需
 namespace LanTransferPC
 {
     public partial class MainWindow : Window
@@ -225,65 +225,94 @@ namespace LanTransferPC
             }
         }
 
+        // ==================== 2. 接收数据 (完整版) ====================
         private async Task ReceiveDataAsync(CancellationToken token)
         {
+            string currentReceivingFilePath = null; // 用于记录当前正在接收的文件，防中断
+
             try
             {
-                byte[] headerBuffer = new byte[5]; // 1字节类型 + 4字节长度
-
                 while (!token.IsCancellationRequested && _connectedClient.Connected)
                 {
-                    // 1. 读取包头 (5个字节)
-                    int bytesRead = await ReadExactBytesAsync(_netStream, headerBuffer, 5, token);
-                    if (bytesRead == 0) break; // 客户端断开
+                    byte[] typeBuf = new byte[1];
+                    if (await ReadExactBytesAsync(_netStream, typeBuf, 1, token) == 0) break;
+                    byte dataType = typeBuf[0];
 
-                    byte dataType = headerBuffer[0];
-                    int dataLength = BitConverter.ToInt32(headerBuffer, 1);
-
-                    // 2. 读取包体 (实际数据)
-                    byte[] payloadBuffer = new byte[dataLength];
-                    await ReadExactBytesAsync(_netStream, payloadBuffer, dataLength, token);
-
-                    // 3. 解析数据
-                    if (dataType == 0)
+                    if (dataType == 0) // 收到文本
                     {
-                        string message = Encoding.UTF8.GetString(payloadBuffer);
-                        LogMessage($"手机端: {message}");
+                        byte[] lenBuf = new byte[4];
+                        await ReadExactBytesAsync(_netStream, lenBuf, 4, token);
+                        int textLen = BitConverter.ToInt32(lenBuf, 0);
+
+                        byte[] textBuf = new byte[textLen];
+                        await ReadExactBytesAsync(_netStream, textBuf, textLen, token);
+                        LogMessage($"手机端: {Encoding.UTF8.GetString(textBuf)}");
                     }
                     else if (dataType == 1) // 收到文件
                     {
-                        // 1. 提取文件名长度 (前4个字节)
-                        int nameLength = BitConverter.ToInt32(payloadBuffer, 0);
-                        // 2. 提取文件名
-                        string fileName = Encoding.UTF8.GetString(payloadBuffer, 4, nameLength);
-                        // 3. 提取真实的文件数据
-                        int fileDataLength = payloadBuffer.Length - 4 - nameLength;
-                        byte[] fileData = new byte[fileDataLength];
-                        Array.Copy(payloadBuffer, 4 + nameLength, fileData, 0, fileDataLength);
+                        _isTransferring = true;
 
-                        // 4. 保存到用户设置的真实路径
+                        byte[] headerBuf = new byte[12];
+                        await ReadExactBytesAsync(_netStream, headerBuf, 12, token);
+                        long fileSize = BitConverter.ToInt64(headerBuf, 0);
+                        int nameLength = BitConverter.ToInt32(headerBuf, 8);
+
+                        byte[] nameBuf = new byte[nameLength];
+                        await ReadExactBytesAsync(_netStream, nameBuf, nameLength, token);
+                        string fileName = Encoding.UTF8.GetString(nameBuf);
+
                         string savePath = string.Empty;
-                        Dispatcher.Invoke(() => savePath = txtSavePath.Text); // 从 UI 获取路径
+                        Dispatcher.Invoke(() => savePath = txtSavePath.Text);
+                        string finalFilePath = GetUniqueFilePath(savePath, fileName);
 
-                        // 防止文件名冲突，如果有重名文件则在末尾加个数字
-                        string finalFilePath = Path.Combine(savePath, fileName);
-                        int count = 1;
-                        while (File.Exists(finalFilePath))
+                        // 标记当前正在写的文件路径
+                        currentReceivingFilePath = finalFilePath;
+
+                        Dispatcher.Invoke(() => UpdateProgressUI(true, $"接收中: {fileName} (0%)", 0));
+
+                        using (FileStream fs = new FileStream(finalFilePath, FileMode.Create, FileAccess.Write))
                         {
-                            string nameOnly = Path.GetFileNameWithoutExtension(fileName);
-                            string ext = Path.GetExtension(fileName);
-                            finalFilePath = Path.Combine(savePath, $"{nameOnly}({count}){ext}");
-                            count++;
+                            byte[] buffer = new byte[64 * 1024];
+                            long totalRead = 0;
+
+                            while (totalRead < fileSize)
+                            {
+                                int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
+                                int readBytes = await ReadExactBytesAsync(_netStream, buffer, bytesToRead, token);
+
+                                if (readBytes == 0) throw new Exception("网络异常断开");
+
+                                await fs.WriteAsync(buffer, 0, readBytes, token);
+                                totalRead += readBytes;
+
+                                int percent = (int)((double)totalRead / fileSize * 100);
+                                Dispatcher.Invoke(() => UpdateProgressUI(true, $"接收中: {fileName} ({percent}%)", percent));
+                            }
                         }
 
-                        File.WriteAllBytes(finalFilePath, fileData);
+                        // 正常接收完毕，清除记录
+                        currentReceivingFilePath = null;
                         LogMessage($"[收到文件]: {Path.GetFileName(finalFilePath)}");
+
+                        _isTransferring = false;
+                        Dispatcher.Invoke(() => UpdateProgressUI(false));
                     }
                 }
             }
             catch (Exception)
             {
-                LogMessage("系统提示: 手机端已断开连接。");
+                LogMessage("系统提示: 已与手机端断开连接。");
+            }
+            finally
+            {
+                _isTransferring = false;
+                Dispatcher.Invoke(() => UpdateProgressUI(false));
+
+                // 核心：如果有记录的文件且没被清空（说明抛异常被中断了），删除这个残缺的空壳文件
+                if (!string.IsNullOrEmpty(currentReceivingFilePath) && File.Exists(currentReceivingFilePath))
+                {
+                    try { File.Delete(currentReceivingFilePath); } catch { }
+                }
             }
         }
 
@@ -300,19 +329,113 @@ namespace LanTransferPC
             return totalRead;
         }
 
-        // ==================== 发送数据逻辑 ====================
+        // ==================== 新增：拖拽与剪贴板事件 ====================
+        private async void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (files != null && files.Length > 0)
+                {
+                    await SendFileCoreAsync(files[0]); // 拖入多个文件时，目前先处理第一个
+                }
+            }
+        }
 
+        private async void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            // 如果焦点在输入框，且按下的是回车，走发送消息逻辑 (防止冲突)
+            if (e.Key == Key.Enter && txtInput.IsFocused)
+            {
+                SendMessage();
+                return;
+            }
+
+            // 监听 Ctrl + V 粘贴快捷键
+            if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                // 1. 剪贴板里是文件 (比如复制了某个文件)
+                if (Clipboard.ContainsFileDropList())
+                {
+                    var files = Clipboard.GetFileDropList();
+                    if (files.Count > 0)
+                    {
+                        await SendFileCoreAsync(files[0]);
+                    }
+                }
+                // 2. 剪贴板里是图片 (比如用截图工具截的图)
+                else if (Clipboard.ContainsImage())
+                {
+                    try
+                    {
+                        var image = Clipboard.GetImage();
+                        if (image != null)
+                        {
+                            // 【核心修复】：丢弃有问题的透明通道，强制转换为不透明的 Bgr32 格式
+                            // 完美解决 Snipaste、QQ截图 等软件复制到 WPF 时保存为黑图/全透明的问题
+                            var opaqueBitmap = new FormatConvertedBitmap(image, PixelFormats.Bgr32, null, 0);
+
+                            string tempPath = Path.Combine(Path.GetTempPath(), $"截图_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+                            using (var fileStream = new FileStream(tempPath, FileMode.Create))
+                            {
+                                BitmapEncoder encoder = new PngBitmapEncoder();
+                                // 这里传入转换后的 opaqueBitmap，而不是原来的 image
+                                encoder.Frames.Add(BitmapFrame.Create(opaqueBitmap));
+                                encoder.Save(fileStream);
+                            }
+                            // 发送这个临时文件
+                            await SendFileCoreAsync(tempPath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Windows.MessageBox.Show($"读取剪贴板图片失败: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        // ==================== 新增：取消传输事件 ====================
+        private void BtnCancelTransfer_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isTransferring && _connectedClient != null)
+            {
+                var result = System.Windows.MessageBox.Show("确定要中断传输吗？这会导致当前连接断开。", "取消传输", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result == MessageBoxResult.Yes)
+                {
+                    // 最干脆利落的中断方式：直接释放 Socket 连接。
+                    // 这会触发双端的 ReceiveDataAsync 抛出异常，从而安全地重置状态。
+                    _connectedClient.Close();
+                }
+            }
+        }
+
+        // ==================== 3. 发送文本消息 (完整版) ====================
         private void SendMessage()
         {
+            if (_isTransferring)
+            {
+                System.Windows.MessageBox.Show("正在传输文件，请稍后发送消息。");
+                return;
+            }
+
             string message = txtInput.Text.Trim();
             if (string.IsNullOrEmpty(message)) return;
-
             if (!CheckConnection()) return;
 
             try
             {
                 byte[] payload = Encoding.UTF8.GetBytes(message);
-                SendData(0, payload); // 发送类型 0 (文本)
+
+                // 组装文本协议：[Type(1字节，值为0)] + [Payload长度(4字节)] + [Payload实际字节]
+                byte[] header = new byte[5];
+                header[0] = 0; // 类型 0 代表文本
+                BitConverter.GetBytes(payload.Length).CopyTo(header, 1);
+
+                _netStream.Write(header, 0, header.Length);
+                _netStream.Write(payload, 0, payload.Length);
+                _netStream.Flush();
+
                 LogMessage($"我: {message}");
                 txtInput.Clear();
             }
@@ -322,37 +445,108 @@ namespace LanTransferPC
             }
         }
 
-        private void BtnAddFile_Click(object sender, RoutedEventArgs e)
+        // ==================== 辅助方法 (完整版) ====================
+        private string GetUniqueFilePath(string folderPath, string fileName)
         {
-            if (!CheckConnection()) return;
+            if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
 
+            string finalPath = Path.Combine(folderPath, fileName);
+            int count = 1;
+            while (File.Exists(finalPath))
+            {
+                string nameOnly = Path.GetFileNameWithoutExtension(fileName);
+                string ext = Path.GetExtension(fileName);
+                finalPath = Path.Combine(folderPath, $"{nameOnly}({count}){ext}");
+                count++;
+            }
+            return finalPath;
+        }
+
+        private void UpdateProgressUI(bool isVisible, string text = "", double percent = 0)
+        {
+            panelProgress.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+            txtProgress.Text = text;
+            pbTransfer.Value = percent;
+            // 禁用按钮防止交叉操作
+            btnSend.IsEnabled = !isVisible;
+            btnAddFile.IsEnabled = !isVisible;
+        }
+
+        // 新增全局变量：防止传文件时发消息导致字节流错乱
+        private bool _isTransferring = false;
+
+        // ==================== 1. 发送文件 (完整版) ====================
+        // ==================== 修改：提取公共的文件发送核心方法 ====================
+        private async void BtnAddFile_Click(object sender, RoutedEventArgs e)
+        {
             Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog();
             if (openFileDialog.ShowDialog() == true)
             {
-                try
+                await SendFileCoreAsync(openFileDialog.FileName);
+            }
+        }
+        // 这是提取出来的发送方法，供“点击+号”、“拖拽”、“粘贴”共同调用
+        private async Task SendFileCoreAsync(string filePath)
+        {
+            if (!CheckConnection()) return;
+            if (_isTransferring)
+            {
+                System.Windows.MessageBox.Show("当前正在传输文件，请稍后再发送。");
+                return;
+            }
+
+            try
+            {
+                _isTransferring = true;
+                UpdateProgressUI(true, "准备发送...");
+
+                string fileName = Path.GetFileName(filePath);
+                long fileSize = new FileInfo(filePath).Length;
+
+                byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
+
+                // 1. 发送头
+                byte[] header = new byte[1 + 8 + 4 + nameBytes.Length];
+                header[0] = 1;
+                BitConverter.GetBytes(fileSize).CopyTo(header, 1);
+                BitConverter.GetBytes(nameBytes.Length).CopyTo(header, 9);
+                nameBytes.CopyTo(header, 13);
+                await _netStream.WriteAsync(header, 0, header.Length);
+
+                // 2. 流式发送
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
                 {
-                    string filePath = openFileDialog.FileName;
-                    string fileName = Path.GetFileName(filePath);
-                    byte[] fileData = File.ReadAllBytes(filePath);
+                    byte[] buffer = new byte[64 * 1024];
+                    int readBytes;
+                    long totalSent = 0;
 
-                    // 1. 将文件名转为 UTF8 字节
-                    byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
-                    // 2. 组装 Payload: [文件名长度(4字节)] + [文件名字节] + [文件内容字节]
-                    byte[] payload = new byte[4 + nameBytes.Length + fileData.Length];
+                    while ((readBytes = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await _netStream.WriteAsync(buffer, 0, readBytes);
+                        totalSent += readBytes;
 
-                    BitConverter.GetBytes(nameBytes.Length).CopyTo(payload, 0); // 写入文件名长度
-                    nameBytes.CopyTo(payload, 4); // 写入文件名
-                    fileData.CopyTo(payload, 4 + nameBytes.Length); // 写入文件数据
-
-                    SendData(1, payload); // 发送类型 1 (文件)
-                    LogMessage($"[文件发出]: {fileName}");
+                        int percent = (int)((double)totalSent / fileSize * 100);
+                        UpdateProgressUI(true, $"发送中: {fileName} ({percent}%)", percent);
+                    }
                 }
-                catch (Exception ex)
+                await _netStream.FlushAsync();
+                LogMessage($"[文件发出]: {fileName}");
+            }
+            catch (Exception ex)
+            {
+                // 如果是因为我们主动 Close 断开引发的异常，不弹错误提示
+                if (_connectedClient != null && _connectedClient.Connected)
                 {
                     System.Windows.MessageBox.Show($"发送文件出错: {ex.Message}");
                 }
             }
+            finally
+            {
+                _isTransferring = false;
+                UpdateProgressUI(false);
+            }
         }
+      
 
         // 核心发送方法：打包头和包体
         private void SendData(byte type, byte[] payload)
