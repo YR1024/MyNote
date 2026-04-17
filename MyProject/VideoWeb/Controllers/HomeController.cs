@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using VideoWeb.Data;
 using VideoWeb.Helper;
 using VideoWeb.Models;
 
@@ -8,39 +11,98 @@ namespace VideoWeb.Controllers
 {
     public class HomeController : Controller
     {
+
+        private readonly VideoDbContext _db; // 数据库上下文
+
         static string path = AppDomain.CurrentDomain.BaseDirectory + "wwwroot\\Video\\";
         static string avpath = path + "AV\\";
         static string starVideoConfig = AppDomain.CurrentDomain.BaseDirectory + "StarVideoConfig.json";
 
-        static List<VideoFile> VideoFiles = new List<VideoFile>();
+
+        // 构造函数注入数据库
+        public HomeController(VideoDbContext db)
+        {
+            _db = db;
+        }
 
         public IActionResult Index()
         {
             if (!Directory.Exists(avpath))
                 Directory.CreateDirectory(avpath);
-            //Array FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv").ToArray();
-            //Array.Sort(FileInfoArray, new FileComparer());//按文件创建时间排正序
-            var FileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv.wmv").ToArray();
-            // 按 LastWriteTime 升序排序，然后再按文件名排序
-            List<FileInfo> sortedFiles = FileInfoArray.OrderBy(file => file.LastWriteTime)
-                                             .ThenBy(file => file.Name)
-                                             .ToList();
-            ViewBag.ServerPath = avpath;
 
-            VideoFiles.Clear();
-            var starVideos = GetStarVideo();
-            foreach (FileInfo item in sortedFiles)
+            // 1. 扫描物理硬盘文件
+            var fileInfoArray = GetFileHelper.GetFile(avpath, ".mp4.avi.mkv.wmv").ToArray();
+            List<FileInfo> sortedFiles = fileInfoArray.OrderBy(file => file.LastWriteTime)
+                                                      .ThenBy(file => file.Name)
+                                                      .ToList();
+
+            // 2. 将硬盘上新发现的视频同步到数据库中
+            SyncFilesToDatabase(sortedFiles);
+
+            // 3. 从数据库中查询所有视频（使用 Include 提前加载演员和标签，防止空引用报错）
+            var videos = _db.Videos
+                            .Include(v => v.Actors)
+                            .Include(v => v.Tags)
+                            .OrderBy(v => v.LastWriteTime)
+                            .ToList();
+
+            ViewBag.ServerPath = avpath;
+            ViewBag.Videos = videos; // 现在传给前端的是从数据库查出来的 List<Video>
+
+            return View();
+        }
+
+        // 同步方法：比对物理文件和数据库
+        private void SyncFilesToDatabase(List<FileInfo> files)
+        {
+            bool hasChanges = false;
+
+            // 获取之前旧的 JSON 收藏记录（方便你平滑过渡，以后可以删掉）
+            var oldStarVideos = GetStarVideo();
+
+            foreach (var item in files)
             {
-                var f = new VideoFile();
-                f.Name = item.Name;
-                f.FullPath = item.FullName;
-                f.LastWriteTime = item.LastWriteTime;
-                f.Size =(float)Math.Round(item.Length /1024f / 1024f /1024f, 2);
-                f.ReleatviePath = item.FullName.Substring(avpath.Length, item.FullName.Length - avpath.Length).Replace("\\","/");
-                f.IsStar = starVideos.Exists(s => s == f.FullPath);
-                VideoFiles.Add(f);
+                var relPath = item.FullName.Substring(avpath.Length).Replace("\\", "/");
+
+                // 如果数据库里不存在这个相对路径的视频，就把它加进去
+                if (!_db.Videos.Any(v => v.RelativePath == relPath))
+                {
+                    var newVideo = new Video
+                    {
+                        Name = item.Name,
+                        RelativePath = relPath,
+                        FullPath = item.FullName,
+                        Size = (float)Math.Round(item.Length / 1024f / 1024f / 1024f, 2),
+                        LastWriteTime = item.LastWriteTime,
+                        // 判断是否在旧的 JSON 收藏里
+                        IsStar = oldStarVideos.Exists(s => s == item.FullName)
+                    };
+                    _db.Videos.Add(newVideo);
+                    hasChanges = true;
+                }
             }
-            ViewBag.Videos = VideoFiles;
+
+            // 如果有新视频插入，统一保存到数据库
+            if (hasChanges)
+            {
+                _db.SaveChanges();
+            }
+        }
+
+     
+        public IActionResult Index24()
+        {
+            if (!Directory.Exists(avpath))
+                Directory.CreateDirectory(avpath);
+
+            var videos = _db.Videos
+                            .Include(v => v.Actors)
+                            .Include(v => v.Tags)
+                            .OrderBy(v => v.LastWriteTime)
+                            .ToList();
+
+            ViewBag.ServerPath = avpath;
+            ViewBag.Videos = videos; // 现在传给前端的是从数据库查出来的 List<Video>
 
             return View();
         }
@@ -82,12 +144,14 @@ namespace VideoWeb.Controllers
         [HttpGet]
         public bool Delete(string FilePath)
         {
-            var video = VideoFiles.Where(v => v.ReleatviePath == FilePath).FirstOrDefault();
+            var video = _db.Videos.Where(v => v.FullPath == FilePath).FirstOrDefault();
             if(video != null)
             {
                 try
                 {
                     System.IO.File.Delete(video.FullPath);
+                    _db.Videos.Remove(video);
+                    _db.SaveChanges();
                     return true;
                 }
                 catch(Exception e)
@@ -101,14 +165,20 @@ namespace VideoWeb.Controllers
         [HttpGet]
         public bool Rename(string FilePath,string NewName)
         {
-            var video = VideoFiles.Where(v => v.ReleatviePath == FilePath).FirstOrDefault();
+            var video = _db.Videos.Where(v => v.FullPath == FilePath).FirstOrDefault();
             if (video != null)
             {
                 try
                 {
-                    string extensionname = Path.GetExtension(FilePath);
-                    string path1 = Path.GetDirectoryName(video.FullPath);
-                    System.IO.File.Move(video.FullPath, path1 + "\\" + NewName + extensionname);
+                    string extensionname = Path.GetExtension(video.FullPath);
+                    string newPath = Path.GetDirectoryName(video.FullPath) + "\\" + NewName + extensionname;
+                    System.IO.File.Move(video.FullPath, newPath);
+
+                    FileInfo fileInfo = new FileInfo(newPath);
+                    video.Name = fileInfo.Name;
+                    video.RelativePath = newPath.Substring(avpath.Length).Replace("\\", "/");
+                    video.FullPath = fileInfo.FullName;
+                    _db.SaveChanges();
                     return true;
                 }
                 catch (Exception e)
@@ -122,8 +192,8 @@ namespace VideoWeb.Controllers
         [HttpGet]
         public async Task<string> Merge(string file1, string file2)
         {
-            var f1 = VideoFiles.Where(v => v.ReleatviePath == file1).FirstOrDefault();
-            var f2 = VideoFiles.Where(v => v.ReleatviePath == file2).FirstOrDefault();
+            var f1 = _db.Videos.Where(v => v.RelativePath == file1).FirstOrDefault();
+            var f2 = _db.Videos.Where(v => v.RelativePath == file2).FirstOrDefault();
             if (f1 != null && f2 != null)
             {
                 if (System.IO.File.Exists(f1.FullPath) && System.IO.File.Exists(f2.FullPath))
@@ -155,6 +225,37 @@ namespace VideoWeb.Controllers
 
             //return $"{file1},{file2}";
         }
+
+        [HttpGet]
+        public async Task<string> GetAllFanHao()
+        {
+            var videos = _db.Videos.ToList();
+            int count = 0; int errorCount = 0;
+            foreach(var video in videos)
+            {
+                string fanhao = GetFanHao(video.Name);
+                if (!string.IsNullOrEmpty(fanhao))
+                {
+                    //Console.WriteLine("提取到的番号：" + fanhao);
+                    if(video.Code != fanhao)
+                    {
+                        video.Code = fanhao;
+                        count++;
+                    }
+                    
+                }
+                else
+                {
+                    //Console.WriteLine("未找到番号");
+                    errorCount++;
+                }
+            }
+            _db.SaveChanges();
+
+            return $"已处理 {count} 个视频，{errorCount}个视频未找到番号 ";
+            //return $"{file1},{file2}";
+        }
+        
 
         public IActionResult LOLVideo()
         {
@@ -286,15 +387,32 @@ namespace VideoWeb.Controllers
             return fileNames;
         }
 
-       // void aaa()
-       // {
-       //     string inputVideoFile = "input_path_goes_here",
-       //outputAudioFile = "output_path_goes_here";
+        /// <summary>
+        /// 从字符串中提取番号，无则返回空
+        /// </summary>
+        static string GetFanHao(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
 
-       //     new FFMpeg().ExtractAudio(
-       //             VideoInfo.FromPath(inputVideoFile),
-       //             new FileInfo(outputAudioFile)
-       //         );
-       // }
+            // 番号正则：2-6位字母 + - + 2-5位数字
+            string pattern = @"[A-Za-z]{2,6}-\d{2,5}";
+
+            // 匹配
+            Match match = Regex.Match(input, pattern);
+
+            // 匹配成功返回番号，失败返回空
+            return match.Success ? match.Value : string.Empty;
+        }
+
+        // void aaa()
+        // {
+        //     string inputVideoFile = "input_path_goes_here",
+        //outputAudioFile = "output_path_goes_here";
+
+        //     new FFMpeg().ExtractAudio(
+        //             VideoInfo.FromPath(inputVideoFile),
+        //             new FileInfo(outputAudioFile)
+        //         );
+        // }
     }
 }

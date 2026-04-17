@@ -1,4 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using VideoWeb.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+
+// --- 核心：注册 SQLite 数据库上下文 ---
+builder.Services.AddDbContext<VideoDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();

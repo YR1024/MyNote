@@ -1,6 +1,6 @@
 ﻿@{
     Layout = null;
-    List<VideoFile> VideoFiles = ViewBag.Videos;
+    List<Video> VideoFiles = ViewBag.Videos;
     string spath = ViewBag.ServerPath;
     var i = 0;
 }
@@ -46,7 +46,7 @@
                     <button onclick="ShowRename(this,@i)">重命名</button>
                     <input type="text" value="@videoFile.Name" id="renametextBox_@i" style="display:none;width:300px" />
                     <button onclick="Rename(this,@i)" id="renameBtn_@i" style="display:none">确定</button>
-                    <div id="videoBox_@i" data-video-path="@videoFile.ReleatviePath" data-video-full-path="@videoFile.FullPath"></div>
+                    <div id="videoBox_@i" data-video-path="@videoFile.RelativePath" data-video-full-path="@videoFile.FullPath"></div>
                 </div>
 
                 <p style="height:60px">----------</p>

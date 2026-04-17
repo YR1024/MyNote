@@ -1,0 +1,452 @@
+﻿@{
+    Layout = null;
+    List<Video> VideoFiles = ViewBag.Videos;
+    string spath = ViewBag.ServerPath;
+    var i = 0;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>视频资源库</title>
+    <style>
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            padding: 20px;
+        }
+
+        /* 顶部合并控制区 */
+        .top-toolbar {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* 视频卡片容器 */
+        .video-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .video-card {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: transform 0.2s ease;
+        }
+
+        .video-card:hover {
+            box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+        }
+
+        /* 上方结构：左侧视频，右侧封面 */
+        .card-top {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .video-left {
+            flex: 2;
+            background-color: #000;
+            border-radius: 8px;
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .video-left video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* 播放占位符，避免同时加载大量视频卡死浏览器 */
+        .play-placeholder {
+            color: #fff;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.1);
+        }
+        .play-placeholder:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .cover-right {
+            flex: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cover-right img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 下方结构：详情信息 */
+        .card-bottom {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            width: 50px;
+            flex-shrink: 0;
+        }
+
+        .info-content {
+            flex: 1;
+            color: #444;
+        }
+
+        /* 标签和演员的 HashTag 样式 */
+        .hashtag {
+            color: #007bff;
+            text-decoration: none;
+            background-color: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-right: 6px;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+
+        .hashtag:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        /* 底部操作栏 */
+        .action-bar {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ddd;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        button {
+            padding: 5px 12px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        button:hover { background: #eee; }
+        
+        .btn-play { background: #28a745; color: #fff; border: none; }
+        .btn-play:hover { background: #218838; }
+        .btn-danger { background: #dc3545; color: #fff; border: none; }
+        .btn-danger:hover { background: #c82333; }
+
+        .star { cursor: pointer; text-decoration: none; font-weight: bold; }
+        .star-checked { color: red; }
+        .star-unchecked { color: #888; }
+    </style>
+</head>
+<body>
+
+    <div class="top-toolbar">
+        <button onclick="Merge(this)">合并选中的视频 (需勾选2个)</button>
+        <button onclick="GetAllFanHao(this)">番号一键提取整理</button>
+    </div>
+
+    <div class="video-container">
+        @{
+            foreach (var videoFile in VideoFiles)
+            {
+                i++;
+                // 模拟数据库数据，后续可替换为 videoFile.Description, videoFile.Code 等
+                var dummyDesc = videoFile.Description;
+                var dummyCode = videoFile.Code;
+                var dummyActors = new[] { "波多野结衣", "三上悠亚" }; // 模拟演员列表
+                var dummyTags = new[] { "高清", "无码", "中文字幕" }; // 模拟标签列表
+
+                <div class="video-card" id="videoInfoPanel_@i">
+                    
+                    <div class="card-top">
+                        <div class="video-left" id="videoBox_@i" data-video-path="@videoFile.RelativePath" data-video-full-path="@videoFile.FullPath">
+                            <div class="play-placeholder" onclick="Play(this, @i)">
+                                <span>▶ 点击此处播放视频<br /><small>(@videoFile.Size G)</small></span>
+                            </div>
+                        </div>
+                        <div class="cover-right">
+                            <img src="https://via.placeholder.com/300x400?text=Cover+Image" alt="封面" />
+                        </div>
+                    </div>
+
+                    <div class="card-bottom">
+                        <div class="info-row">
+                            <div class="info-label">简介</div>
+                            <div class="info-content">@dummyDesc @videoFile.Name</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">番号</div>
+                            <div class="info-content">@dummyCode</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">演员</div>
+                            <div class="info-content">
+                                @foreach(var actor in dummyActors)
+                                {
+                                    <a href="/Home/Index?actor=@actor" class="hashtag">#@actor</a>
+                                }
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">标签</div>
+                            <div class="info-content">
+                                @foreach(var tag in dummyTags)
+                                {
+                                    <a href="/Home/Index?tag=@tag" class="hashtag">#@tag</a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-bar">
+                        <label>
+                            <input type="checkbox" class="CheckboxHeBing" id="checkbox_@i" value="@i" /> 选中合并
+                        </label>
+                        <span>丨</span>
+
+                        @if (videoFile.IsStar)
+                        {
+                            <a class="star star-checked" onclick="Star(@i,false)">★ 取消收藏</a>
+                        }
+                        else
+                        {
+                            <a class="star star-unchecked" onclick="Star(@i,true)">☆ 收藏</a>
+                        }
+
+                        <span>丨 @videoFile.LastWriteTime.ToString("yyyy-MM-dd")</span>
+                        
+                        <div style="flex-grow: 1;"></div> <button class="btn-play" onclick="Play(this, @i)">播放</button>
+                        <button onclick="ShowRename(this, @i)">重命名</button>
+                        <button class="btn-danger" onclick="Delete(this, @i)">删除</button>
+
+                        <div style="display:none; align-items:center; gap:5px;" id="renameArea_@i">
+                            <input type="text" value="@videoFile.Name" id="renametextBox_@i" style="width:200px; padding:4px;" />
+                            <button onclick="Rename(this, @i)">确定</button>
+                            <button onclick="HideRename(@i)">取消</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <script>
+        // 删除逻辑不变
+        function Delete(btn, index) {
+            if(!confirm("确定要删除这个视频吗？")) return;
+            var videoBox = document.querySelector("#videoBox_" + index);
+            //var path = videoBox.getAttribute("data-video-path");
+            var path = videoBox.getAttribute("data-video-full-path");
+            var xhr = new XMLHttpRequest();
+            var url = '/Home/Delete?FilePath=' + encodeURIComponent(path);
+            xhr.open('GET', url, true);
+            xhr.send();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    var res = xhr.responseText;
+                    if(res == "true"){
+                        var videoInfoPanel = document.querySelector("#videoInfoPanel_" + index);
+                        videoInfoPanel.style.display = "none";
+                    } else {
+                        alert("删除失败！");
+                    }
+                }
+            };
+        }
+
+        // 收藏逻辑改进：直接刷新页面或通过DOM改变星星样式，此处为了简便采用原有逻辑，建议你可以配合DOM操作直接更新文字
+        function Star(index, isStar) {
+            var xhr = new XMLHttpRequest();
+            var url = '/Home/Star?FilePath=' + encodeURIComponent(GetFullFileName(index)) + "&IsStar=" + isStar;
+            xhr.open('GET', url, true);
+            xhr.send();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    if(xhr.responseText == "true"){
+                        // 简单处理：重新加载页面看效果，或者你可以用 JS 替换对应的 <a> 标签 class
+                        window.location.reload(); 
+                    }
+                }
+            };
+        }
+
+        // 重命名展开/收起
+        function ShowRename(btn, index) {
+            document.getElementById("renameArea_" + index).style.display = "flex";
+            btn.style.display = "none";
+        }
+        function HideRename(index) {
+            document.getElementById("renameArea_" + index).style.display = "none";
+            // 需要找到对应的“重命名”按钮并显示，这里简单处理，重新刷新或者你可以更精细控制DOM
+            window.location.reload();
+        }
+
+        // 重命名提交
+        function Rename(btn, index) {
+            var videoBox = document.querySelector("#videoBox_" + index);
+            //var path = videoBox.getAttribute("data-video-path");
+            var path = videoBox.getAttribute("data-video-full-path");
+            var textbox = document.querySelector("#renametextBox_" + index);
+            var newName = textbox.value;
+            var xhr = new XMLHttpRequest();
+            var url = '/Home/Rename?FilePath=' + encodeURIComponent(path) + "&NewName=" + encodeURIComponent(newName);
+            xhr.open('GET', url, true);
+            xhr.send();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    if (xhr.responseText == "true") {
+                        alert("重命名成功！");
+                        window.location.reload();
+                    } else {
+                        alert("重命名失败！");
+                    }
+                }
+            };
+        }
+
+        // 播放逻辑：清空占位符，插入 video 标签
+        var videoElement;
+        function Play(btn, index) {
+            if (videoElement != null){
+                videoElement.parentElement.removeChild(videoElement);
+                videoElement = null;
+            }
+
+            var videoBox = document.querySelector("#videoBox_" + index);
+            var path = videoBox.getAttribute("data-video-path");
+            
+            // 清空左侧盒子里原有的占位提示
+            videoBox.innerHTML = "";
+
+            videoElement = document.createElement('video');
+            // 注意：如果视频在不同目录，需要确保路径拼写正确
+            videoElement.src = '../../Video/AV/' + path; 
+            videoElement.controls = true;
+            videoElement.muted = false;
+            videoElement.autoplay = true;
+
+            videoBox.appendChild(videoElement);
+        }
+
+        // 获取路径工具
+        function GetFileName(index){
+            return document.querySelector("#videoBox_" + index).getAttribute("data-video-path");
+        }
+        function GetFullFileName(index){
+            return document.querySelector("#videoBox_" + index).getAttribute("data-video-full-path");
+        }
+
+        // 合并视频多选控制
+        var checkboxes = document.querySelectorAll('input[type="checkbox"].CheckboxHeBing');
+        var selectedCheckboxes = [];
+        checkboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', handleCheckboxChange);
+        });
+
+        function handleCheckboxChange() {
+            var selectedCount = 0;
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    selectedCount++;
+                    if (selectedCount > 2) {
+                        checkbox.disabled = true;
+                    } else {
+                        checkbox.disabled = false;
+                        if (!selectedCheckboxes.includes(checkbox)) {
+                            selectedCheckboxes.push(checkbox);
+                        }
+                    }
+                } else {
+                    var index = selectedCheckboxes.indexOf(checkbox);
+                    if (index > -1) {
+                        selectedCheckboxes.splice(index, 1);
+                    }
+                    checkbox.disabled = false;
+                }
+            });
+        }
+
+        // 合并视频提交
+        function Merge(btn) {
+            var checkedFile = [];
+            for (var i = 0; i < selectedCheckboxes.length; i++) {
+                var index = selectedCheckboxes[i].value;
+                checkedFile.push(GetFileName(index));
+            }
+            if (checkedFile.length == 2) {
+                btn.disabled = true;
+                btn.innerText = "正在合并，请稍候...";
+                var xhr = new XMLHttpRequest();
+                var url = '/Home/Merge?file1=' + encodeURIComponent(checkedFile[0]) + "&file2=" + encodeURIComponent(checkedFile[1]);
+                xhr.open('GET', url, true);
+                xhr.send();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        alert(xhr.responseText);
+                        window.location.reload();
+                    }
+                };
+            } else {
+                alert("请勾选刚好2个视频进行合并");
+            }
+        }
+        // 合并视频提交
+        function GetAllFanHao(btn) {
+                var xhr = new XMLHttpRequest();
+                var url = '/Home/GetAllFanHao';
+                xhr.open('GET', url, true);
+                xhr.send();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        alert(xhr.responseText);
+                        window.location.reload();
+                    }
+                };   
+                
+            
+        }
+    </script>
+</body>
+</html>
