@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CodexApiProxy"
         mc:Ignorable="d"
-        Title="Codex API Proxy" Height="550" Width="650"
+        Title="Codex API Proxy" Height="520" Width="650"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
     <Grid Margin="15">
@@ -17,30 +17,29 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Grid.Row="0" Header="配置" Padding="10" Margin="0,0,0,10">
+        <GroupBox Grid.Row="0" Header="API 提供商" Padding="10" Margin="0,0,0,10">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="70"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="API 地址:" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBox Grid.Row="0" Grid.Column="1" x:Name="txtApiUrl" Margin="0,0,0,8"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="当前:" VerticalAlignment="Center" Margin="0,0,0,10"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="cmbProviders" Margin="0,0,5,10"
+                          DisplayMemberPath="Name" SelectionChanged="CmbProviders_SelectionChanged"/>
+                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="添加" Width="50" Height="26" Margin="0,0,5,0" Click="BtnAddProvider_Click"/>
+                    <Button Content="编辑" Width="50" Height="26" Margin="0,0,5,0" Click="BtnEditProvider_Click"/>
+                    <Button Content="删除" Width="50" Height="26" Click="BtnRemoveProvider_Click"/>
+                </StackPanel>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="API Key:" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="txtApiKey" Margin="0,0,0,8"/>
-
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="模型:" VerticalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBox Grid.Row="2" Grid.Column="1" x:Name="txtModel" Margin="0,0,0,8"/>
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="端口:" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="3" Grid.Column="1" x:Name="txtPort"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="端口:" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="txtPort" Width="120" HorizontalAlignment="Left"/>
             </Grid>
         </GroupBox>
 
@@ -54,7 +53,6 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
             <Button x:Name="btnStart" Content="启动服务" Width="100" Height="35" Margin="0,0,10,0" Click="BtnStart_Click"/>
             <Button x:Name="btnStop" Content="停止服务" Width="100" Height="35" IsEnabled="False" Click="BtnStop_Click"/>
-            <Button x:Name="btnSave" Content="保存配置" Width="100" Height="35" Margin="10,0,0,0" Click="BtnSave_Click"/>
         </StackPanel>
 
         <GroupBox Grid.Row="3" Header="日志" Padding="5">

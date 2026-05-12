@@ -25,42 +25,6 @@ namespace CodexApiProxy.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("https://api.deepseek.com")]
-        public string ApiUrl {
-            get {
-                return ((string)(this["ApiUrl"]));
-            }
-            set {
-                this["ApiUrl"] = value;
-            }
-        }
-
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string ApiKey {
-            get {
-                return ((string)(this["ApiKey"]));
-            }
-            set {
-                this["ApiKey"] = value;
-            }
-        }
-
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("deepseek-v4-pro")]
-        public string ModelName {
-            get {
-                return ((string)(this["ModelName"]));
-            }
-            set {
-                this["ModelName"] = value;
-            }
-        }
-
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("11435")]
         public int Port {
             get {

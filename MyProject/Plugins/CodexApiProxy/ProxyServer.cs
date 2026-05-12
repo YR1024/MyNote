@@ -197,6 +197,8 @@ namespace CodexApiProxy
             OnLog($"输入: {Truncate(inputText, 200)}");
 
             var apiUrlBase = ApiUrl.TrimEnd('/');
+            if (apiUrlBase.EndsWith("/v1"))
+                apiUrlBase = apiUrlBase.Substring(0, apiUrlBase.Length - 3);
             var chatCompletionsUrl = $"{apiUrlBase}/v1/chat/completions";
 
             var httpReq = new HttpRequestMessage(HttpMethod.Post, chatCompletionsUrl);
