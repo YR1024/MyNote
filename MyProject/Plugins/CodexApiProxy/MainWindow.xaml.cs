@@ -36,7 +36,9 @@ namespace CodexApiProxy
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add("Exit", null, (s, e) => ForceExit());
 
-            var icon = SystemIcons.Application;
+            var iconUri = new Uri("pack://application:,,,/app.ico", UriKind.Absolute);
+            var iconStream = System.Windows.Application.GetResourceStream(iconUri)?.Stream;
+            var icon = iconStream != null ? new Icon(iconStream) : SystemIcons.Application;
             _trayIcon = new NotifyIcon
             {
                 Icon = icon,

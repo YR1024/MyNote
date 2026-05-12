@@ -10,7 +10,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="app.ico" />
+    <Resource Include="app.ico" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Net.Http" />
