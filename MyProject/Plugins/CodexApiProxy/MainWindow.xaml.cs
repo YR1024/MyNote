@@ -1,8 +1,11 @@
 using System;
+using System.Drawing;
 using System.Linq;
 using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Media;
 using CodexApiProxy.Properties;
+using Brushes = System.Windows.Media.Brushes;
 
 namespace CodexApiProxy
 {
@@ -10,6 +13,8 @@ namespace CodexApiProxy
     {
         private readonly ProxyServer _proxy;
         private readonly ProviderManager _providers;
+        private NotifyIcon _trayIcon;
+        private bool _forceExit;
 
         public MainWindow()
         {
@@ -21,6 +26,42 @@ namespace CodexApiProxy
             LoadSettings();
             RefreshProviderList();
             UpdateProxyUrl();
+            InitTrayIcon();
+        }
+
+        private void InitTrayIcon()
+        {
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add("显示主窗口", null, (s, e) => ShowMainWindow());
+            contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add("Exit", null, (s, e) => ForceExit());
+
+            var icon = SystemIcons.Application;
+            _trayIcon = new NotifyIcon
+            {
+                Icon = icon,
+                Text = "Codex API Proxy",
+                ContextMenuStrip = contextMenu,
+                Visible = true
+            };
+            _trayIcon.DoubleClick += (s, e) => ShowMainWindow();
+        }
+
+        private void ShowMainWindow()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+        }
+
+        private void ForceExit()
+        {
+            _forceExit = true;
+            _proxy.Stop();
+            _proxy.Dispose();
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            System.Windows.Application.Current.Shutdown();
         }
 
         private void LoadSettings()
@@ -81,7 +122,7 @@ namespace CodexApiProxy
             var provider = GetSelectedProvider();
             if (provider == null)
             {
-                MessageBox.Show("请先选择一个提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("请先选择一个提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             var dlg = new ProviderDialog(provider) { Owner = this };
@@ -97,10 +138,10 @@ namespace CodexApiProxy
             var provider = GetSelectedProvider();
             if (provider == null)
             {
-                MessageBox.Show("请先选择一个提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("请先选择一个提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            if (MessageBox.Show($"确定删除 \"{provider.Name}\" 吗？", "确认",
+            if (System.Windows.MessageBox.Show($"确定删除 \"{provider.Name}\" 吗？", "确认",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 _providers.Remove(provider.Id);
@@ -113,19 +154,19 @@ namespace CodexApiProxy
             var provider = GetSelectedProvider();
             if (provider == null)
             {
-                MessageBox.Show("请先添加并选择一个 API 提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("请先添加并选择一个 API 提供商", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(provider.ApiKey))
             {
-                MessageBox.Show("当前提供商未设置 API Key，请编辑配置", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("当前提供商未设置 API Key，请编辑配置", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (!int.TryParse(txtPort.Text.Trim(), out int port) || port < 1 || port > 65535)
             {
-                MessageBox.Show("端口范围: 1-65535", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("端口范围: 1-65535", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -140,12 +181,13 @@ namespace CodexApiProxy
             {
                 await _proxy.StartAsync();
                 SetRunningState(true);
+                _trayIcon.Text = $"Codex API Proxy - {provider.Name} (:{port})";
                 AppendLog($"[信息] 使用提供商: {provider.Name} ({provider.ModelName})");
             }
             catch (Exception ex)
             {
                 AppendLog($"[错误] 启动失败: {ex.Message}");
-                MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -153,6 +195,7 @@ namespace CodexApiProxy
         {
             _proxy.Stop();
             SetRunningState(false);
+            _trayIcon.Text = "Codex API Proxy";
         }
 
         private void SetRunningState(bool running)
@@ -178,8 +221,19 @@ namespace CodexApiProxy
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _proxy.Stop();
-            _proxy.Dispose();
+            if (!_forceExit)
+            {
+                e.Cancel = true;
+                Hide();
+                //_trayIcon.ShowBalloonTip(2000, "Codex API Proxy", "程序已最小化到系统托盘", ToolTipIcon.Info);
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            base.OnClosed(e);
         }
     }
 }

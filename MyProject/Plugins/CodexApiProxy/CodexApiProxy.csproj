@@ -7,10 +7,16 @@
     <AssemblyName>CodexApiProxy</AssemblyName>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="app.ico" />
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Configuration" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
