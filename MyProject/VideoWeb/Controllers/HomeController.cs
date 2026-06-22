@@ -98,7 +98,7 @@ namespace VideoWeb.Controllers
             var videos = _db.Videos
                             .Include(v => v.Actors)
                             .Include(v => v.Tags)
-                            .OrderBy(v => v.LastWriteTime)
+                            .OrderByDescending(v => v.LastWriteTime)
                             .ToList();
 
             ViewBag.ServerPath = avpath;
@@ -122,41 +122,59 @@ namespace VideoWeb.Controllers
         [HttpGet]
         public bool Star(string FilePath, bool IsStar)
         {
-            List<string> starVideo = GetStarVideo()?? new List<string>();
-            if (IsStar)
+            //List<string> starVideo = GetStarVideo()?? new List<string>();
+            var video = _db.Videos.Where(v => v.FullPath == FilePath).FirstOrDefault();
+            if(video != null)
             {
-                if (!starVideo.Contains(FilePath))
-                {
-                    starVideo.Add(FilePath);
-                }
+                //if (IsStar)
+                //{
+                //    if (!starVideo.Contains(FilePath))
+                //    {
+                //        starVideo.Add(FilePath);
+                //    }
+                //}
+                //else
+                //{
+                //    if (starVideo.Contains(FilePath))
+                //    {
+                //        starVideo.Remove(FilePath);
+                //    }
+                //}
+                video.IsStar = IsStar;
+                _db.SaveChanges();
+                return true;
             }
-            else
-            {
-                if (starVideo.Contains(FilePath))
-                {
-                    starVideo.Remove(FilePath);
-                }
-            }
-            JsonSerializeHelper.SaveObjectToJsonFile(starVideo, starVideoConfig);
-            return true;
+           
+            //JsonSerializeHelper.SaveObjectToJsonFile(starVideo, starVideoConfig);
+            return false;
         }
 
         [HttpGet]
-        public bool Delete(string FilePath)
+        public async Task<bool> Delete(string FilePath)
         {
             var video = _db.Videos.Where(v => v.FullPath == FilePath).FirstOrDefault();
             if(video != null)
             {
-                try
+             
+                // 尝试最多3次，每次间隔 500 毫秒，给 IIS 释放文件句柄的时间
+                for (int i = 0; i < 3; i++)
                 {
-                    System.IO.File.Delete(video.FullPath);
-                    _db.Videos.Remove(video);
-                    _db.SaveChanges();
-                    return true;
-                }
-                catch(Exception e)
-                {
-                    return false;
+                    try
+                    {
+                        System.IO.File.Delete(video.FullPath);
+                        _db.Videos.Remove(video);
+                        await _db.SaveChangesAsync();
+                        return true;
+                    }
+                    catch (IOException) // 专门捕捉文件占用异常
+                    {
+                        if (i == 2) return false; // 最后一次还是失败，就认命
+                        await Task.Delay(500); // 稍微等一下 IIS 释放文件
+                    }
+                    catch (Exception)
+                    {
+                        return false; // 其他未知异常直接返回
+                    }
                 }
             }
             return false;

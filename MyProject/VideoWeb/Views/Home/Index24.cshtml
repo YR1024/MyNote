@@ -277,6 +277,20 @@
         function Delete(btn, index) {
             if(!confirm("确定要删除这个视频吗？")) return;
             var videoBox = document.querySelector("#videoBox_" + index);
+
+            // 【新增修复代码：释放文件占用】
+            // 检查要删除的这个视频是否正在播放中
+            var currentVideo = videoBox.querySelector("video");
+            if (currentVideo) {
+                currentVideo.removeAttribute('src'); // 核心1：清空数据源
+                currentVideo.load();                 // 核心2：强迫浏览器终止对 IIS 的媒体流请求
+                currentVideo.parentElement.removeChild(currentVideo);
+                
+                // 如果删除的就是全局正在播放的视频，顺手把全局变量置空
+                if (videoElement === currentVideo) {
+                    videoElement = null; 
+                }
+            }
             //var path = videoBox.getAttribute("data-video-path");
             var path = videoBox.getAttribute("data-video-full-path");
             var xhr = new XMLHttpRequest();
@@ -350,6 +364,10 @@
         var videoElement;
         function Play(btn, index) {
             if (videoElement != null){
+                // 【新增修复代码：释放上一个视频的文件占用】
+                videoElement.removeAttribute('src'); 
+                videoElement.load();
+
                 videoElement.parentElement.removeChild(videoElement);
                 videoElement = null;
             }
