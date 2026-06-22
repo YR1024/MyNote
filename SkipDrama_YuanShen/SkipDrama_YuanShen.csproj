@@ -102,7 +102,7 @@
     <None Include="native\SDL3-LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="native\x64\SDL3.dll">
+    <Content Include="native\win-x64\SDL3.dll">
       <Link>SDL3.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
