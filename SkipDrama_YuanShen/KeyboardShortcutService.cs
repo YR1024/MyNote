@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace SkipDrama_YuanShen
 {
@@ -8,19 +9,45 @@ namespace SkipDrama_YuanShen
     {
         private const uint InputKeyboard = 1;
         private const uint KeyUp = 0x0002;
+        private const uint ScanCode = 0x0008;
         private const ushort VirtualKeyAlt = 0x12;
         private const ushort VirtualKeyF1 = 0x70;
+        private const ushort ScanCodeAlt = 0x38;
+        private const ushort ScanCodeF1 = 0x3B;
 
         internal static void SendNvidiaScreenshotShortcut()
         {
+            SendScanCodeShortcut();
+        }
+
+        private static void SendScanCodeShortcut()
+        {
             var inputs = new[]
             {
-                CreateKeyboardInput(VirtualKeyAlt, false),
-                CreateKeyboardInput(VirtualKeyF1, false),
-                CreateKeyboardInput(VirtualKeyF1, true),
-                CreateKeyboardInput(VirtualKeyAlt, true)
+                CreateKeyboardInput(VirtualKeyAlt, ScanCodeAlt, false)
             };
+            SendInputs(inputs);
 
+            Thread.Sleep(30);
+
+            inputs = new[]
+            {
+                CreateKeyboardInput(VirtualKeyF1, ScanCodeF1, false)
+            };
+            SendInputs(inputs);
+
+            Thread.Sleep(50);
+
+            inputs = new[]
+            {
+                CreateKeyboardInput(VirtualKeyF1, ScanCodeF1, true),
+                CreateKeyboardInput(VirtualKeyAlt, ScanCodeAlt, true)
+            };
+            SendInputs(inputs);
+        }
+
+        private static void SendInputs(Input[] inputs)
+        {
             var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Input)));
             if (sent != inputs.Length)
             {
@@ -28,7 +55,7 @@ namespace SkipDrama_YuanShen
             }
         }
 
-        private static Input CreateKeyboardInput(ushort virtualKey, bool keyUp)
+        private static Input CreateKeyboardInput(ushort virtualKey, ushort scanCode, bool keyUp)
         {
             return new Input
             {
@@ -38,7 +65,8 @@ namespace SkipDrama_YuanShen
                     Keyboard = new KeyboardInput
                     {
                         VirtualKey = virtualKey,
-                        Flags = keyUp ? KeyUp : 0
+                        ScanCode = scanCode,
+                        Flags = ScanCode | (keyUp ? KeyUp : 0)
                     }
                 }
             };

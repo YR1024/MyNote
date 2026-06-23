@@ -33,6 +33,7 @@ namespace SkipDrama_YuanShen
     {
         private const ushort MicrosoftVendorId = 0x045E;
         private const int PollIntervalMilliseconds = 5;
+        private const int XboxShareRawButton = 11;
 
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private readonly object _deviceFilterGate = new object();
@@ -76,6 +77,8 @@ namespace SkipDrama_YuanShen
 
                 while (!token.IsCancellationRequested)
                 {
+                    Sdl3Native.SDL_PumpEvents();
+
                     if (_gamepad == IntPtr.Zero || !Sdl3Native.SDL_GamepadConnected(_gamepad))
                     {
                         CloseCurrentController();
@@ -187,6 +190,8 @@ namespace SkipDrama_YuanShen
 
         private static List<uint> GetGamepadIds()
         {
+            Sdl3Native.SDL_PumpEvents();
+
             int count;
             var pointer = Sdl3Native.SDL_GetGamepads(out count);
             var result = new List<uint>(Math.Max(count, 0));
@@ -229,6 +234,8 @@ namespace SkipDrama_YuanShen
 
         private SdlGamepadSnapshot ReadSnapshot()
         {
+            var share = Button(SdlGamepadButton.Misc1) || RawJoystickButton(XboxShareRawButton);
+
             return new SdlGamepadSnapshot
             {
                 A = Button(SdlGamepadButton.South),
@@ -236,7 +243,7 @@ namespace SkipDrama_YuanShen
                 X = Button(SdlGamepadButton.West),
                 Y = Button(SdlGamepadButton.North),
                 Guide = Button(SdlGamepadButton.Guide),
-                Share = Button(SdlGamepadButton.Misc1),
+                Share = share,
                 DpadLeft = Button(SdlGamepadButton.DpadLeft),
                 DpadRight = Button(SdlGamepadButton.DpadRight),
                 DpadUp = Button(SdlGamepadButton.DpadUp),
@@ -260,6 +267,17 @@ namespace SkipDrama_YuanShen
         private short Axis(SdlGamepadAxis axis)
         {
             return Sdl3Native.SDL_GetGamepadAxis(_gamepad, axis);
+        }
+
+        private bool RawJoystickButton(int button)
+        {
+            var joystick = Sdl3Native.SDL_GetGamepadJoystick(_gamepad);
+            if (joystick == IntPtr.Zero || Sdl3Native.SDL_GetNumJoystickButtons(joystick) <= button)
+            {
+                return false;
+            }
+
+            return Sdl3Native.SDL_GetJoystickButton(joystick, button);
         }
 
         private void CloseCurrentController()

@@ -12,8 +12,9 @@ namespace SkipDrama_YuanShen
 {
     public partial class SdlMainWindow : Window
     {
-        private const short LeftTriggerThreshold = 3855;
+        private const short LeftTriggerThreshold = 20000;
         private const double ComboHoldMilliseconds = 50;
+        private const double ShareScreenshotCooldownMilliseconds = 500;
 
         private readonly object _gamepadGate = new object();
         private readonly object _taskGate = new object();
@@ -36,8 +37,9 @@ namespace SkipDrama_YuanShen
         private bool _leftPressed;
         private bool _guidePressed;
         private int _directScreenshotRunning;
+        private long _lastShareScreenshotAt;
         private volatile bool _shareScreenshotEnabled = true;
-        private volatile bool _leftScreenshotEnabled = true;
+        private volatile bool _leftScreenshotEnabled;
         private volatile MacroMode _macroMode;
 
         public SdlMainWindow()
@@ -89,16 +91,15 @@ namespace SkipDrama_YuanShen
                 return;
             }
 
-            var gameIsForeground = ForegroundGameGuard.IsGenshinForeground();
-            ProcessAutoClickCombo(snapshot, gameIsForeground);
-            ProcessLtMacro(snapshot, gameIsForeground);
+            ProcessAutoClickCombo(snapshot);
+            ProcessLtMacro(snapshot);
             ProcessSpecialButtons(snapshot);
         }
 
-        private void ProcessAutoClickCombo(SdlGamepadSnapshot snapshot, bool gameIsForeground)
+        private void ProcessAutoClickCombo(SdlGamepadSnapshot snapshot)
         {
-            var combo = snapshot.LeftTrigger > LeftTriggerThreshold && snapshot.X;
-            if (!combo || !gameIsForeground)
+            var combo = IsLeftTriggerPressed(snapshot) && snapshot.X;
+            if (!combo)
             {
                 _comboPressed = false;
                 _comboTriggered = false;
@@ -120,9 +121,9 @@ namespace SkipDrama_YuanShen
             }
         }
 
-        private void ProcessLtMacro(SdlGamepadSnapshot snapshot, bool gameIsForeground)
+        private void ProcessLtMacro(SdlGamepadSnapshot snapshot)
         {
-            if (snapshot.LeftTrigger > LeftTriggerThreshold && _macroMode != MacroMode.None && gameIsForeground)
+            if (IsLeftTriggerPressed(snapshot) && _macroMode != MacroMode.None)
             {
                 EnsureLtMacroRunning();
             }
@@ -139,7 +140,7 @@ namespace SkipDrama_YuanShen
                 SetLastInput("Share");
                 if (_shareScreenshotEnabled)
                 {
-                    TriggerNvidiaScreenshot();
+                    TriggerNvidiaScreenshot("SDL");
                 }
             }
 
@@ -160,6 +161,11 @@ namespace SkipDrama_YuanShen
             _sharePressed = snapshot.Share;
             _leftPressed = snapshot.DpadLeft;
             _guidePressed = snapshot.Guide;
+        }
+
+        private static bool IsLeftTriggerPressed(SdlGamepadSnapshot snapshot)
+        {
+            return snapshot.LeftTrigger >= LeftTriggerThreshold;
         }
 
         private void ToggleAutoClick()
@@ -192,13 +198,6 @@ namespace SkipDrama_YuanShen
             {
                 while (!token.IsCancellationRequested)
                 {
-                    if (!ForegroundGameGuard.IsGenshinForeground())
-                    {
-                        GamepadButtonUp(GamePadControl.A);
-                        await Task.Delay(100, token);
-                        continue;
-                    }
-
                     GamepadButtonDown(GamePadControl.A);
                     await Task.Delay(50, token);
                     GamepadButtonUp(GamePadControl.A);
@@ -261,11 +260,6 @@ namespace SkipDrama_YuanShen
             {
                 while (!token.IsCancellationRequested)
                 {
-                    if (!ForegroundGameGuard.IsGenshinForeground())
-                    {
-                        break;
-                    }
-
                     if (mode == MacroMode.HiddenPlunge)
                     {
                         await RunHiddenPlungeCycleAsync(token);
@@ -364,17 +358,36 @@ namespace SkipDrama_YuanShen
             GamepadButtonUp(GamePadControl.RightShoulder);
         }
 
-        private void TriggerNvidiaScreenshot()
+        private void TriggerNvidiaScreenshot(string source)
         {
             try
             {
+                if (!AcceptShareScreenshotTrigger())
+                {
+                    return;
+                }
+
                 KeyboardShortcutService.SendNvidiaScreenshotShortcut();
-                SetStatus("已发送 NVIDIA 截图快捷键", "  Alt+F1");
+                SetStatus("已发送 NVIDIA 截图快捷键", "  Alt+F1 (" + source + ")");
             }
             catch (Exception ex)
             {
                 ReportError(ex);
             }
+        }
+
+        private bool AcceptShareScreenshotTrigger()
+        {
+            var now = Stopwatch.GetTimestamp();
+            var last = Interlocked.Read(ref _lastShareScreenshotAt);
+            var elapsedMilliseconds = (now - last) * 1000.0 / Stopwatch.Frequency;
+            if (last != 0 && elapsedMilliseconds < ShareScreenshotCooldownMilliseconds)
+            {
+                return false;
+            }
+
+            Interlocked.Exchange(ref _lastShareScreenshotAt, now);
+            return true;
         }
 
         private async void TriggerDirectScreenshot()

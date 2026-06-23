@@ -28,6 +28,9 @@ namespace SkipDrama_YuanShen
         internal static extern void SDL_free(IntPtr memory);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void SDL_PumpEvents();
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr SDL_GetGamepadNameForID(uint instanceId);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -53,6 +56,16 @@ namespace SkipDrama_YuanShen
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void SDL_CloseGamepad(IntPtr gamepad);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr SDL_GetGamepadJoystick(IntPtr gamepad);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int SDL_GetNumJoystickButtons(IntPtr joystick);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool SDL_GetJoystickButton(IntPtr joystick, int button);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]

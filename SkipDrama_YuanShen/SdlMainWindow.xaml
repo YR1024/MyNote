@@ -3,11 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="原神手柄助手 (SDL3)"
         Width="420"
-        Height="390"
+        Height="520"
         MinWidth="420"
-        MinHeight="390"
+        MinHeight="460"
         Loaded="Window_Loaded"
         Closing="Window_Closing">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -42,7 +43,7 @@
             <StackPanel Margin="10,6">
                 <TextBlock Text="Ctrl + /：切换 A 连点；手柄 LT + X 按住 50ms：切换 A 连点" TextWrapping="Wrap" />
                 <TextBlock Margin="0,5,0,0" Text="Ctrl + ,：切换火神跳劈；Ctrl + .：切换藏劈" TextWrapping="Wrap" />
-                <TextBlock Margin="0,5,0,0" Foreground="#FF666666" Text="宏只在原神成为前台窗口时输出。" />
+                <TextBlock Margin="0,5,0,0" Foreground="#FF666666" Text="指令不再限制原神为前台窗口；当前窗口或远程串流场景下也会输出。" TextWrapping="Wrap" />
             </StackPanel>
         </GroupBox>
 
@@ -56,10 +57,11 @@
         <GroupBox Grid.Row="4" Margin="0,12,0,0" Header="截图">
             <StackPanel Margin="10,6">
                 <CheckBox x:Name="ShareScreenshotCheckBox" Content="Share 键 -> NVIDIA App Alt+F1" IsChecked="True" Checked="ScreenshotOption_Changed" Unchecked="ScreenshotOption_Changed" />
-                <CheckBox x:Name="LeftScreenshotCheckBox" Margin="0,7,0,0" Content="方向键左 -> 程序直接截图 (UU远程)" IsChecked="True" Checked="ScreenshotOption_Changed" Unchecked="ScreenshotOption_Changed" />
+                <CheckBox x:Name="LeftScreenshotCheckBox" Margin="0,7,0,0" Content="方向键左 -> 程序直接截图 (UU远程)" IsChecked="False" Checked="ScreenshotOption_Changed" Unchecked="ScreenshotOption_Changed" />
             </StackPanel>
         </GroupBox>
 
         <TextBlock Grid.Row="5" x:Name="ErrorText" Margin="0,14,0,0" Foreground="#FFB00020" TextWrapping="Wrap" />
     </Grid>
+    </ScrollViewer>
 </Window>
