@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <AndroidSdkDirectory>$(LocalAppData)\Android\Sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory>$(UserProfile)\.codex\tools\jdk17</JavaSdkDirectory>
+  </PropertyGroup>
+</Project>
