@@ -1,0 +1,8 @@
+bin/
+obj/
+DreamyCinema.Web/node_modules/
+DreamyCinema.Web/node_modules/.tmp/
+DreamyCinema.Web/test-results/
+.test-runtime/
+Data/
+Videos/

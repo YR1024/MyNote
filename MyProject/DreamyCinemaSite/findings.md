@@ -1,0 +1,56 @@
+# Findings
+
+- Existing MVP scans `Videos` top-level mp4 files on every `/api/videos` request.
+- The local `Videos` directory already contains several top-level mp4 files, so validation must avoid calling the real sync endpoint against the real folder unless the user wants those files moved now.
+- Project-level `AGENTS.md` requests `task_plan.md`, `findings.md`, and `progress.md` for multi-step work.
+- Current DB already contains imported videos under `Videos/originals/2026/07`; schema changes must migrate in place rather than recreate the SQLite database.
+- User confirmed the project is still in development; future architecture changes do not need compatibility with old local database data.
+- `.sheet-backdrop { display: flex; }` overrode the browser's `[hidden] { display: none; }`, forcing the edit drawer visible before any video was selected.
+- `/api/videos` grouped selected tags by category and used `Any` inside each group, so selecting both `悬疑` and `喜剧` matched videos containing either tag instead of requiring both.
+- The data model and `VideoItem` already expose `CoverRelativePath`/`coverUrl`, but no cover-serving endpoint or editing workflow exists; the current cover panel is only a text placeholder.
+- EF relationships already cascade `TagCategory -> Tag -> VideoTag`; category/tag deletion removes assignments but does not delete videos.
+- Previous startup initialization re-added missing seeded tags and default video tags, which would undo user deletions; seeding must only run when the database is first created.
+- `RefreshMissingStatusAsync` currently recalculates every video from its original path; it must skip trashed records or the next sync would overwrite `Trashed` with `Missing`.
+- Current APIs and static index have no authentication; all reads and writes are reachable by any client that can access the server.
+- The cover upload endpoint explicitly disables antiforgery and must be brought under the same CSRF policy as JSON writes.
+- Default `dotnet run` bound only `localhost:5210`; the confirmed Ethernet address is `192.168.28.50/24`, so LAN requests were refused before reaching the app.
+- The active Ethernet connection is a Windows `Private` network. A scoped inbound rule now allows TCP 5210 only for the private profile and `LocalSubnet` clients.
+- After rebinding, Kestrel listens on `0.0.0.0:5210`; both loopback and `192.168.28.50:5210` return the expected login redirect locally.
+- The mobile player is currently a `<video controls>` element nested inside a `<button>`, which is invalid interactive-content nesting and can produce native video-layer stacking behavior that ignores the fixed filter panel.
+- The player now stays in a normal isolated preview container, while a separate overlay button starts playback and is removed from interaction once native controls are active.
+- Xiaomi Browser still composites the active video surface above the fixed HTML filter panel after the DOM nesting fix, so CSS `z-index` is not a reliable solution on this handset.
+- Chromium documents that Android video rendering can use `SurfaceView`, `MediaCodec`, and platform overlays; this supports treating the handset behavior as a native compositor issue rather than ordinary CSS stacking.
+- Hiding the native `<video>` element when it crosses the fixed header boundary is more reliable than trying higher `z-index` values against a platform video overlay.
+- The existing machine used NVM with Node 16.20.2; current Vite requires Node 20.19+ or 22.12+, so NVM now selects Node 24.18.0 from the official Node.js mirror.
+- The Vue production build can remain same-origin: source is separated under `DreamyCinema.Web`, while ASP.NET Core serves Vite output from `wwwroot` on port 5210 and preserves cookie/CSRF behavior.
+- A dedicated playback route removes native `<video>` elements from the sticky-filter library view, avoiding the Xiaomi Browser overlay conflict by page structure rather than scroll-triggered pausing.
+- Visual QA caught that the backend `VideoItem` serializes the original filename as `fileName`; the initial Vue type used `originalFileName`, leaving the player detail row blank.
+- The merged card can mount one native `<video>` in place without changing routes; normal scrolling does not pause it. Starting another video, changing the result set, or opening the editor disposes the previous inline player.
+- Xiaomi Browser renders the cover preview at its aspect-ratio size but appears not to reserve the same CSS Grid row height inside the scrolling drawer, allowing later controls to overlap the preview.
+- Grouping the preview and cover actions into one grid item, using `grid-auto-rows: max-content`, and assigning a concrete responsive preview height prevents later form controls from sharing the cover's visual area.
+- The editor form is itself the overflow element but remains a flex child with the default `min-height: auto`; its full content height is clipped by `.drawer` instead of shrinking into a scroll container.
+- A dedicated flex form shell with `min-height: 0` lets the editor body become the only scroll container; keeping the footer outside that body makes save/destructive actions reachable without depending on page scroll behavior.
+- FFmpeg and ffprobe were not initially available on PATH; `winget` exposes the current `Gyan.FFmpeg` package for installing both tools.
+- Existing videos need a sync-time backfill path, otherwise automatic media information would apply only to newly dropped files.
+- FFmpeg 8.1.2 was installed through WinGet; the application resolves its stable WinGet command links even when the parent process has not refreshed PATH.
+- The isolated sample was identified as H.264, 1920x1080, 41.211 seconds, and produced a valid midpoint JPEG cover.
+- The user's sync model treats cover absence as an incomplete managed state, so explicit cover removal should not permanently opt the video out of future automatic generation.
+- The current video endpoint materializes every matching row before applying selected-tag intersection filtering, so pagination requires moving each selected-tag predicate into the EF query before counting and slicing.
+- Applying one correlated `Any` predicate per selected tag preserves intersection semantics in SQLite while allowing `COUNT`, `Skip`, and `Take` to operate before materialization.
+- An IntersectionObserver sentinel with a manual button fallback supports automatic mobile loading without making data retrieval depend solely on observer availability.
+- The remaining work is primarily data safety, long-running sync reliability, bulk administration, credential maintenance, Windows production operation, and release validation rather than basic library browsing.
+- Backups should protect metadata and covers by default without duplicating the large original video directory; video-file availability is re-evaluated after restore.
+- No subtitle model, parser, storage, playback track, speech recognition, or translation code currently exists; AI subtitles are a new core subsystem rather than a small addition to the player.
+- AI translation must preserve stable cue identity and timing independently from translated text; otherwise chunked retries or model output drift can corrupt subtitle synchronization.
+- `SubtitlesParserV2` 2.4.0 targets .NET 10 and provides structured parsers for SRT, WebVTT, ASS, and SSA, while FFmpeg can remain responsible for extracting embedded text subtitle streams.
+- Browser subtitle behavior varies across mobile vendors, so the dedicated player exposes its own subtitle selector and also mounts standard HTML `<track>` elements for native controls.
+- The isolated phase 29 fixture imported two English SRT cues, persisted one default track, and generated WebVTT with the original 500-2500 ms timing intact.
+- Persisted job result JSON must use web camelCase independently of ASP.NET response serialization because a stored `JsonElement` preserves its original property names.
+- A running sync job interrupted by forcibly stopping the isolated server was recovered from SQLite on restart and completed on attempt 2, proving recovery is not dependent on browser memory.
+- OpenAI segment timestamps require `verbose_json` with `timestamp_granularities[]=segment`; `whisper-1` is the compatibility default because the official guide limits timestamp granularities to that model.
+- Translation output will use JSON schema when supported and still requires application-side exact Cue ID validation; provider output must never be allowed to alter subtitle timing.
+- The company development machine should not host the final models. Phase 31 must default AI processing to disabled, expose only sanitized provider status, and support a mock provider in isolated tests; the final ASP.NET service will call home-machine model services through loopback configuration.
+- Durable AI resume needs job input separate from job results plus per-chunk checkpoints. Completed translation chunks must retain exact source Cue IDs so retry/restart can skip paid work without changing the subtitle timeline.
+- The isolated phase 31 run translated the two imported English cues into a two-cue `zh-CN` track, preserved the original 500-2500 ms first-cue timing, and generated a separate three-cue mock speech-recognition track.
+- Mobile visual QA shows the selected Chinese AI track rendered in the native player and the AI task panel fits between the subtitle selector and video metadata without overlap.
+- Direct PowerShell inspection of the SQLite checkpoint table was abandoned because the standalone PowerShell host could not resolve the bundled native `e_sqlite3` dependency; the application itself opened the same database successfully and the E2E job completion/retry path verified persisted behavior through public APIs.

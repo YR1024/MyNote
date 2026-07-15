@@ -1,0 +1,158 @@
+# Progress
+
+## 2026-07-09
+
+- Read current implementation and project instructions.
+- Established plan for explicit local sync: `Videos` root to `Videos/originals/yyyy/MM`.
+- Added EF Core SQLite package and upgraded SQLitePCLRaw bundle to avoid the reported transitive vulnerability warning.
+- Reworked backend around a `Video` table, `/api/videos`, `/api/videos/sync`, and ID-based streaming.
+- Added web UI sync button and updated README usage.
+- Isolated sync test imported one temp mp4, then exposed a SQLite `DateTimeOffset` ORDER BY limitation; changed timestamps to `DateTime`.
+- Verified `dotnet build`, `/api/videos/sync`, `/api/videos`, homepage loading, and Range streaming with an isolated temp video root.
+- Verified `dotnet list package --vulnerable` reports no vulnerable packages.
+- Confirmed real `Videos` mp4 files were not moved during validation.
+- Redesigned mobile-first page with fixed filter panel and detailed video cards. Fixed EF query by mapping `Video` to `VideoItem` after materialization.
+- Browser visual QA for `http://127.0.0.1:5057` was blocked by enterprise policy, so validation used build/API/static checks.
+- Started implementation of selected generated UI: real categorized tags, many-to-many data model, and mobile two-panel video cards.
+- Added `TagCategories`, `Tags`, and `VideoTags` schema with in-place SQLite upgrade for the existing database.
+- Seeded default categories/tags and backfilled existing videos with unique numbers, descriptions, `年份:2026`, and `状态:未看`.
+- Rebuilt the mobile UI around categorized multi-select tags and two-panel video cards with preview/cover areas.
+- Verified build, tag category API, tag-filtered video API, homepage structure, vulnerable packages, and HTTP Range playback.
+- Added `GET /api/videos/{id}` and `PUT /api/videos/{id}` with unique-number and tag-id validation.
+- Added mobile editing drawer for number, title, description, and categorized multi-select tags.
+- Verified reversible metadata save/restore, duplicate-number conflict handling, page structure, and inline JavaScript parsing.
+- Started the metadata editing phase: video detail/update API plus a mobile editing drawer.
+- Diagnosed the always-open editor as an author CSS override of the native `hidden` attribute.
+- Added `.sheet-backdrop[hidden] { display: none; }` and verified the running page, inline JavaScript, and clean build.
+
+## 2026-07-13
+
+- Diagnosed same-category multi-tag filtering as category-grouped OR logic in `/api/videos`.
+- Changed filtering so each returned video must contain every selected tag ID.
+- Initial build verification was blocked because the existing development server locked `DreamyCinemaSite.exe`; proceeding with a controlled server restart.
+- Stopped the old server, rebuilt successfully with 0 warnings and 0 errors, and restarted it at `http://127.0.0.1:5057`.
+- Verified the live API: `悬疑` returned 1 video, `喜剧` returned 2 videos, and selecting both returned only `abc-123`; every combined result contained both selected tag IDs.
+- Started the next phase: real cover upload, local storage, serving, removal, and mobile editor integration.
+- Added cover APIs, image format/signature/size validation, local `Videos/covers/yyyy/MM` storage, and stale-file cleanup.
+- Added real cover rendering and cover select/preview/remove controls to the mobile editor.
+- Verified a reversible cover lifecycle on `abc-123`: upload 200, image read 200 with `image/png`, delete 204, database URL cleared, and cover file count restored.
+- Verified a fake `.png` payload is rejected with HTTP 400 based on its file signature.
+- Started tag administration: CRUD APIs plus a mobile tag-management drawer.
+- Changed default tag seeding to run only on first database creation so user deletions and assignment changes persist across restarts.
+- Added category/tag create, rename, and delete APIs with trimmed names, length limits, case-insensitive duplicate checks, and cascade cleanup.
+- Added the mobile tag-management drawer and automatic cleanup of deleted selected-tag IDs.
+- Verified reversible CRUD: create/rename category and tag, duplicate conflict 409, category delete 204, and cascaded tag lookup 404.
+- Verified startup persistence by temporarily renaming default tag `伦理`, restarting the server, confirming the old name was not re-seeded, and restoring the same tag ID.
+- Started server-side text search and sort controls for the mobile library.
+- Added server-side search across number, title, description, and original filename with escaped SQLite LIKE patterns and a 120-character limit.
+- Added imported/date/number/size sorting and combined it with selected-tag intersection filtering.
+- Added debounced mobile search, a compact sort selector, stale-request protection, and dynamic fixed-header height measurement.
+- Verified case-insensitive number search, literal wildcard handling, combined search/tag filtering, all sort modes, and the long-query 400 response.
+- Started safe video deletion with trash/restore, permanent deletion, and missing-record maintenance.
+- Added `Trashed` status, filesystem moves under `Videos/trash/{videoId}`, restore conflict protection, and permanent deletion limited to trashed/missing records.
+- Added a mobile maintenance drawer for restoring trash items and removing trash or missing records.
+- Verified the complete lifecycle in an isolated temporary library; corrected a PowerShell empty-array assertion and confirmed missing detection/deletion from raw JSON.
+- Verified available-video permanent deletion is blocked with 409 and trashed streams return 404.
+- Removed the isolated test library and restarted the real application at `http://127.0.0.1:5057`.
+- Started single-admin authentication with local first-run setup, protected APIs, CSRF, and login throttling.
+- Added cookie authentication, PBKDF2 credential storage, loopback-only first setup, fallback authorization, antiforgery middleware, and a login rate-limit policy.
+- Added a mobile setup/login page, logout control, centralized CSRF-aware API requests, and session-expiry redirects.
+- Auth testing exposed API cookie redirects; added explicit `/api` behavior returning 401/403 instead of redirects.
+- Verified in an isolated environment: loopback setup, short-password rejection, no plaintext in credentials, persisted login after restart, protected API access, CSRF rejection/success, logout invalidation, explicit API 401, and login rate limiting.
+- Removed all temporary auth data and restarted the real service without creating a test administrator password.
+- Fixed a final login redirect loop by moving static file serving before fallback authorization while retaining the explicit unauthenticated index redirect.
+
+## 2026-07-14
+
+- Changed the default HTTP launch profile from loopback-only `localhost:5210` to all local interfaces on port 5210.
+- Restarted the real service and confirmed it listens on `0.0.0.0:5210`.
+- Verified both `http://127.0.0.1:5210/` and `http://192.168.28.50:5210/` reach the application and redirect to login.
+- Added Windows Firewall rule `DreamyCinemaSite TCP 5210`, restricted to the private profile and local subnet.
+- Documented local and same-LAN access in `README.md`; phase 15 is complete.
+- Started phase 16 after mobile testing showed the inline player rendering above the fixed filter panel while scrolling.
+- Replaced the invalid video-inside-button structure with a normal preview container, separate play button, and inline native video controls.
+- Added explicit content/header stacking and preview isolation so the active player scrolls with its card below the fixed filter panel.
+- Verified inline JavaScript syntax, player structure assertions, and `dotnet build` with 0 warnings and 0 errors; phase 16 is complete.
+- Started phase 17 after Xiaomi Browser testing confirmed its native video surface still renders above the fixed filter panel.
+- Added a scroll/resize fallback that pauses and hides the active native video as soon as its card reaches the fixed filter panel; tapping it again after scrolling back resumes from the retained position.
+- Added active-player cleanup when the video list rerenders.
+- Verified JavaScript syntax, fallback structure assertions, and `dotnet build` with 0 warnings and 0 errors; phase 17 is complete pending handset refresh verification.
+- Started Vue migration: preserve the ASP.NET Core API and same-origin 5210 deployment while replacing legacy static HTML/JS with a typed Vue application.
+- Installed Node.js 24.18 LTS because the previous Node 16 runtime cannot run current Vite.
+- Created `DreamyCinema.Web` with Vue 3.5, TypeScript 7, Vite 8, Vue Router, Pinia, typed API models, authentication state, and library state.
+- Migrated login, library, categorized intersection filters, search/sort, metadata and cover editing, tag management, and maintenance into Vue views and components.
+- Added a dedicated `/videos/:id/play` route so Android native video rendering no longer overlaps the library filter panel.
+- Switched the existing NVM installation from Node 16.20.2 to Node 24.18.0 and removed the duplicate winget Node installation.
+- Completed the first Vue production build and connected Vue Router fallback plus automatic frontend builds to ASP.NET Core.
+- Added Playwright mobile end-to-end coverage using an isolated database and video directory; verified first-run setup, sync, library rendering, and navigation to the dedicated player.
+- Captured and inspected mobile library/player screenshots; corrected the `fileName` API type mapping found during visual QA.
+- Removed the isolated test data after verification; the real database and video library were not modified by the migration test.
+- Verified npm production dependencies and NuGet dependencies report 0 known vulnerabilities.
+- Completed the integrated `dotnet build` with automatic Vue type checking/build: 0 warnings and 0 errors.
+- Restarted the real service on `0.0.0.0:5210`; root, `/login`, player deep links, and `192.168.28.50:5210` all return the Vue application successfully. Phase 21 is complete.
+- Started phase 22 to merge the cover/video panels and support both inline playback and an explicit dedicated-player action.
+- Replaced the separate square preview/cover panels with one 16:9 media panel that uses the cover as its poster and plays inline from the center action.
+- Added a labeled “播放页” action beside “编辑”; it preserves the dedicated Vue playback route while the center media action stays on the library page.
+- Updated Playwright coverage to assert merged media, inline playback without navigation, and explicit navigation to the player route; the mobile test passed.
+- Inspected the inline mobile screenshot, removed isolated test data, and completed the integrated build with 0 warnings and 0 errors.
+- Restarted the real service on `0.0.0.0:5210` and verified the updated Vue asset is served through `192.168.28.50:5210`; phases 22-23 are complete.
+- Started phase 24 after handset testing showed cover actions and the number input overlapping the cover preview in the editor drawer.
+- Wrapped cover preview/actions in one explicit editor section, replaced aspect-ratio-only sizing with a concrete responsive height, and made drawer rows max-content tracks.
+- Changed editor labels to explicit text elements so mobile layout does not depend on anonymous grid text nodes.
+- Added Playwright geometry assertions proving preview, cover actions, and number field occupy non-overlapping vertical ranges; mobile E2E passed and screenshot inspection confirmed the corrected layout.
+- Removed isolated test data and verified the updated CSS asset is live at `192.168.28.50:5210`; phase 24 is complete.
+- Started phase 25 after desktop mobile emulation showed the editor could not scroll far enough to reach its save actions.
+- Split the editor into a constrained flex form, independently scrollable body, and fixed footer with safe-area padding; the save action now remains visible at mobile viewport heights.
+- Added mobile E2E assertions for content overflow, effective scrolling, visible save action, and footer viewport bounds; the full Playwright workflow passed.
+- Rebuilt the Vue application, visually inspected the mobile editor screenshot, removed isolated test data, and confirmed the updated CSS is served by the real service on port 5210. Phase 25 is complete.
+- Started phase 26: add sync-time ffprobe metadata extraction, FFmpeg cover generation, existing-video backfill, and mobile metadata display.
+- Installed FFmpeg 8.1.2 and added configurable, timeout-limited ffprobe/FFmpeg process execution with safe argument handling and non-blocking warning results.
+- Added duration, resolution, codec, and automatic-cover preference fields with incremental SQLite column creation for the existing database.
+- New imports now extract media information and generate midpoint JPEG covers; sync also backfills existing available videos with missing information or eligible missing covers.
+- Updated list cards, the dedicated player, sync status, TypeScript contracts, tests, configuration, and README documentation for the new media data.
+- Verified a real H.264 1920x1080 sample produced metadata and an automatic cover in an isolated runtime; mobile Playwright E2E passed, and `dotnet build` completed with 0 warnings and 0 errors.
+- Removed isolated test data, migrated the real database in place, and restarted the service on `0.0.0.0:5210`; loopback and LAN URLs return 200. Phase 26 is complete.
+- Started phase 27 to remove the permanent automatic-cover opt-out and make every coverless video eligible during sync.
+- Removed the automatic-cover opt-out from the model and sync query; deleting a cover now leaves it eligible for regeneration, while any existing manual cover remains untouched.
+- Added an E2E regression that removes an automatic cover, saves, synchronizes again, and verifies the cover reappears; the mobile workflow passed.
+- Rebuilt with 0 warnings and 0 errors, removed isolated test data, and restarted the real service on port 5210. Phase 27 is complete.
+- Started phase 28: server-side pagination, database-level tag intersection, mobile infinite loading, stale-request protection, and lazy cover loading.
+- Changed `/api/videos` to return paged `items/total/page/pageSize/hasMore` data, capped pages at 50 items, and moved selected-tag intersection into the EF query before count and pagination.
+- Added Pinia page state, append/deduplication behavior, stale-request suppression, and a mobile IntersectionObserver sentinel with a manual load-more fallback.
+- Updated the header to show loaded/total counts, marked list covers for browser lazy loading, and documented the API and scrolling behavior.
+- Verified the pagination contract, mobile count, lazy cover attribute, editing, cover regeneration, inline playback, and dedicated playback route through Playwright; E2E passed and visual inspection confirmed the mobile layout.
+- Completed `dotnet build` with 0 warnings and 0 errors, removed isolated test data, and restarted the real service on `0.0.0.0:5210`. Phase 28 is complete.
+- Consolidated the final product scope, completed capabilities, required phases 29-35, optional extensions, acceptance criteria, and overall completion definition in `ROADMAP.md`.
+- Corrected the roadmap omission: promoted AI subtitles to core scope and added phases for subtitle import/playback, durable jobs, optional speech recognition, provider-neutral AI translation, review, bilingual output, export, backup, and validation.
+- Started phase 29: subtitle tracks/cues, external and embedded import, browser WebVTT delivery, and player track selection.
+- Added the phase 29 subtitle parser dependency and began the complete storage, sync, API, and Vue player integration.
+- The first backend-only build found an incorrect `.Value` access on a null-checked reference record; corrected it before continuing validation.
+- Vue type checking and Vite transformation passed; the backend rebuild was temporarily blocked by the live PID 20252 executable, which was verified and stopped for the deployment build.
+- Added `SubtitleTracks`/`SubtitleCues`, incremental SQLite setup, external subtitle matching and storage, embedded text-track probing/extraction, and database-generated WebVTT endpoints.
+- Added standard HTML subtitle tracks plus an explicit mobile subtitle selector to the Vue inline and dedicated players.
+- Integrated build passed with 0 warnings and 0 errors. The isolated mobile Playwright flow passed with SRT import, API track metadata, VTT content/timing, inline track, dedicated track selector, and visual screenshot checks.
+- Removed the isolated test runtime, migrated the real database on startup, and restarted the real service on `0.0.0.0:5210`; loopback and LAN URLs both return 200. Phase 29 is complete.
+
+## 2026-07-15
+
+- Started phase 30: durable SQLite media jobs, background sync execution, progress, cancellation, retry, and restart recovery.
+- First background-job E2E run imported the video but exposed PascalCase persisted result fields, causing Vue result formatting to fail before refreshing the list; standardized new results on web camelCase and added legacy result compatibility.
+- A parallel validation build raced while Vite replaced hashed `wwwroot` assets; frontend validation passed and remaining integrated builds are run serially.
+- Added `MediaJobs`, job query/cancel/retry APIs, a single hosted Worker, duplicate-enqueue protection, progress/current-file reporting, cooperative cancellation, and restart recovery.
+- Added the mobile task panel with progress, cancel/retry actions, polling, completed result summaries, and page-refresh reconnection.
+- Mobile E2E passed cancellation, retry, completed result refresh, persisted page reload, video/subtitle sync, editing, and playback.
+- Forced an isolated server process to stop while a 20-file sync job was `Running`; after restart the same job completed with `AttemptCount = 2` and imported the remaining files.
+- Final integrated build passed with 0 warnings and 0 errors; the post-concurrency-guard mobile E2E passed again.
+- Removed isolated data, migrated the real database, and restarted the real service on `0.0.0.0:5210`; loopback and LAN URLs return 200. Phase 30 is complete.
+- Started phase 31: provider-neutral AI settings, speech transcription, stable-Cue translation, chunk checkpoints, usage limits, and player actions.
+- Resumed phase 31 from Codex task `019f64c0-b6e7-7de3-b1c6-a0d13e8cf7f7`: implement configurable provider boundaries and an isolated mock end-to-end path before installing real models on the home GPU machine.
+- Added the first backend AI subtitle slice: disabled-by-default configuration, provider interfaces, mock providers, durable AI job inputs/chunks, Cue-ID validation, and worker handlers for recognition and translation.
+- The first compile reached the output-copy stage but was blocked by the live PID 23632 locking the Debug executable; switched verification to an isolated build output so the real library stays running during development.
+- A project-local isolated intermediate path was incorrectly included by SDK source globs and caused duplicate assembly attributes; removed it and moved subsequent isolated outputs outside the repository.
+- Added player-page AI controls, sanitized provider status, recognition/translation job polling, cancel/retry actions, and automatic selection of a newly generated subtitle track.
+- Restricted the library store to sync jobs so completed AI result JSON is never parsed as a sync result.
+- Added `docs/ai-subtitle-architecture.md` and documented disabled-by-default configuration plus the final home-server loopback layout.
+- Integrated build passed with 0 warnings and 0 errors. An isolated mobile Playwright run passed sync, existing subtitle playback, mock contextual translation, unchanged VTT timing, generated Chinese playback, and mock speech recognition.
+- Visually inspected the mobile player screenshot with the Chinese AI track and task panel; layout is readable and non-overlapping.
+- Stopped the old real service only for the final build, migrated the real database at startup, and restarted on `0.0.0.0:5210`. Root and built assets return 200; anonymous AI API access returns 401 as required.
+- Final dependency checks report 0 known vulnerabilities for NuGet transitive packages and npm production dependencies.
