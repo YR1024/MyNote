@@ -21,6 +21,10 @@ using System.Threading.RateLimiting;
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration
+    .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
 
 var videoStorage = VideoStorage.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
 Directory.CreateDirectory(videoStorage.RootPath);
@@ -35,7 +39,7 @@ var connectionString = new SqliteConnectionStringBuilder { DataSource = database
 var credentialPath = ResolveCredentialPath(builder.Configuration, builder.Environment.ContentRootPath);
 var credentialStore = new AdminCredentialStore(credentialPath);
 var mediaTools = MediaTools.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
-var aiSubtitleOptions = AiSubtitleOptions.FromConfiguration(builder.Configuration);
+var aiSubtitleOptions = AiSubtitleOptions.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
 await credentialStore.InitializeAsync();
 
 builder.Services.AddSingleton(videoStorage);
@@ -44,6 +48,7 @@ builder.Services.AddSingleton(mediaTools);
 builder.Services.AddSingleton(aiSubtitleOptions);
 builder.Services.AddSingleton(AiSubtitleProviderFactory.CreateSpeech(aiSubtitleOptions));
 builder.Services.AddSingleton(AiSubtitleProviderFactory.CreateTranslation(aiSubtitleOptions));
+builder.Services.AddSingleton<AudioChunkExtractor>();
 builder.Services.AddSingleton<MediaAnalyzer>();
 builder.Services.AddSingleton<MediaJobQueueGate>();
 builder.Services.AddDbContext<CinemaDbContext>(options => options.UseSqlite(connectionString));
@@ -563,7 +568,7 @@ app.MapPost("/api/videos/{id}/subtitles/{trackId}/translate", async Task<IResult
         queueGate,
         MediaJobType.SubtitleTranslation,
         id,
-        new TranslationJobInput(trackId, options.TargetLanguage));
+        new TranslationJobInput(trackId, options.TargetLanguage, options.CreateTranslationProfile()));
 });
 
 app.MapPut("/api/videos/{id}", async (string id, UpdateVideoRequest request, CinemaDbContext db) =>
@@ -1387,6 +1392,7 @@ static async Task<SubtitleImportResult> ImportSubtitleFileAsync(
             Language = NormalizeLanguage(language),
             Kind = SubtitleKind.Original,
             Source = source,
+            RevisionStage = SubtitleRevisionStage.SourceOriginal,
             SourceKey = sourceKey,
             Format = parsed.Format,
             OriginalRelativePath = relativePath,
@@ -1694,6 +1700,7 @@ static async Task EnsureDatabaseAsync(CinemaDbContext db)
             "Language" TEXT NOT NULL,
             "Kind" TEXT NOT NULL,
             "Source" TEXT NOT NULL,
+            "RevisionStage" TEXT NOT NULL DEFAULT 'SourceOriginal',
             "SourceKey" TEXT NOT NULL,
             "Format" TEXT NOT NULL,
             "OriginalRelativePath" TEXT NOT NULL,
@@ -1738,6 +1745,7 @@ static async Task EnsureDatabaseAsync(CinemaDbContext db)
         );
         """);
 
+    await EnsureTableColumnAsync(db, "SubtitleTracks", "RevisionStage", """ALTER TABLE "SubtitleTracks" ADD COLUMN "RevisionStage" TEXT NOT NULL DEFAULT 'SourceOriginal';""");
     await EnsureTableColumnAsync(db, "MediaJobs", "InputJson", """ALTER TABLE "MediaJobs" ADD COLUMN "InputJson" TEXT NULL;""");
 
     await db.Database.ExecuteSqlRawAsync("""
@@ -2295,6 +2303,7 @@ static SubtitleTrackItem ToSubtitleTrackItem(SubtitleTrack track) => new(
     track.Language,
     track.Kind,
     track.Source,
+    track.RevisionStage,
     track.Format,
     track.CueCount,
     track.IsDefault,
@@ -2538,6 +2547,7 @@ public sealed class SubtitleTrack
     public string Language { get; set; } = "und";
     public string Kind { get; set; } = SubtitleKind.Original;
     public string Source { get; set; } = SubtitleSource.External;
+    public string RevisionStage { get; set; } = SubtitleRevisionStage.SourceOriginal;
     public string SourceKey { get; set; } = "";
     public string Format { get; set; } = "";
     public string OriginalRelativePath { get; set; } = "";
@@ -2646,6 +2656,15 @@ public static class SubtitleSource
     public const string AiTranslation = "AiTranslation";
 }
 
+public static class SubtitleRevisionStage
+{
+    public const string SourceOriginal = "SourceOriginal";
+    public const string RawRecognition = "RawRecognition";
+    public const string SourceCorrected = "SourceCorrected";
+    public const string ChineseDraft = "ChineseDraft";
+    public const string FinalPolished = "FinalPolished";
+}
+
 public static class MediaJobType
 {
     public const string Sync = "Sync";
@@ -2665,6 +2684,7 @@ public static class MediaJobStatus
 public static class AiJobChunkStatus
 {
     public const string Queued = "Queued";
+    public const string Failed = "Failed";
     public const string Completed = "Completed";
 }
 
@@ -2731,6 +2751,7 @@ public sealed record SubtitleTrackItem(
     string Language,
     string Kind,
     string Source,
+    string RevisionStage,
     string Format,
     int CueCount,
     bool IsDefault,
@@ -3188,6 +3209,8 @@ public sealed class MediaJobWorker(
 
     private async Task ExecuteJobAsync(PendingMediaJob pending, CancellationToken stoppingToken)
     {
+        using var executionCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        var cancellationMonitor = MonitorCancellationAsync(pending.Id, executionCancellation, stoppingToken);
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
@@ -3196,18 +3219,18 @@ public sealed class MediaJobWorker(
                 MediaJobType.Sync => await handlers.RunSyncAsync(
                     scope.ServiceProvider,
                     pending.Id,
-                    stoppingToken,
-                    progress => ReportProgressAsync(pending.Id, progress, stoppingToken)),
+                    executionCancellation.Token,
+                    progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
                 MediaJobType.SpeechRecognition => await handlers.RunSpeechRecognitionAsync(
                     scope.ServiceProvider,
                     pending.Id,
-                    stoppingToken,
-                    progress => ReportProgressAsync(pending.Id, progress, stoppingToken)),
+                    executionCancellation.Token,
+                    progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
                 MediaJobType.SubtitleTranslation => await handlers.RunSubtitleTranslationAsync(
                     scope.ServiceProvider,
                     pending.Id,
-                    stoppingToken,
-                    progress => ReportProgressAsync(pending.Id, progress, stoppingToken)),
+                    executionCancellation.Token,
+                    progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
                 _ => throw new InvalidOperationException($"不支持的任务类型：{pending.Type}")
             };
             await CompleteJobAsync(pending.Id, resultJson, stoppingToken);
@@ -3224,6 +3247,42 @@ public sealed class MediaJobWorker(
         {
             logger.LogError(ex, "后台任务 {JobId} 执行失败。", pending.Id);
             await FailJobAsync(pending.Id, ex.Message);
+        }
+        finally
+        {
+            await executionCancellation.CancelAsync();
+            try
+            {
+                await cancellationMonitor;
+            }
+            catch (OperationCanceledException)
+            {
+                // The monitor is expected to stop when execution completes.
+            }
+        }
+    }
+
+    private async Task MonitorCancellationAsync(
+        string id,
+        CancellationTokenSource executionCancellation,
+        CancellationToken stoppingToken)
+    {
+        while (!executionCancellation.IsCancellationRequested)
+        {
+            await Task.Delay(500, executionCancellation.Token);
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+            var state = await db.MediaJobs
+                .AsNoTracking()
+                .Where(job => job.Id == id)
+                .Select(job => new { job.Status, job.CancellationRequested })
+                .FirstOrDefaultAsync(executionCancellation.Token);
+            if (state is null || state.CancellationRequested || state.Status != MediaJobStatus.Running)
+            {
+                await executionCancellation.CancelAsync();
+                return;
+            }
+            stoppingToken.ThrowIfCancellationRequested();
         }
     }
 

@@ -45,6 +45,17 @@ Goal: Build a mobile-first, authenticated local video library with a Vue fronten
 
 ## Decisions
 
+### Phase 31 execution plan (home server)
+
+1. [complete] Audit the Windows/NVIDIA/Python/.NET/Node/FFmpeg environment and preserve the existing working tree.
+2. [complete] Implement configurable FFmpeg audio chunking plus the real loopback faster-whisper HTTP provider with cancellation and per-chunk resume.
+3. [complete] Implement the real loopback llama.cpp OpenAI-compatible provider with structured Cue-ID output, context, glossary/character names, validation, and retry.
+4. [complete] Add non-committed home-server configuration and repeatable PowerShell setup/start scripts for services bound only to `127.0.0.1`.
+5. [complete] Install and verify the pinned faster-whisper/CTranslate2 runtime and official llama.cpp CUDA Windows release with Qwen3-8B Q4_K_M.
+6. [complete] Validate providers and restart/cancel/resume behavior against isolated data, then run the full build, type check, Playwright, and dependency audits.
+7. [complete] Benchmark a ten-minute isolated video with production 300-second speech chunks and record recognition speed, GPU memory, and system memory.
+8. [pending] Perform final manual subtitle acceptance with a real household video after one is added to the currently empty production library.
+
 - `Videos` root is the manual drop/download directory.
 - Sync is explicit via button/API, not performed on every page visit.
 - Managed videos are moved to `Videos/originals/yyyy/MM/{videoId}.mp4`.

@@ -6,3 +6,5 @@ DreamyCinema.Web/test-results/
 .test-runtime/
 Data/
 Videos/
+appsettings.Local.json
+local-ai/

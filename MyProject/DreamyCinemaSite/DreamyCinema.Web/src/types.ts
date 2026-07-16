@@ -25,6 +25,7 @@ export interface SubtitleTrack {
   language: string;
   kind: string;
   source: string;
+  revisionStage: "SourceOriginal" | "RawRecognition" | "SourceCorrected" | "ChineseDraft" | "FinalPolished";
   format: string;
   cueCount: number;
   isDefault: boolean;

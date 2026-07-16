@@ -10,7 +10,7 @@
 - 播放：封面和视频共用一个媒体区域；点击中央按钮在列表内播放，“播放页”按钮进入 `/videos/{id}/play` 独立播放页。
 - 媒体处理：同步时使用 ffprobe 提取时长、分辨率、编码和内嵌字幕轨道，并使用 FFmpeg 自动截取视频中间帧作为封面。
 - 字幕：外挂或内嵌文本字幕会解析为数据库 Cue，并按需输出 WebVTT 给浏览器播放。
-- AI 字幕：识别和翻译通过可替换 Provider 接口进入持久化后台任务；当前公司环境默认关闭，真实本地模型将在家用服务器接入。
+- AI 字幕：识别和翻译通过可替换 Provider 接口进入持久化后台任务；已接入本机 faster-whisper large-v3 与 llama.cpp/Qwen3-8B，仓库默认配置仍保持关闭。
 - 后台任务：同步请求写入 SQLite 任务队列，由单个后台 Worker 执行；页面可查看进度、取消、重试，并在刷新或服务重启后恢复。
 
 ## FFmpeg
@@ -23,11 +23,37 @@ winget install --id Gyan.FFmpeg --exact
 
 程序会依次使用 `MediaTools` 中配置的路径、WinGet 命令链接和系统 `PATH`。FFmpeg 暂时不可用时，视频仍会正常导入，并在同步结果中显示媒体处理警告。
 
+## 本地 AI 字幕
+
+模型、CUDA 运行库和 Python 虚拟环境安装在 `%LOCALAPPDATA%\DreamyCinema\AI`，不会进入 Git。首次部署执行：
+
+```powershell
+.\scripts\Setup-LocalAi.ps1
+Copy-Item .\appsettings.Local.example.json .\appsettings.Local.json
+```
+
+`appsettings.Local.json` 已被 `.gitignore` 排除。真实配置使用 `FasterWhisper` 与 `LlamaCpp` Provider；地址、模型、超时、音频分块、字幕分块、人物名和词汇表都从配置读取。不要把 API 密钥写入 `appsettings.json`。
+
+启动模型服务：
+
+```powershell
+.\scripts\Start-LocalAi.ps1
+```
+
+完整启动网站与模型服务：
+
+```powershell
+.\scripts\Start-HomeServer.ps1
+```
+
+网站监听 `0.0.0.0:5210`；faster-whisper 只监听 `127.0.0.1:8001`，llama.cpp 只监听 `127.0.0.1:8080`。手机只能访问网站，不能访问模型接口。后台 Worker 串行执行识别与翻译，llama 空闲时卸载模型，Whisper 最后一块完成后释放模型，避免两者争用 8 GB 显存。
+
+当前固定运行组合为 faster-whisper 1.2.1、CTranslate2 4.8.1、CUDA 12 cuBLAS/cuDNN 9 运行库、llama.cpp `b10015`、Qwen3-8B Q4_K_M。没有安装完整 CUDA Toolkit。重复部署、健康检查、停止和隔离真实 Provider 测试见 `scripts` 目录及 `docs/ai-subtitle-architecture.md`。
+
 ## 运行
 
 ```powershell
-nvm use 24.18.0
-dotnet run
+dotnet run --urls http://0.0.0.0:5210
 ```
 
 `dotnet build` 和 `dotnet run` 会自动执行 Vue 类型检查及生产构建。首次构建时如尚未安装前端依赖，会自动运行 `npm install`。
@@ -140,7 +166,7 @@ Videos/*.mp4
 - `POST /api/videos/sync`：创建或返回当前同步任务，响应为 `202 Accepted`，媒体处理不再占用该 HTTP 请求。
 - `GET /api/jobs`：返回最近 50 个后台任务。
 - `GET /api/jobs/{id}`：返回任务阶段、进度、当前文件、错误、执行次数和时间。
-- `POST /api/jobs/{id}/cancel`：取消等待中或运行中的任务；运行中会在当前文件步骤结束后安全停止。
+- `POST /api/jobs/{id}/cancel`：取消等待中或运行中的任务；AI HTTP 请求和 FFmpeg 音频提取会收到协作式取消信号。
 - `POST /api/jobs/{id}/retry`：重新排队失败或已取消的任务。
 - `GET /api/videos/{id}/stream`：按数据库中的 VideoId 返回 mp4 文件流，并启用 HTTP Range，浏览器可以拖动进度条。
 
@@ -159,7 +185,7 @@ MediaJobs
 AiJobChunks
 ```
 
-视频编辑不会移动实际 mp4 文件。封面保存在 `Videos/covers/yyyy/MM`，字幕原文件保存在 `Videos/subtitles/{videoId}`，数据库保存相对路径、轨道信息和稳定时间轴 Cue。
+视频编辑不会移动实际 mp4 文件。封面保存在 `Videos/covers/yyyy/MM`，字幕原文件保存在 `Videos/subtitles/{videoId}`，数据库保存相对路径、轨道信息和稳定时间轴 Cue。字幕轨道还保存 `RevisionStage`：`RawRecognition`、`SourceCorrected`、`ChineseDraft`、`FinalPolished` 分层保存，校对流程不得覆盖原始识别稿。
 
 同步也会补齐已有视频中缺失的媒体信息和自动封面。手动上传的封面在保留期间不会被覆盖；在编辑窗口移除封面后，该视频会在下一次同步时重新生成自动封面。
 
