@@ -15,6 +15,7 @@
     <Deterministic>true</Deterministic>
     <LangVersion>latest</LangVersion>
     <TargetFrameworkProfile />
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -64,10 +65,13 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DirectHidInputListener.cs" />
     <Compile Include="DirectScreenshotService.cs" />
     <Compile Include="ForegroundGameGuard.cs" />
+    <Compile Include="GameInputSystemButtonListener.cs" />
     <Compile Include="GlobalHotkeyManager.cs" />
     <Compile Include="KeyboardShortcutService.cs" />
+    <Compile Include="RawInputHidListener.cs" />
     <Compile Include="Sdl3Native.cs" />
     <Compile Include="SdlGamepadInputService.cs" />
     <Compile Include="SdlMainWindow.xaml.cs">
@@ -94,6 +98,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <None Include="App.config" />
+    <None Include="app.manifest" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

@@ -7,6 +7,10 @@ namespace SkipDrama_YuanShen
     {
         internal const uint InitGamepad = 0x00002000;
         internal const string BackgroundEventsHint = "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS";
+        internal const uint EventJoystickButtonDown = 0x603;
+        internal const uint EventJoystickButtonUp = 0x604;
+        internal const uint EventGamepadButtonDown = 0x651;
+        internal const uint EventGamepadButtonUp = 0x652;
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
@@ -31,6 +35,10 @@ namespace SkipDrama_YuanShen
         internal static extern void SDL_PumpEvents();
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool SDL_PollEvent(out SdlEvent ev);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr SDL_GetGamepadNameForID(uint instanceId);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -43,15 +51,6 @@ namespace SkipDrama_YuanShen
         internal static extern ushort SDL_GetGamepadProductForID(uint instanceId);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern SdlGuid SDL_GetJoystickGUIDForID(uint instanceId);
-
-        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void SDL_GUIDToString(SdlGuid guid, [Out] byte[] buffer, int bufferLength);
-
-        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int SDL_AddGamepadMapping([MarshalAs(UnmanagedType.LPStr)] string mapping);
-
-        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr SDL_OpenGamepad(uint instanceId);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -59,6 +58,12 @@ namespace SkipDrama_YuanShen
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr SDL_GetGamepadJoystick(IntPtr gamepad);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int SDL_GetNumJoystickAxes(IntPtr joystick);
+
+        [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern short SDL_GetJoystickAxis(IntPtr joystick, int axis);
 
         [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int SDL_GetNumJoystickButtons(IntPtr joystick);
@@ -95,11 +100,17 @@ namespace SkipDrama_YuanShen
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct SdlGuid
+    [StructLayout(LayoutKind.Sequential, Size = 128)]
+    internal struct SdlEvent
     {
-        internal ulong Part1;
-        internal ulong Part2;
+        internal uint Type;
+        internal uint Reserved;
+        internal ulong Timestamp;
+        internal uint Which;
+        internal byte Button;
+        internal byte Down;
+        internal byte Padding1;
+        internal byte Padding2;
     }
 
     internal enum SdlGamepadButton

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,6 +13,10 @@ namespace SkipDrama_YuanShen
         internal bool B { get; set; }
         internal bool X { get; set; }
         internal bool Y { get; set; }
+        internal bool Start { get; set; }
+        internal bool Back { get; set; }
+        internal bool LeftStickClick { get; set; }
+        internal bool RightStickClick { get; set; }
         internal bool Guide { get; set; }
         internal bool Share { get; set; }
         internal bool DpadLeft { get; set; }
@@ -27,6 +31,32 @@ namespace SkipDrama_YuanShen
         internal short LeftY { get; set; }
         internal short RightX { get; set; }
         internal short RightY { get; set; }
+        internal short LeftTriggerMapped { get; set; }
+        internal short RightTriggerMapped { get; set; }
+        internal bool ShareMapped { get; set; }
+        internal bool ShareRaw { get; set; }
+        internal string RawAxes { get; set; }
+        internal string RawButtons { get; set; }
+    }
+
+    internal sealed class SdlButtonChangedEvent
+    {
+        internal SdlButtonChangedEvent(bool share, bool guide, bool pressed, string source, byte button, uint deviceId)
+        {
+            Share = share;
+            Guide = guide;
+            Pressed = pressed;
+            Source = source;
+            Button = button;
+            DeviceId = deviceId;
+        }
+
+        internal bool Share { get; }
+        internal bool Guide { get; }
+        internal bool Pressed { get; }
+        internal string Source { get; }
+        internal byte Button { get; }
+        internal uint DeviceId { get; }
     }
 
     internal sealed class SdlGamepadInputService : IDisposable
@@ -34,6 +64,7 @@ namespace SkipDrama_YuanShen
         private const ushort MicrosoftVendorId = 0x045E;
         private const int PollIntervalMilliseconds = 5;
         private const int XboxShareRawButton = 11;
+        private const int XboxGuideRawButton = 10;
 
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private readonly object _deviceFilterGate = new object();
@@ -43,10 +74,13 @@ namespace SkipDrama_YuanShen
         private bool _disposed;
         private string _lastDeviceStatus;
         private string _preferredPath;
+        private uint _activeInstanceId;
         private HashSet<uint> _idsBeforeVirtualOutput;
         private volatile bool _virtualOutputRegistrationInProgress;
 
         internal event Action<SdlGamepadSnapshot> SnapshotReceived;
+        internal event Action<SdlButtonChangedEvent> ButtonChanged;
+        internal event Action<string> EventTrace;
         internal event Action<string> DeviceChanged;
         internal event Action<Exception> Error;
 
@@ -77,7 +111,8 @@ namespace SkipDrama_YuanShen
 
                 while (!token.IsCancellationRequested)
                 {
-                    Sdl3Native.SDL_PumpEvents();
+                    PumpWindowsMessages();
+                    PollEvents();
 
                     if (_gamepad == IntPtr.Zero || !Sdl3Native.SDL_GamepadConnected(_gamepad))
                     {
@@ -120,10 +155,6 @@ namespace SkipDrama_YuanShen
 
             foreach (var candidate in candidates)
             {
-                if (candidate.Vendor == MicrosoftVendorId)
-                {
-                    ApplyXboxSeriesMapping(candidate.Id);
-                }
                 var gamepad = Sdl3Native.SDL_OpenGamepad(candidate.Id);
                 if (gamepad == IntPtr.Zero)
                 {
@@ -131,6 +162,7 @@ namespace SkipDrama_YuanShen
                 }
 
                 _gamepad = gamepad;
+                _activeInstanceId = candidate.Id;
                 if (string.IsNullOrEmpty(_preferredPath) && !string.IsNullOrEmpty(candidate.Path))
                 {
                     _preferredPath = candidate.Path;
@@ -140,6 +172,81 @@ namespace SkipDrama_YuanShen
             }
 
             NotifyDeviceChanged("未检测到真实手柄");
+        }
+
+        private void PollEvents()
+        {
+            while (Sdl3Native.SDL_PollEvent(out var ev))
+            {
+                if (_activeInstanceId != 0 && ev.Which != 0 && ev.Which != _activeInstanceId)
+                {
+                    continue;
+                }
+
+                switch (ev.Type)
+                {
+                    case Sdl3Native.EventGamepadButtonDown:
+                    case Sdl3Native.EventGamepadButtonUp:
+                        OnGamepadButtonEvent(ev);
+                        break;
+                    case Sdl3Native.EventJoystickButtonDown:
+                    case Sdl3Native.EventJoystickButtonUp:
+                        OnJoystickButtonEvent(ev);
+                        break;
+                }
+            }
+        }
+
+        private void OnGamepadButtonEvent(SdlEvent ev)
+        {
+            var share = ev.Button == (byte)SdlGamepadButton.Misc1;
+            var guide = ev.Button == (byte)SdlGamepadButton.Guide;
+            if (!share && !guide)
+            {
+                TraceButtonEvent("SDL Event Gamepad", ev);
+                return;
+            }
+
+            ButtonChanged?.Invoke(new SdlButtonChangedEvent(
+                share,
+                guide,
+                ev.Type == Sdl3Native.EventGamepadButtonDown || ev.Down != 0,
+                "SDL Event Gamepad",
+                ev.Button,
+                ev.Which));
+        }
+
+        private void OnJoystickButtonEvent(SdlEvent ev)
+        {
+            var share = ev.Button == XboxShareRawButton;
+            var guide = ev.Button == XboxGuideRawButton;
+            if (!share && !guide)
+            {
+                TraceButtonEvent("SDL Event Joystick", ev);
+                return;
+            }
+
+            ButtonChanged?.Invoke(new SdlButtonChangedEvent(
+                share,
+                guide,
+                ev.Type == Sdl3Native.EventJoystickButtonDown || ev.Down != 0,
+                "SDL Event Joystick",
+                ev.Button,
+                ev.Which));
+        }
+
+        private void TraceButtonEvent(string source, SdlEvent ev)
+        {
+            EventTrace?.Invoke(source + ": type=0x" + ev.Type.ToString("X") + ", button=" + ev.Button + ", down=" + (ev.Type == Sdl3Native.EventGamepadButtonDown || ev.Type == Sdl3Native.EventJoystickButtonDown || ev.Down != 0) + ", device=" + ev.Which);
+        }
+
+        private static void PumpWindowsMessages()
+        {
+            while (PeekMessage(out var message, IntPtr.Zero, 0, 0, RemoveMessage))
+            {
+                TranslateMessage(ref message);
+                DispatchMessage(ref message);
+            }
         }
 
         internal void BeginVirtualOutputRegistration()
@@ -214,27 +321,12 @@ namespace SkipDrama_YuanShen
             return result;
         }
 
-        private static void ApplyXboxSeriesMapping(uint instanceId)
-        {
-            var guidBuffer = new byte[33];
-            Sdl3Native.SDL_GUIDToString(Sdl3Native.SDL_GetJoystickGUIDForID(instanceId), guidBuffer, guidBuffer.Length);
-            var guid = Encoding.ASCII.GetString(guidBuffer).TrimEnd('\0');
-            if (string.IsNullOrEmpty(guid))
-            {
-                return;
-            }
-
-            var mapping = guid + ",Xbox Controller,platform:Windows," +
-                "a:b0,b:b1,x:b2,y:b3,back:b6,guide:b10,start:b7," +
-                "leftstick:b8,rightstick:b9,leftshoulder:b4,rightshoulder:b5," +
-                "dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2," +
-                "leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a4,righttrigger:a5,misc1:b11,";
-            Sdl3Native.SDL_AddGamepadMapping(mapping);
-        }
-
         private SdlGamepadSnapshot ReadSnapshot()
         {
-            var share = Button(SdlGamepadButton.Misc1) || RawJoystickButton(XboxShareRawButton);
+            var shareMapped = Button(SdlGamepadButton.Misc1);
+            var shareRaw = RawJoystickButton(XboxShareRawButton);
+            var leftTrigger = TriggerAxis(SdlGamepadAxis.LeftTrigger, out var leftTriggerMapped);
+            var rightTrigger = TriggerAxis(SdlGamepadAxis.RightTrigger, out var rightTriggerMapped);
 
             return new SdlGamepadSnapshot
             {
@@ -242,20 +334,30 @@ namespace SkipDrama_YuanShen
                 B = Button(SdlGamepadButton.East),
                 X = Button(SdlGamepadButton.West),
                 Y = Button(SdlGamepadButton.North),
+                Start = Button(SdlGamepadButton.Start),
+                Back = Button(SdlGamepadButton.Back),
+                LeftStickClick = Button(SdlGamepadButton.LeftStick),
+                RightStickClick = Button(SdlGamepadButton.RightStick),
                 Guide = Button(SdlGamepadButton.Guide),
-                Share = share,
+                Share = shareMapped || shareRaw,
                 DpadLeft = Button(SdlGamepadButton.DpadLeft),
                 DpadRight = Button(SdlGamepadButton.DpadRight),
                 DpadUp = Button(SdlGamepadButton.DpadUp),
                 DpadDown = Button(SdlGamepadButton.DpadDown),
                 LeftShoulder = Button(SdlGamepadButton.LeftShoulder),
                 RightShoulder = Button(SdlGamepadButton.RightShoulder),
-                LeftTrigger = Axis(SdlGamepadAxis.LeftTrigger),
-                RightTrigger = Axis(SdlGamepadAxis.RightTrigger),
+                LeftTrigger = leftTrigger,
+                RightTrigger = rightTrigger,
                 LeftX = Axis(SdlGamepadAxis.LeftX),
                 LeftY = Axis(SdlGamepadAxis.LeftY),
                 RightX = Axis(SdlGamepadAxis.RightX),
-                RightY = Axis(SdlGamepadAxis.RightY)
+                RightY = Axis(SdlGamepadAxis.RightY),
+                LeftTriggerMapped = leftTriggerMapped,
+                RightTriggerMapped = rightTriggerMapped,
+                ShareMapped = shareMapped,
+                ShareRaw = shareRaw,
+                RawAxes = RawJoystickAxes(),
+                RawButtons = RawJoystickButtons()
             };
         }
 
@@ -267,6 +369,51 @@ namespace SkipDrama_YuanShen
         private short Axis(SdlGamepadAxis axis)
         {
             return Sdl3Native.SDL_GetGamepadAxis(_gamepad, axis);
+        }
+
+        private short TriggerAxis(SdlGamepadAxis axis, out short mappedValue)
+        {
+            mappedValue = Math.Max((short)0, Axis(axis));
+            return mappedValue;
+        }
+
+        private string RawJoystickAxes()
+        {
+            var joystick = Sdl3Native.SDL_GetGamepadJoystick(_gamepad);
+            if (joystick == IntPtr.Zero)
+            {
+                return string.Empty;
+            }
+
+            var count = Sdl3Native.SDL_GetNumJoystickAxes(joystick);
+            var axes = new List<string>(Math.Max(count, 0));
+            for (var index = 0; index < count; index++)
+            {
+                axes.Add(index + ":" + Sdl3Native.SDL_GetJoystickAxis(joystick, index));
+            }
+
+            return string.Join(", ", axes);
+        }
+
+        private string RawJoystickButtons()
+        {
+            var joystick = Sdl3Native.SDL_GetGamepadJoystick(_gamepad);
+            if (joystick == IntPtr.Zero)
+            {
+                return string.Empty;
+            }
+
+            var count = Sdl3Native.SDL_GetNumJoystickButtons(joystick);
+            var pressed = new List<string>();
+            for (var index = 0; index < count; index++)
+            {
+                if (Sdl3Native.SDL_GetJoystickButton(joystick, index))
+                {
+                    pressed.Add(index.ToString());
+                }
+            }
+
+            return pressed.Count == 0 ? "-" : string.Join(", ", pressed);
         }
 
         private bool RawJoystickButton(int button)
@@ -286,6 +433,8 @@ namespace SkipDrama_YuanShen
             {
                 Sdl3Native.SDL_CloseGamepad(_gamepad);
                 _gamepad = IntPtr.Zero;
+                _activeInstanceId = 0;
+                SnapshotReceived?.Invoke(new SdlGamepadSnapshot());
                 NotifyDeviceChanged("手柄已断开");
             }
         }
@@ -346,5 +495,31 @@ namespace SkipDrama_YuanShen
             }
 
         }
+
+        private const uint RemoveMessage = 0x0001;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeMessage
+        {
+            internal IntPtr HWnd;
+            internal uint Message;
+            internal UIntPtr WParam;
+            internal IntPtr LParam;
+            internal uint Time;
+            internal int PointX;
+            internal int PointY;
+            internal uint Private;
+        }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PeekMessage(out NativeMessage message, IntPtr hwnd, uint messageFilterMin, uint messageFilterMax, uint removeMessage);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool TranslateMessage(ref NativeMessage message);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DispatchMessage(ref NativeMessage message);
     }
 }

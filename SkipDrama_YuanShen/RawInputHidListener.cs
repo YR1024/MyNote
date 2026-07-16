@@ -80,12 +80,20 @@ namespace WpfApp2
         private static void RegisterHidGamepad(IntPtr hwnd)
         {
             const ushort UsagePage_GenericDesktop = 0x01;
+            const ushort Usage_Joystick = 0x04;
             const ushort Usage_GamePad = 0x05;
 
             const int RIDEV_INPUTSINK = 0x00000100;
 
             var rid = new RAWINPUTDEVICE[]
             {
+                new RAWINPUTDEVICE
+                {
+                    usUsagePage = UsagePage_GenericDesktop,
+                    usUsage = Usage_Joystick,
+                    dwFlags = RIDEV_INPUTSINK,
+                    hwndTarget = hwnd
+                },
                 new RAWINPUTDEVICE
                 {
                     usUsagePage = UsagePage_GenericDesktop,
