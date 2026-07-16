@@ -551,7 +551,8 @@ app.MapPost("/api/videos/{id}/subtitles/{trackId}/translate", async Task<IResult
     CinemaDbContext db,
     MediaJobQueueGate queueGate,
     AiSubtitleOptions options,
-    ISubtitleTranslationProvider provider) =>
+    ISubtitleTranslationProvider provider,
+    bool force = false) =>
 {
     if (!options.Enabled || !provider.IsAvailable)
     {
@@ -568,7 +569,11 @@ app.MapPost("/api/videos/{id}/subtitles/{trackId}/translate", async Task<IResult
         queueGate,
         MediaJobType.SubtitleTranslation,
         id,
-        new TranslationJobInput(trackId, options.TargetLanguage, options.CreateTranslationProfile()));
+        new TranslationJobInput(
+            trackId,
+            options.TargetLanguage,
+            options.CreateTranslationProfile(),
+            force ? Guid.NewGuid().ToString("N") : null));
 });
 
 app.MapPut("/api/videos/{id}", async (string id, UpdateVideoRequest request, CinemaDbContext db) =>

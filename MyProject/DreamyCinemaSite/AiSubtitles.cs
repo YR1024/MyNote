@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using static AiHttp;
 
@@ -12,13 +13,16 @@ public sealed class AiSubtitleOptions
 {
     public bool Enabled { get; init; }
     public string TargetLanguage { get; init; } = "zh-CN";
-    public int TranslationChunkSize { get; init; } = 30;
+    public int TranslationChunkSize { get; init; } = 12;
     public int SpeechChunkSeconds { get; init; } = 300;
     public int ContextCueCount { get; init; } = 8;
     public int ProviderMaxAttempts { get; init; } = 3;
     public int MaxInputCharacters { get; init; } = 300_000;
     public int MaxTotalTokens { get; init; } = 200_000;
-    public int MaxOutputTokensPerChunk { get; init; } = 4_096;
+    public int MaxOutputTokensPerChunk { get; init; } = 1_536;
+    public bool SemanticReviewEnabled { get; init; } = true;
+    public int SemanticReviewMaxTokens { get; init; } = 384;
+    public double TranslationTemperature { get; init; }
     public bool PreserveExplicitLanguage { get; init; } = true;
     public string TranslationStyle { get; init; } = "忠实、自然、结合上下文，不删减或弱化原文表达";
     public string AudioWorkingPath { get; init; } = "";
@@ -43,13 +47,16 @@ public sealed class AiSubtitleOptions
         {
             Enabled = section.GetValue("Enabled", false),
             TargetLanguage = section["TargetLanguage"]?.Trim() is { Length: > 0 } target ? target : "zh-CN",
-            TranslationChunkSize = Math.Clamp(section.GetValue("TranslationChunkSize", 30), 5, 100),
+            TranslationChunkSize = Math.Clamp(section.GetValue("TranslationChunkSize", 12), 5, 100),
             SpeechChunkSeconds = Math.Clamp(section.GetValue("SpeechChunkSeconds", 300), 30, 1_800),
             ContextCueCount = Math.Clamp(section.GetValue("ContextCueCount", 8), 1, 30),
             ProviderMaxAttempts = Math.Clamp(section.GetValue("ProviderMaxAttempts", 3), 1, 6),
             MaxInputCharacters = Math.Clamp(section.GetValue("MaxInputCharacters", 300_000), 1_000, 2_000_000),
             MaxTotalTokens = Math.Clamp(section.GetValue("MaxTotalTokens", 200_000), 1_000, 2_000_000),
-            MaxOutputTokensPerChunk = Math.Clamp(section.GetValue("MaxOutputTokensPerChunk", 4_096), 256, 32_768),
+            MaxOutputTokensPerChunk = Math.Clamp(section.GetValue("MaxOutputTokensPerChunk", 1_536), 256, 8_192),
+            SemanticReviewEnabled = section.GetValue("SemanticReviewEnabled", true),
+            SemanticReviewMaxTokens = Math.Clamp(section.GetValue("SemanticReviewMaxTokens", 384), 128, 2_048),
+            TranslationTemperature = Math.Clamp(section.GetValue("TranslationTemperature", 0d), 0d, 1d),
             PreserveExplicitLanguage = section.GetValue("PreserveExplicitLanguage", true),
             TranslationStyle = section["TranslationStyle"]?.Trim() is { Length: > 0 } style
                 ? style
@@ -265,6 +272,10 @@ public sealed class FasterWhisperSpeechRecognitionProvider : ISpeechRecognitionP
 
 public sealed class LlamaCppSubtitleTranslationProvider : ISubtitleTranslationProvider
 {
+    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerOptions.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
     private readonly AiProviderOptions options;
     private readonly AiSubtitleOptions aiOptions;
     private readonly HttpClient client;
@@ -344,7 +355,7 @@ public sealed class LlamaCppSubtitleTranslationProvider : ISubtitleTranslationPr
             输出必须是 {"cues":[{"cueId":输入ID,"text":"译文"}]}。text 必须是译文，不得照抄源文。
             输出只能包含 cues；每一项只能包含 cueId 和 text，禁止回显 input 的其他字段。
             input=
-            """ + JsonSerializer.Serialize(userPayload, JsonSerializerOptions.Web);
+            """ + JsonSerializer.Serialize(userPayload, PromptJsonOptions);
         var payload = new
         {
             model = Model,
@@ -353,7 +364,7 @@ public sealed class LlamaCppSubtitleTranslationProvider : ISubtitleTranslationPr
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
             },
-            temperature = 0.1,
+            temperature = aiOptions.TranslationTemperature,
             max_tokens = aiOptions.MaxOutputTokensPerChunk,
             stream = false,
             response_format = new { type = "json_schema", schema },
@@ -407,16 +418,128 @@ public sealed class LlamaCppSubtitleTranslationProvider : ISubtitleTranslationPr
             promptTokens = TryReadInt32(usage, "prompt_tokens");
             completionTokens = TryReadInt32(usage, "completion_tokens");
         }
+        if (aiOptions.SemanticReviewEnabled)
+        {
+            var reviewUsage = await ReviewTranslationAsync(request, envelope.Cues, cancellationToken);
+            promptTokens = checked(promptTokens + reviewUsage.PromptTokens);
+            completionTokens = checked(completionTokens + reviewUsage.CompletionTokens);
+        }
         return new TranslationOutput(
             envelope.Cues,
             promptTokens > 0 ? promptTokens : request.Cues.Sum(cue => cue.Text.Length),
             completionTokens > 0 ? completionTokens : envelope.Cues.Sum(cue => cue.Text.Length));
     }
 
+    private async Task<ProviderUsage> ReviewTranslationAsync(
+        TranslationRequest request,
+        IReadOnlyList<TranslatedCue> translated,
+        CancellationToken cancellationToken)
+    {
+        var expectedIds = request.Cues.Select(cue => cue.CueId).Order().ToArray();
+        var actualIds = translated.Select(cue => cue.CueId).Order().ToArray();
+        if (!expectedIds.SequenceEqual(actualIds)
+            || translated.Select(cue => cue.CueId).Distinct().Count() != translated.Count)
+        {
+            throw new InvalidOperationException("语义审查前发现翻译 Cue ID 缺失、重复或未知。");
+        }
+
+        var translatedById = translated.ToDictionary(cue => cue.CueId);
+        var reviewInput = request.Cues.Select(cue => new
+        {
+            cueId = cue.CueId,
+            sourceText = cue.Text,
+            translatedText = translatedById[cue.CueId].Text
+        });
+        var systemPrompt = """
+            你是严格的双语字幕质量审查员。只检查原文与中文译文的语义忠实度、遗漏、凭空添加、人物名、数字、语气及粗俗/敏感表达强度。
+            不得以内容敏感为由判错，不得要求弱化、审查或美化原文。只返回 JSON，不要翻译、改写或输出思考过程。/no_think
+            """;
+        var userPrompt = """
+            /no_think
+            逐条审查 pairs。仅当译文存在实质性错译、漏译、幻觉或强度改变时，才把 Cue ID 放入 invalidCueIds。
+            返回且只返回 {"invalidCueIds":[],"reason":""}；全部忠实时 invalidCueIds 必须为空。reason 只写简短原因，不要回显字幕全文。
+            pairs=
+            """ + JsonSerializer.Serialize(reviewInput, PromptJsonOptions);
+        var payload = new
+        {
+            model = Model,
+            messages = new object[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = userPrompt }
+            },
+            temperature = 0,
+            max_tokens = aiOptions.SemanticReviewMaxTokens,
+            stream = false,
+            response_format = new { type = "json_object" },
+            chat_template_kwargs = new { enable_thinking = false }
+        };
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload, JsonSerializerOptions.Web), Encoding.UTF8, "application/json")
+        };
+        AddAuthorization(message, options.ApiKey);
+        using var response = await SendAsync(client, message, options.TimeoutSeconds, "llama.cpp 语义审查", cancellationToken);
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("choices", out var choices)
+            || choices.ValueKind != JsonValueKind.Array
+            || choices.GetArrayLength() == 0
+            || !choices[0].TryGetProperty("message", out var responseMessage)
+            || !responseMessage.TryGetProperty("content", out var contentElement)
+            || contentElement.ValueKind != JsonValueKind.String)
+        {
+            throw new InvalidOperationException("llama.cpp 语义审查返回缺少 choices[0].message.content。");
+        }
+
+        var content = contentElement.GetString()?.Trim() ?? "";
+        if (content.Contains("<think>", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("```", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("llama.cpp 语义审查返回了思考过程或 Markdown。");
+        }
+
+        SemanticReviewEnvelope? review;
+        try
+        {
+            review = JsonSerializer.Deserialize<SemanticReviewEnvelope>(content, JsonSerializerOptions.Web);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("llama.cpp 语义审查 JSON 无效。", ex);
+        }
+        if (review?.InvalidCueIds is null)
+        {
+            throw new InvalidOperationException("llama.cpp 语义审查缺少 invalidCueIds。");
+        }
+        var invalidIds = review.InvalidCueIds.Distinct().Order().ToArray();
+        if (invalidIds.Any(id => !expectedIds.Contains(id)))
+        {
+            throw new InvalidOperationException("llama.cpp 语义审查返回了未知 Cue ID。");
+        }
+        if (invalidIds.Length > 0)
+        {
+            throw new InvalidOperationException($"语义审查拒绝本批译文：{invalidIds.Length} 条 Cue 存在实质性错译或幻觉（Cue ID: {string.Join(", ", invalidIds.Take(12))}）。");
+        }
+
+        var promptTokens = 0;
+        var completionTokens = 0;
+        if (root.TryGetProperty("usage", out var usage))
+        {
+            promptTokens = TryReadInt32(usage, "prompt_tokens");
+            completionTokens = TryReadInt32(usage, "completion_tokens");
+        }
+        return new ProviderUsage(promptTokens, completionTokens);
+    }
+
     private static int TryReadInt32(JsonElement element, string name) =>
         element.TryGetProperty(name, out var property) && property.TryGetInt32(out var value) ? value : 0;
 
     private sealed record TranslationEnvelope(IReadOnlyList<TranslatedCue> Cues);
+    private sealed record SemanticReviewEnvelope(IReadOnlyList<long> InvalidCueIds, string? Reason);
+    private sealed record ProviderUsage(int PromptTokens, int CompletionTokens);
 }
 
 public sealed class UnavailableSpeechRecognitionProvider(AiProviderOptions options) : ISpeechRecognitionProvider
@@ -572,6 +695,7 @@ public sealed class AiSubtitlePipeline(
     ISubtitleTranslationProvider translationProvider,
     AudioChunkExtractor audioChunkExtractor)
 {
+    private const string TranslationProtocolVersion = "unicode-review-v2";
     public async Task<string> RunSpeechRecognitionAsync(
         string jobId,
         CancellationToken cancellationToken,
@@ -712,7 +836,14 @@ public sealed class AiSubtitlePipeline(
             sourceTrack.Id,
             input.TargetLanguage,
             translationProvider,
-            Fingerprint(profile));
+            Fingerprint(new
+            {
+                profile,
+                protocol = TranslationProtocolVersion,
+                options.TranslationChunkSize,
+                options.SemanticReviewEnabled
+            }),
+            input.RetranslationId);
         var existingTrack = await FindGeneratedTrackAsync(sourceTrack.VideoId, sourceKey, cancellationToken);
         if (existingTrack is not null)
         {
@@ -784,7 +915,7 @@ public sealed class AiSubtitlePipeline(
         var track = await CreateTrackAsync(
             sourceTrack.VideoId,
             sourceKey,
-            "中文初译稿（AI）",
+            input.RetranslationId is null ? "中文初译稿（AI）" : "中文初译稿（AI，重译）",
             input.TargetLanguage,
             SubtitleKind.Translated,
             SubtitleSource.AiTranslation,
@@ -1071,9 +1202,15 @@ public sealed class AiSubtitlePipeline(
             provider.IsMock,
             translated), JsonSerializerOptions.Web);
 
-    private static string BuildSourceKey(string kind, string sourceId, string language, IAiProvider provider, string? profile = null)
+    private static string BuildSourceKey(
+        string kind,
+        string sourceId,
+        string language,
+        IAiProvider provider,
+        string? profile = null,
+        string? retranslationId = null)
     {
-        var raw = $"{kind}|{sourceId}|{language}|{provider.Name}|{provider.Model}|{profile}";
+        var raw = $"{kind}|{sourceId}|{language}|{provider.Name}|{provider.Model}|{profile}|{retranslationId}";
         return $"ai:{kind}:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant()}";
     }
 
@@ -1113,7 +1250,11 @@ public sealed record TranslationRequest(
 public sealed record TranslatedCue(long CueId, string Text);
 public sealed record TranslationOutput(IReadOnlyList<TranslatedCue> Cues, int InputUnits, int OutputUnits);
 public sealed record SpeechJobInput(string? Language);
-public sealed record TranslationJobInput(string SourceTrackId, string TargetLanguage, TranslationProfile? Profile = null);
+public sealed record TranslationJobInput(
+    string SourceTrackId,
+    string TargetLanguage,
+    TranslationProfile? Profile = null,
+    string? RetranslationId = null);
 public sealed record AiSubtitleJobResult(
     string TrackId,
     string VideoId,

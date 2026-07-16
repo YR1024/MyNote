@@ -111,6 +111,11 @@ test("admin can set up, sync, browse, and open the dedicated player", async ({ p
   const translatedVtt = await page.context().request.get(translatedTrack.vttUrl);
   expect(await translatedVtt.text()).toContain("你好，这里是 Dreamy Cinema。");
   expect(await (await page.context().request.get(translatedTrack.vttUrl)).text()).toContain("00:00:00.500 --> 00:00:02.500");
+  await expect(page.getByRole("button", { name: "重新翻译为中文" })).toBeVisible();
+  await page.getByRole("button", { name: "重新翻译为中文" }).click();
+  await expect(page.getByLabel("字幕轨道").locator("option")).toHaveCount(4, { timeout: 20_000 });
+  const retranslatedTracks = await (await page.context().request.get(`/api/videos/${videoPage.items[0].id}/subtitles`)).json();
+  expect(retranslatedTracks.some((track: { label: string }) => track.label.includes("重译"))).toBeTruthy();
 
   const recognitionJob = await page.evaluate(async videoId => {
     const session = await fetch("/api/auth/session", { credentials: "same-origin" }).then(response => response.json());

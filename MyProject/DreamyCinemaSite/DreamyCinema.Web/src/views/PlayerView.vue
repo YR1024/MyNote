@@ -20,6 +20,7 @@ const aiJob = ref<MediaJob | null>(null);
 let aiPollSequence = 0;
 
 const aiJobActive = computed(() => aiJob.value?.status === "Queued" || aiJob.value?.status === "Running");
+const hasTranslatedTrack = computed(() => video.value?.subtitles.some(track => track.kind === "Translated") ?? false);
 const sourceTrack = computed<SubtitleTrack | null>(() => {
   if (!video.value) return null;
   const selected = video.value.subtitles.find(track => track.id === selectedSubtitleId.value);
@@ -80,8 +81,9 @@ async function startSpeechRecognition() {
 
 async function startTranslation() {
   if (!sourceTrack.value) return;
+  const force = hasTranslatedTrack.value ? "?force=true" : "";
   aiJob.value = await apiRequest<MediaJob>(
-    `/api/videos/${encodeURIComponent(props.id)}/subtitles/${encodeURIComponent(sourceTrack.value.id)}/translate`,
+    `/api/videos/${encodeURIComponent(props.id)}/subtitles/${encodeURIComponent(sourceTrack.value.id)}/translate${force}`,
     { method: "POST" }
   );
   await waitForAiJob(aiJob.value.id);
@@ -181,7 +183,7 @@ function applySubtitleSelection() {
               type="button"
               :disabled="!aiStatus.enabled || !aiStatus.translation.available || aiJobActive"
               @click="startTranslation"
-            ><Languages :size="16" />翻译为中文</button>
+            ><Languages :size="16" />{{ hasTranslatedTrack ? "重新翻译为中文" : "翻译为中文" }}</button>
           </div>
           <div v-if="aiJob" class="ai-job" :data-status="aiJob.status">
             <div class="ai-job-line"><strong>{{ aiJob.stage }}</strong><span>{{ aiJob.progress }}%</span></div>

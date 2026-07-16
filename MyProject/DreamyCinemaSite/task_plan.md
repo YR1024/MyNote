@@ -54,7 +54,8 @@ Goal: Build a mobile-first, authenticated local video library with a Vue fronten
 5. [complete] Install and verify the pinned faster-whisper/CTranslate2 runtime and official llama.cpp CUDA Windows release with Qwen3-8B Q4_K_M.
 6. [complete] Validate providers and restart/cancel/resume behavior against isolated data, then run the full build, type check, Playwright, and dependency audits.
 7. [complete] Benchmark a ten-minute isolated video with production 300-second speech chunks and record recognition speed, GPU memory, and system memory.
-8. [pending] Perform final manual subtitle acceptance with a real household video after one is added to the currently empty production library.
+8. [complete] Fix CJK prompt serialization, add semantic translation quality checks, prevent bad context from cascading, and support explicit retranslation without reusing an existing generated track.
+9. [pending] Repeat the real-video translation through the deployed website and perform final manual phone subtitle acceptance.
 
 - `Videos` root is the manual drop/download directory.
 - Sync is explicit via button/API, not performed on every page visit.

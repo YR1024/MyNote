@@ -62,6 +62,10 @@ Each provider request receives source and target languages, consecutive stable C
 
 Provider output contains only Cue ID and translated text. The llama adapter requests a schema-constrained JSON response, uses `/no_think` and disables template thinking, then parses and validates the result again in the application. Missing, duplicated, unknown, empty, malformed, fenced, or thinking-tag output is rejected and retried. The model never supplies timestamps.
 
+Prompt-embedded source data uses relaxed Unicode JSON encoding. This is essential for CJK subtitles: serializing Japanese as literal `\uXXXX` sequences inflated a real 30-cue request from about 1118 to more than 4100 tokens and caused Qwen to hallucinate unrelated hair/iceberg text while still returning valid Cue IDs. Translation now uses 12-cue chunks, temperature 0, a 1536-token output cap, and an explicit prompt-protocol version in the generated-track key.
+
+Every real translation batch receives a second source-versus-translation semantic review request. The reviewer checks hallucination, omission, names, numbers, tone, and explicit-language strength without applying content filtering. Rejected batches use the normal provider retry path and are never fed into the next batch as context. When a translated track already exists, the player exposes “重新翻译为中文”; this creates a new draft with a unique run identity rather than reusing or overwriting an earlier track.
+
 Prompts explicitly require faithful translation of profanity, sex, violence, and sensitive language without censorship, moralizing, softening, omission, or euphemistic replacement. Full cues, prompts, cookies, keys, and authorization headers are not logged.
 
 ## Subtitle Data Boundaries

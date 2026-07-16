@@ -34,6 +34,8 @@ Copy-Item .\appsettings.Local.example.json .\appsettings.Local.json
 
 `appsettings.Local.json` 已被 `.gitignore` 排除。真实配置使用 `FasterWhisper` 与 `LlamaCpp` Provider；地址、模型、超时、音频分块、字幕分块、人物名和词汇表都从配置读取。不要把 API 密钥写入 `appsettings.json`。
 
+翻译默认每批 12 条、温度为 0，并在结构校验后执行一次原文—译文语义审查。错译、漏译或幻觉批次会自动重试，失败批次不会作为下一批上下文。播放器已有中文轨道时会显示“重新翻译为中文”，新结果另存为重译稿，不覆盖旧稿。
+
 启动模型服务：
 
 ```powershell
