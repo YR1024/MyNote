@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dc_background">#080D13</color>
+    <color name="dc_surface">#101923</color>
+    <color name="dc_surface_high">#172534</color>
+    <color name="dc_border">#2A3C4E</color>
+    <color name="dc_text">#EEF7FC</color>
+    <color name="dc_text_muted">#93A7B7</color>
+    <color name="dc_accent">#55D8EA</color>
+    <color name="dc_accent_dark">#073D48</color>
+    <color name="dc_error">#FF7F91</color>
+    <color name="dc_black">#000000</color>
+</resources>

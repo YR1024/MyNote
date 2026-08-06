@@ -35,6 +35,14 @@ export const useSessionStore = defineStore("session", {
       });
       return this.refresh();
     },
+    async changePassword(currentPassword: string, newPassword: string) {
+      await apiRequest("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      this.info = null;
+    },
     async logout() {
       await apiRequest("/api/auth/logout", { method: "POST" });
       this.info = await loadSession();

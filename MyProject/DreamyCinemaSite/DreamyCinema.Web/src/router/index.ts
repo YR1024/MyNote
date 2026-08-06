@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import LibraryView from "@/views/LibraryView.vue";
 import LoginView from "@/views/LoginView.vue";
 import PlayerView from "@/views/PlayerView.vue";
+import SubtitleReviewView from "@/views/SubtitleReviewView.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -9,6 +10,7 @@ export const router = createRouter({
     { path: "/login", name: "login", component: LoginView },
     { path: "/", name: "library", component: LibraryView },
     { path: "/videos/:id/play", name: "player", component: PlayerView, props: true },
+    { path: "/videos/:id/subtitles/review", name: "subtitle-review", component: SubtitleReviewView, props: true },
     { path: "/:pathMatch(.*)*", redirect: "/" }
   ],
   scrollBehavior: () => ({ top: 0 })

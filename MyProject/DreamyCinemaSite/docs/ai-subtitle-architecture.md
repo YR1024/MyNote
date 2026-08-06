@@ -76,11 +76,11 @@ Prompts explicitly require faithful translation of profanity, sex, violence, and
 | --- | --- |
 | `SourceOriginal` | Imported external or embedded source subtitle |
 | `RawRecognition` | Immutable first output from speech recognition |
-| `SourceCorrected` | Future human-corrected source transcript |
+| `SourceCorrected` | Human-corrected source transcript; original source remains immutable |
 | `ChineseDraft` | Current AI translation output |
-| `FinalPolished` | Future reviewed/final Chinese subtitle |
+| `FinalPolished` | Reviewed/final Chinese subtitle with manual Cue protection |
 
-Phase 31 creates `RawRecognition` and `ChineseDraft` as separate tracks. Phase 32 editing and retranslation must create or update only the appropriate review-stage track; it must retain the raw recognition track and the initial Chinese draft.
+Phase 31 creates `RawRecognition` and `ChineseDraft` as separate tracks. Phase 32 creates `SourceCorrected` or `FinalPolished` on first edit, marks edited Cues, and updates only selected unedited Cues during partial retranslation. Bilingual tracks are generated from the chosen source and reviewed Chinese track; raw recognition and initial Chinese drafts remain immutable.
 
 ## Mock Configuration
 

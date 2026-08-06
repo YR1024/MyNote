@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DreamyCinema" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/dc_background</item>
+        <item name="android:colorAccent">@color/dc_accent</item>
+        <item name="android:navigationBarColor">@color/dc_background</item>
+        <item name="android:statusBarColor">@color/dc_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">@color/dc_accent</item>
+        <item name="colorOnPrimary">@color/dc_black</item>
+        <item name="colorSurface">@color/dc_surface</item>
+        <item name="colorOnSurface">@color/dc_text</item>
+        <item name="colorOutline">@color/dc_border</item>
+    </style>
+</resources>

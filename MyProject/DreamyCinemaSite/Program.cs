@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using SubtitlesParserV2;
 using SubtitlesParserV2.Models;
 using System.ComponentModel;
@@ -21,7 +23,17 @@ using System.Threading.RateLimiting;
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+var portableSettingsPath = ResolvePortableSettingsPath(
+    builder.Configuration,
+    builder.Environment.ContentRootPath);
+Directory.CreateDirectory(Path.GetDirectoryName(portableSettingsPath)!);
 builder.Configuration
+    .AddJsonFile(
+        new PhysicalFileProvider(Path.GetDirectoryName(portableSettingsPath)!),
+        Path.GetFileName(portableSettingsPath),
+        optional: true,
+        reloadOnChange: false)
     .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables()
     .AddCommandLine(args);
@@ -32,27 +44,54 @@ Directory.CreateDirectory(videoStorage.OriginalsPath);
 Directory.CreateDirectory(videoStorage.CoversPath);
 Directory.CreateDirectory(videoStorage.SubtitlesPath);
 Directory.CreateDirectory(videoStorage.TrashPath);
+Directory.CreateDirectory(videoStorage.DerivedPath);
+Directory.CreateDirectory(videoStorage.DerivedWorkPath);
 
 var databasePath = ResolveDatabasePath(builder.Configuration, builder.Environment.ContentRootPath);
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 var connectionString = new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString();
+var backupStorage = BackupStorage.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
+Directory.CreateDirectory(backupStorage.RootPath);
 var credentialPath = ResolveCredentialPath(builder.Configuration, builder.Environment.ContentRootPath);
+var auditLogPath = ResolveAuditLogPath(builder.Configuration, builder.Environment.ContentRootPath);
 var credentialStore = new AdminCredentialStore(credentialPath);
 var mediaTools = MediaTools.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
 var aiSubtitleOptions = AiSubtitleOptions.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
+var hardSubtitleOptions = HardSubtitleOptions.FromConfiguration(builder.Configuration);
 await credentialStore.InitializeAsync();
 
 builder.Services.AddSingleton(videoStorage);
+builder.Services.AddSingleton(backupStorage);
+builder.Services.AddSingleton(new DatabaseLocation(databasePath));
+builder.Services.AddSingleton(new PortableSettingsLocation(portableSettingsPath));
 builder.Services.AddSingleton(credentialStore);
+builder.Services.AddSingleton(serviceProvider => new SecurityAuditStore(
+    auditLogPath,
+    serviceProvider.GetRequiredService<ILogger<SecurityAuditStore>>()));
 builder.Services.AddSingleton(mediaTools);
 builder.Services.AddSingleton(aiSubtitleOptions);
+builder.Services.AddSingleton(hardSubtitleOptions);
 builder.Services.AddSingleton(AiSubtitleProviderFactory.CreateSpeech(aiSubtitleOptions));
 builder.Services.AddSingleton(AiSubtitleProviderFactory.CreateTranslation(aiSubtitleOptions));
 builder.Services.AddSingleton<AudioChunkExtractor>();
 builder.Services.AddSingleton<MediaAnalyzer>();
 builder.Services.AddSingleton<MediaJobQueueGate>();
+builder.Services.AddSingleton<BackupOperationGate>();
+builder.Services.AddSingleton<RestoreCoordinator>();
+builder.Services.AddSingleton<RestoreTestHook>();
+builder.Services.AddSingleton<MediaMaintenanceTestHook>();
+builder.Services.AddSingleton<HardSubtitleTestHook>();
 builder.Services.AddDbContext<CinemaDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<AiSubtitlePipeline>();
+builder.Services.AddScoped<SubtitleReviewService>();
+builder.Services.AddScoped<MediaMaintenanceService>();
+builder.Services.AddScoped<HardSubtitleService>();
+builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<RestoreService>();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = backupStorage.MaxUploadBytes;
+});
 builder.Services.AddSingleton(new MediaJobHandlers(
     async (services, _, cancellationToken, reportProgress) =>
     {
@@ -67,7 +106,13 @@ builder.Services.AddSingleton(new MediaJobHandlers(
             .RunSpeechRecognitionAsync(jobId, cancellationToken, reportProgress),
     (services, jobId, cancellationToken, reportProgress) =>
         services.GetRequiredService<AiSubtitlePipeline>()
-            .RunSubtitleTranslationAsync(jobId, cancellationToken, reportProgress)));
+            .RunSubtitleTranslationAsync(jobId, cancellationToken, reportProgress),
+    (services, jobId, cancellationToken, reportProgress) =>
+        services.GetRequiredService<MediaMaintenanceService>()
+            .RunAsync(jobId, cancellationToken, reportProgress),
+    (services, jobId, cancellationToken, reportProgress) =>
+        services.GetRequiredService<HardSubtitleService>()
+            .RunAsync(jobId, cancellationToken, reportProgress)));
 builder.Services.AddHostedService<MediaJobWorker>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -104,6 +149,17 @@ builder.Services
                 context.Response.Redirect(context.RedirectUri);
             }
             return Task.CompletedTask;
+        };
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var securityStamp = context.Principal?.FindFirstValue(AdminCredentialStore.SecurityStampClaimType);
+            if (credentialStore.IsCurrentSecurityStamp(securityStamp))
+            {
+                return;
+            }
+
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         };
     });
 builder.Services.AddAuthorization(options =>
@@ -147,6 +203,37 @@ app.UseAuthentication();
 app.UseStaticFiles();
 app.UseAuthorization();
 app.UseRateLimiter();
+app.Use(async (context, next) =>
+{
+    var method = context.Request.Method;
+    var audited = context.Request.Path.StartsWithSegments("/api")
+        && method is "POST" or "PUT" or "PATCH" or "DELETE";
+    if (!audited)
+    {
+        await next();
+        return;
+    }
+
+    Exception? failure = null;
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        failure = ex;
+        throw;
+    }
+    finally
+    {
+        var statusCode = failure is null
+            ? context.Response.StatusCode
+            : StatusCodes.Status500InternalServerError;
+        await context.RequestServices
+            .GetRequiredService<SecurityAuditStore>()
+            .RecordWriteAsync(context, statusCode);
+    }
+});
 app.UseAntiforgery();
 app.Use(async (context, next) =>
 {
@@ -169,16 +256,51 @@ app.Use(async (context, next) =>
 
     await next();
 });
+app.Use(async (context, next) =>
+{
+    var method = context.Request.Method;
+    var isWriteApi = context.Request.Path.StartsWithSegments("/api")
+        && method is "POST" or "PUT" or "PATCH" or "DELETE";
+    var isRestoreRequest = method == "POST"
+        && context.Request.Path.StartsWithSegments("/api/backups", out var remaining)
+        && remaining.Value?.EndsWith("/restore", StringComparison.OrdinalIgnoreCase) == true;
+    if (!isWriteApi || isRestoreRequest)
+    {
+        await next();
+        return;
+    }
 
-app.MapGet("/api/auth/session", (HttpContext context, IAntiforgery antiforgery, AdminCredentialStore credentials) =>
+    using var writeLease = context.RequestServices
+        .GetRequiredService<RestoreCoordinator>()
+        .TryEnterWriter();
+    if (writeLease is null)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "系统正在恢复备份，暂时不能执行写操作，请稍后重试。"
+        });
+        return;
+    }
+
+    await next();
+});
+
+app.MapGet("/api/auth/session", async (
+    HttpContext context,
+    IAntiforgery antiforgery,
+    AdminCredentialStore credentials) =>
 {
     var tokens = antiforgery.GetAndStoreTokens(context);
+    var authentication = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Ok(new
     {
         authenticated = context.User.Identity?.IsAuthenticated == true,
         setupRequired = !credentials.IsConfigured,
         canSetup = !credentials.IsConfigured && IsLoopbackRequest(context),
-        requestToken = tokens.RequestToken
+        requestToken = tokens.RequestToken,
+        sessionExpiresAt = authentication.Succeeded ? authentication.Properties?.ExpiresUtc : null,
+        passwordUpdatedAt = credentials.PasswordUpdatedAtUtc
     });
 }).AllowAnonymous();
 
@@ -208,7 +330,7 @@ app.MapPost("/api/auth/setup", async Task<IResult> (
         return Results.Conflict(new { message = "管理员密码已经设置。" });
     }
 
-    await SignInAdminAsync(context);
+    await SignInAdminAsync(context, credentials);
     return Results.Ok(new { authenticated = true });
 }).AllowAnonymous().RequireRateLimiting("login");
 
@@ -223,14 +345,210 @@ app.MapPost("/api/auth/login", async Task<IResult> (
         return Results.Unauthorized();
     }
 
-    await SignInAdminAsync(context);
+    await SignInAdminAsync(context, credentials);
     return Results.Ok(new { authenticated = true });
 }).AllowAnonymous().RequireRateLimiting("login");
+
+app.MapPost("/api/auth/change-password", async Task<IResult> (
+    ChangePasswordRequest request,
+    HttpContext context,
+    AdminCredentialStore credentials) =>
+{
+    if (string.IsNullOrEmpty(request.CurrentPassword))
+    {
+        return Results.BadRequest(new { message = "请输入当前密码。" });
+    }
+
+    var validation = ValidateAdminPassword(request.NewPassword);
+    if (validation is not null)
+    {
+        return validation;
+    }
+
+    var result = await credentials.ChangePasswordAsync(
+        request.CurrentPassword,
+        request.NewPassword!);
+    if (result == ChangePasswordResult.InvalidCurrentPassword)
+    {
+        return Results.BadRequest(new { message = "当前密码不正确。" });
+    }
+    if (result == ChangePasswordResult.Unchanged)
+    {
+        return Results.BadRequest(new { message = "新密码不能与当前密码相同。" });
+    }
+
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Ok(new
+    {
+        changed = true,
+        reauthenticationRequired = true
+    });
+});
 
 app.MapPost("/api/auth/logout", async (HttpContext context) =>
 {
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.NoContent();
+});
+
+app.MapGet("/api/security/audit", async (
+    HttpRequest request,
+    SecurityAuditStore audit,
+    CancellationToken cancellationToken) =>
+{
+    var take = Math.Clamp(ParsePositiveQueryValue(request, "take", 50), 1, 100);
+    return Results.Ok(await audit.ReadLatestAsync(take, cancellationToken));
+});
+
+app.MapGet("/api/backups", async (BackupService backups, CancellationToken cancellationToken) =>
+{
+    return Results.Ok(await backups.ListAsync(cancellationToken));
+});
+
+app.MapPost("/api/backups", async Task<IResult> (
+    BackupService backups,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var backup = await backups.CreateAsync(cancellationToken);
+        return Results.Created($"/api/backups/{backup.Id}/download", backup);
+    }
+    catch (BackupBusyException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or SqliteException)
+    {
+        return Results.Json(
+            new { message = $"创建备份失败：{ex.Message}" },
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
+
+app.MapPost("/api/backups/import", async Task<IResult> (
+    HttpRequest request,
+    BackupStorage storage,
+    RestoreService restore,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var bodySizeFeature = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (bodySizeFeature is { IsReadOnly: false })
+        {
+            bodySizeFeature.MaxRequestBodySize = storage.MaxUploadBytes + 1024 * 1024;
+        }
+
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest(new { message = "请使用 multipart/form-data 上传 ZIP 备份包。" });
+        }
+
+        var form = await request.ReadFormAsync(cancellationToken);
+        var file = form.Files.GetFile("file");
+        if (file is null)
+        {
+            return Results.BadRequest(new { message = "请选择要导入的 ZIP 备份包。" });
+        }
+        if (!Path.GetExtension(file.FileName).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { message = "只支持 .zip 备份包。" });
+        }
+
+        await using var upload = file.OpenReadStream();
+        var imported = await restore.ImportAsync(upload, file.Length, cancellationToken);
+        return Results.Created($"/api/backups/{imported.Id}/download", imported);
+    }
+    catch (BackupValidationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+    catch (BackupConflictException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (BackupBusyException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (BadHttpRequestException ex)
+    {
+        return Results.BadRequest(new { message = $"上传失败：{ex.Message}" });
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        return Results.Json(
+            new { message = $"导入备份失败：{ex.Message}" },
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
+
+app.MapPost("/api/backups/{id}/restore", async Task<IResult> (
+    string id,
+    RestoreService restore,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await restore.RestoreAsync(id, cancellationToken));
+    }
+    catch (FileNotFoundException ex)
+    {
+        return Results.NotFound(new { message = ex.Message });
+    }
+    catch (BackupValidationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+    catch (RestoreBusyException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (RestoreFailedException ex)
+    {
+        return Results.Json(
+            new
+            {
+                message = ex.Message,
+                rolledBack = ex.RolledBack,
+                safetyBackupId = ex.SafetyBackupId
+            },
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
+
+app.MapGet("/api/backups/{id}/download", (string id, BackupService backups) =>
+{
+    var packagePath = backups.FindPackagePath(id);
+    return packagePath is null
+        ? Results.NotFound()
+        : Results.File(
+            packagePath,
+            contentType: "application/zip",
+            fileDownloadName: Path.GetFileName(packagePath),
+            enableRangeProcessing: false);
+});
+
+app.MapDelete("/api/backups/{id}", async Task<IResult> (
+    string id,
+    BackupService backups,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return await backups.DeleteAsync(id, cancellationToken)
+            ? Results.NoContent()
+            : Results.NotFound();
+    }
+    catch (BackupBusyException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
 });
 
 app.MapGet("/api/tag-categories", async (CinemaDbContext db) =>
@@ -506,6 +824,129 @@ app.MapGet("/api/subtitles/{id}/vtt", async Task<IResult> (string id, HttpContex
     return Results.Text(BuildWebVtt(track.Cues), "text/vtt; charset=utf-8", Encoding.UTF8);
 });
 
+app.MapGet("/api/videos/{id}/subtitle-review", async Task<IResult> (
+    string id,
+    string? sourceTrackId,
+    string? targetTrackId,
+    SubtitleReviewService reviewService,
+    CancellationToken cancellationToken) =>
+{
+    var document = await reviewService.GetDocumentAsync(id, sourceTrackId, targetTrackId, cancellationToken);
+    return document is null ? Results.NotFound() : Results.Ok(document);
+});
+
+app.MapPut("/api/videos/{id}/subtitle-review/cue", async Task<IResult> (
+    string id,
+    SubtitleCueEditRequest request,
+    SubtitleReviewService reviewService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var result = await reviewService.EditCueAsync(id, request, cancellationToken);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    }
+    catch (SubtitleReviewValidationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+app.MapPut("/api/videos/{id}/subtitle-review/source-cue", async Task<IResult> (
+    string id,
+    SubtitleSourceCueEditRequest request,
+    SubtitleReviewService reviewService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var result = await reviewService.EditSourceCueAsync(id, request, cancellationToken);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    }
+    catch (SubtitleReviewValidationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+app.MapPost("/api/videos/{id}/subtitle-review/retranslate", async Task<IResult> (
+    string id,
+    PartialRetranslationRequest request,
+    CinemaDbContext db,
+    MediaJobQueueGate queueGate,
+    AiSubtitleOptions options,
+    ISubtitleTranslationProvider provider) =>
+{
+    var indexes = request.CueIndexes?.Distinct().Order().ToList() ?? [];
+    if (indexes.Count is 0 or > 200)
+    {
+        return Results.BadRequest(new { message = "请选择 1 至 200 条字幕重新翻译。" });
+    }
+    if (!options.Enabled || !provider.IsAvailable)
+    {
+        return Results.Conflict(new { message = "字幕翻译 Provider 尚未启用或不可用。" });
+    }
+    var tracks = await db.SubtitleTracks.AsNoTracking()
+        .Where(track => track.VideoId == id && (track.Id == request.SourceTrackId || track.Id == request.TargetTrackId))
+        .ToListAsync();
+    var source = tracks.FirstOrDefault(track => track.Id == request.SourceTrackId && SubtitleReviewService.IsSourceTrack(track));
+    var target = tracks.FirstOrDefault(track => track.Id == request.TargetTrackId && SubtitleReviewService.IsReviewTarget(track));
+    if (source is null || target is null)
+    {
+        return Results.NotFound();
+    }
+    var availableIndexes = await db.SubtitleCues.AsNoTracking()
+        .Where(cue => cue.TrackId == source.Id && indexes.Contains(cue.Index))
+        .Select(cue => cue.Index)
+        .ToListAsync();
+    if (availableIndexes.Count != indexes.Count)
+    {
+        return Results.BadRequest(new { message = "选区包含不存在的原文字幕。" });
+    }
+    return await EnqueueAiJobAsync(
+        db,
+        queueGate,
+        MediaJobType.SubtitleTranslation,
+        id,
+        new TranslationJobInput(
+            source.Id,
+            options.TargetLanguage,
+            options.CreateTranslationProfile(),
+            Guid.NewGuid().ToString("N"),
+            target.Id,
+            indexes));
+});
+
+app.MapPost("/api/videos/{id}/subtitle-review/bilingual", async Task<IResult> (
+    string id,
+    BilingualTrackRequest request,
+    SubtitleReviewService reviewService,
+    CancellationToken cancellationToken) =>
+{
+    var track = await reviewService.GenerateBilingualTrackAsync(
+        id, request.SourceTrackId, request.TargetTrackId, cancellationToken);
+    return track is null ? Results.NotFound() : Results.Ok(ToSubtitleTrackItem(track));
+});
+
+app.MapGet("/api/subtitles/{id}/export", async Task<IResult> (
+    string id,
+    string format,
+    SubtitleReviewService reviewService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var export = await reviewService.ExportAsync(id, format, cancellationToken);
+        return export is null
+            ? Results.NotFound()
+            : Results.File(export.Content, export.ContentType, export.FileName);
+    }
+    catch (SubtitleReviewValidationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
 app.MapGet("/api/ai-subtitles/status", (
     AiSubtitleOptions options,
     ISpeechRecognitionProvider speechProvider,
@@ -576,6 +1017,208 @@ app.MapPost("/api/videos/{id}/subtitles/{trackId}/translate", async Task<IResult
             force ? Guid.NewGuid().ToString("N") : null));
 });
 
+app.MapGet("/api/hard-subtitle/options", (HardSubtitleOptions options) =>
+    Results.Ok(new HardSubtitleOptionsItem(options.DefaultStyle)));
+
+app.MapPost("/api/videos/{id}/hard-subtitle", async Task<IResult> (
+    string id,
+    HardSubtitleRequest request,
+    CinemaDbContext db,
+    VideoStorage storage,
+    MediaJobQueueGate queueGate,
+    HardSubtitleOptions options) =>
+{
+    var trackId = request.SubtitleTrackId?.Trim() ?? "";
+    if (string.IsNullOrWhiteSpace(trackId))
+    {
+        return Results.BadRequest(new { message = "请选择要烧录的字幕轨道。" });
+    }
+    HardSubtitleStyle subtitleStyle;
+    try
+    {
+        subtitleStyle = HardSubtitleStyle.Normalize(request.Style, options.DefaultStyle);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+
+    var video = await db.Videos
+        .AsNoTracking()
+        .FirstOrDefaultAsync(item => item.Id == id && item.Status == VideoStatus.Available);
+    if (video is null)
+    {
+        return Results.NotFound();
+    }
+    var sourcePath = storage.GetAbsolutePath(video.RelativePath);
+    if (!video.OriginalAvailable || !System.IO.File.Exists(sourcePath))
+    {
+        return Results.Conflict(new { message = "原视频不存在，无法生成新的硬字幕版本。" });
+    }
+    var trackExists = await db.SubtitleTracks
+        .AsNoTracking()
+        .AnyAsync(track => track.Id == trackId && track.VideoId == id && track.CueCount > 0);
+    if (!trackExists)
+    {
+        return Results.NotFound(new { message = "所选字幕轨道不存在或没有字幕内容。" });
+    }
+
+    return await EnqueueAiJobAsync(
+        db,
+        queueGate,
+        MediaJobType.HardSubtitle,
+        id,
+        new HardSubtitleJobInput(id, trackId, subtitleStyle));
+});
+
+app.MapDelete("/api/videos/{id}/hard-subtitle", async Task<IResult> (
+    string id,
+    CinemaDbContext db,
+    VideoStorage storage) =>
+{
+    var video = await db.Videos.FirstOrDefaultAsync(item => item.Id == id);
+    if (video is null)
+    {
+        return Results.NotFound();
+    }
+    if (string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath))
+    {
+        return Results.NoContent();
+    }
+    var activeJob = await db.MediaJobs.AsNoTracking().AnyAsync(job =>
+        job.Type == MediaJobType.HardSubtitle
+        && job.VideoId == id
+        && (job.Status == MediaJobStatus.Queued || job.Status == MediaJobStatus.Running));
+    if (activeJob)
+    {
+        return Results.Conflict(new { message = "硬字幕生成任务仍在执行，不能删除当前版本。" });
+    }
+
+    var originalPath = storage.GetAbsolutePath(video.RelativePath);
+    if (!video.OriginalAvailable || !System.IO.File.Exists(originalPath))
+    {
+        return Results.Conflict(new { message = "原视频不存在，不能删除当前唯一可播放的硬字幕版本。" });
+    }
+    var hardSubtitlePath = storage.GetAbsolutePath(video.HardSubtitleRelativePath);
+    if (!TryDeleteManagedFile(hardSubtitlePath, out var deleteError))
+    {
+        return Results.Conflict(new { message = deleteError });
+    }
+
+    ClearHardSubtitle(video);
+    video.UpdatedAt = DateTime.Now;
+    await db.SaveChangesAsync();
+    DeleteDirectoryIfEmpty(Path.GetDirectoryName(hardSubtitlePath));
+    return Results.NoContent();
+});
+
+app.MapPost("/api/videos/{id}/original/delete", async Task<IResult> (
+    string id,
+    DeleteOriginalRequest request,
+    CinemaDbContext db,
+    VideoStorage storage) =>
+{
+    var video = await db.Videos
+        .Include(item => item.SubtitleTracks)
+        .FirstOrDefaultAsync(item => item.Id == id);
+    if (video is null)
+    {
+        return Results.NotFound();
+    }
+    if (!string.Equals(request.ConfirmNumber?.Trim(), video.Number, StringComparison.Ordinal))
+    {
+        return Results.BadRequest(new { message = "确认番号不匹配，未删除原视频。" });
+    }
+    if (string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath)
+        || string.IsNullOrWhiteSpace(video.HardSubtitleTrackId))
+    {
+        return Results.Conflict(new { message = "必须先成功生成硬字幕版本，才能删除原视频。" });
+    }
+    var hardSubtitlePath = storage.GetAbsolutePath(video.HardSubtitleRelativePath);
+    if (!System.IO.File.Exists(hardSubtitlePath) || new FileInfo(hardSubtitlePath).Length == 0)
+    {
+        return Results.Conflict(new { message = "硬字幕文件不存在或无效，不能删除原视频。" });
+    }
+    var hardSubtitleTrack = video.SubtitleTracks.FirstOrDefault(track => track.Id == video.HardSubtitleTrackId);
+    if (hardSubtitleTrack is null
+        || video.HardSubtitleTrackUpdatedAt is null
+        || hardSubtitleTrack.UpdatedAt > video.HardSubtitleTrackUpdatedAt.Value)
+    {
+        return Results.Conflict(new { message = "硬字幕版本已经过期，请重新生成后再删除原视频。" });
+    }
+    var activeJob = await db.MediaJobs.AsNoTracking().AnyAsync(job =>
+        job.Type == MediaJobType.HardSubtitle
+        && job.VideoId == id
+        && (job.Status == MediaJobStatus.Queued || job.Status == MediaJobStatus.Running));
+    if (activeJob)
+    {
+        return Results.Conflict(new { message = "硬字幕生成任务仍在执行，不能删除原视频。" });
+    }
+
+    var originalPath = storage.GetAbsolutePath(video.RelativePath);
+    string? stagedOriginalPath = null;
+    if (System.IO.File.Exists(originalPath))
+    {
+        if (!CanMoveFile(originalPath, out var reason))
+        {
+            return Results.Conflict(new { message = reason });
+        }
+        var deletionStagingPath = Path.Combine(storage.DerivedWorkPath, "delete-original");
+        Directory.CreateDirectory(deletionStagingPath);
+        stagedOriginalPath = Path.Combine(
+            deletionStagingPath,
+            $"{video.Id}-{Guid.NewGuid():N}.pending");
+        try
+        {
+            System.IO.File.Move(originalPath, stagedOriginalPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Results.Conflict(new { message = "原视频正在使用中或没有移动权限，未执行删除。" });
+        }
+    }
+
+    var now = DateTime.Now;
+    var previousOriginalAvailable = video.OriginalAvailable;
+    var previousOriginalDeletedAt = video.OriginalDeletedAt;
+    var previousStatus = video.Status;
+    video.OriginalAvailable = false;
+    video.OriginalDeletedAt = now;
+    video.Status = VideoStatus.Available;
+    video.UpdatedAt = now;
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch
+    {
+        video.OriginalAvailable = previousOriginalAvailable;
+        video.OriginalDeletedAt = previousOriginalDeletedAt;
+        video.Status = previousStatus;
+        if (stagedOriginalPath is not null
+            && System.IO.File.Exists(stagedOriginalPath)
+            && !System.IO.File.Exists(originalPath))
+        {
+            System.IO.File.Move(stagedOriginalPath, originalPath);
+        }
+        throw;
+    }
+
+    var storageReleased = stagedOriginalPath is null
+        || TryDeleteManagedFile(stagedOriginalPath, out _);
+    DeleteDirectoryIfEmpty(stagedOriginalPath is null ? null : Path.GetDirectoryName(stagedOriginalPath));
+    return Results.Ok(new
+    {
+        video.Id,
+        video.OriginalDeletedAt,
+        video.HardSubtitleSize,
+        StorageReleased = storageReleased,
+        Message = storageReleased
+            ? "原视频已永久删除。"
+            : "原视频已从片库移除，但暂存文件未能删除，磁盘空间尚未释放。"
+    });
+});
+
 app.MapPut("/api/videos/{id}", async (string id, UpdateVideoRequest request, CinemaDbContext db) =>
 {
     var number = request.Number?.Trim() ?? "";
@@ -631,6 +1274,346 @@ app.MapPut("/api/videos/{id}", async (string id, UpdateVideoRequest request, Cin
 
     var updatedVideo = await LoadVideoAsync(db, id, tracking: false);
     return Results.Ok(ToVideoItem(updatedVideo!));
+});
+
+app.MapPost("/api/videos/batch/tags", async Task<IResult> (BatchTagRequest request, CinemaDbContext db) =>
+{
+    const int maximumBatchSize = 200;
+    var videoIds = NormalizeBatchVideoIds(request.VideoIds);
+    var addTagIds = request.AddTagIds?.Distinct().ToList() ?? [];
+    var removeTagIds = request.RemoveTagIds?.Distinct().ToList() ?? [];
+    if (videoIds.Count == 0 || videoIds.Count > maximumBatchSize)
+    {
+        return Results.BadRequest(new { message = $"请选择 1 到 {maximumBatchSize} 个视频。" });
+    }
+    if (addTagIds.Count == 0 && removeTagIds.Count == 0)
+    {
+        return Results.BadRequest(new { message = "请选择要添加或移除的标签。" });
+    }
+    if (addTagIds.Intersect(removeTagIds).Any())
+    {
+        return Results.BadRequest(new { message = "同一个标签不能同时添加和移除。" });
+    }
+
+    var videos = await db.Videos
+        .Where(video => videoIds.Contains(video.Id) && video.Status == VideoStatus.Available)
+        .ToListAsync();
+    if (videos.Count != videoIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选视频中包含不存在或不可用的项目，请刷新后重试。" });
+    }
+
+    var requestedTagIds = addTagIds.Concat(removeTagIds).Distinct().ToList();
+    var existingTagIds = await db.Tags
+        .Where(tag => requestedTagIds.Contains(tag.Id))
+        .Select(tag => tag.Id)
+        .ToListAsync();
+    if (existingTagIds.Count != requestedTagIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选标签中包含已被删除的项目，请刷新后重试。" });
+    }
+
+    var existingLinks = await db.VideoTags
+        .Where(link => videoIds.Contains(link.VideoId) && requestedTagIds.Contains(link.TagId))
+        .ToListAsync();
+    var existingPairs = existingLinks
+        .Select(link => (link.VideoId, link.TagId))
+        .ToHashSet();
+    var removeSet = removeTagIds.ToHashSet();
+    var linksToRemove = existingLinks.Where(link => removeSet.Contains(link.TagId)).ToList();
+    var linksToAdd = new List<VideoTag>();
+    foreach (var videoId in videoIds)
+    {
+        foreach (var tagId in addTagIds)
+        {
+            if (!existingPairs.Contains((videoId, tagId)))
+            {
+                linksToAdd.Add(new VideoTag { VideoId = videoId, TagId = tagId });
+            }
+        }
+    }
+
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    db.VideoTags.RemoveRange(linksToRemove);
+    db.VideoTags.AddRange(linksToAdd);
+    var now = DateTime.Now;
+    foreach (var video in videos)
+    {
+        video.UpdatedAt = now;
+    }
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+
+    return Results.Ok(new BatchTagResult(
+        videoIds.Count,
+        linksToAdd.Count,
+        linksToRemove.Count));
+});
+
+app.MapPost("/api/videos/batch/trash", async Task<IResult> (
+    BatchVideoRequest request,
+    CinemaDbContext db,
+    VideoStorage storage) =>
+{
+    const int maximumBatchSize = 200;
+    var videoIds = NormalizeBatchVideoIds(request.VideoIds);
+    if (videoIds.Count == 0 || videoIds.Count > maximumBatchSize)
+    {
+        return Results.BadRequest(new { message = $"请选择 1 到 {maximumBatchSize} 个视频。" });
+    }
+
+    var videos = await db.Videos
+        .Where(video => videoIds.Contains(video.Id) && video.Status == VideoStatus.Available)
+        .ToListAsync();
+    if (videos.Count != videoIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选视频中包含不存在或不可用的项目，请刷新后重试。" });
+    }
+
+    var movePlans = new List<(Video Video, string SourcePath, string TrashPath)>();
+    foreach (var video in videos)
+    {
+        var sourcePath = storage.GetAbsolutePath(video.RelativePath);
+        if (!System.IO.File.Exists(sourcePath))
+        {
+            continue;
+        }
+
+        var trashPath = storage.GetAbsolutePath(GetTrashRelativePath(video));
+        if (System.IO.File.Exists(trashPath))
+        {
+            return Results.Conflict(new { message = $"{video.OriginalFileName} 在回收站中已有同名文件。" });
+        }
+        if (!CanMoveFile(sourcePath, out var reason))
+        {
+            return Results.Conflict(new { message = $"{video.OriginalFileName}：{reason}" });
+        }
+        movePlans.Add((video, sourcePath, trashPath));
+    }
+
+    var duplicateDestination = movePlans
+        .GroupBy(plan => plan.TrashPath, StringComparer.OrdinalIgnoreCase)
+        .FirstOrDefault(group => group.Count() > 1);
+    if (duplicateDestination is not null)
+    {
+        return Results.Conflict(new { message = "所选视频会写入同一个回收站路径，请先整理文件名。" });
+    }
+
+    var completedMoves = new List<(string SourcePath, string TrashPath)>();
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    try
+    {
+        foreach (var plan in movePlans)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(plan.TrashPath)!);
+            System.IO.File.Move(plan.SourcePath, plan.TrashPath);
+            completedMoves.Add((plan.SourcePath, plan.TrashPath));
+        }
+
+        var now = DateTime.Now;
+        foreach (var video in videos)
+        {
+            video.Status = VideoStatus.Trashed;
+            video.UpdatedAt = now;
+        }
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return Results.Ok(new BatchTrashResult(videoIds.Count, completedMoves.Count));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbUpdateException)
+    {
+        await transaction.RollbackAsync();
+        foreach (var completedMove in completedMoves.AsEnumerable().Reverse())
+        {
+            try
+            {
+                if (System.IO.File.Exists(completedMove.TrashPath)
+                    && !System.IO.File.Exists(completedMove.SourcePath))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(completedMove.SourcePath)!);
+                    System.IO.File.Move(completedMove.TrashPath, completedMove.SourcePath);
+                }
+            }
+            catch (Exception rollbackException) when (rollbackException is IOException or UnauthorizedAccessException)
+            {
+                app.Logger.LogError(
+                    rollbackException,
+                    "批量回收失败后无法恢复文件 {TrashPath}。",
+                    completedMove.TrashPath);
+            }
+        }
+        return Results.Problem("批量移动到回收站失败，已尝试恢复已移动文件。");
+    }
+});
+
+app.MapPost("/api/videos/batch/resolution-suggestions", async Task<IResult> (
+    BatchVideoRequest request,
+    CinemaDbContext db) =>
+{
+    const int maximumBatchSize = 200;
+    var videoIds = NormalizeBatchVideoIds(request.VideoIds);
+    if (videoIds.Count == 0 || videoIds.Count > maximumBatchSize)
+    {
+        return Results.BadRequest(new { message = $"请选择 1 到 {maximumBatchSize} 个视频。" });
+    }
+
+    var videos = await db.Videos
+        .AsNoTracking()
+        .Where(video => videoIds.Contains(video.Id) && video.Status == VideoStatus.Available)
+        .ToListAsync();
+    if (videos.Count != videoIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选视频中包含不存在或不可用的项目，请刷新后重试。" });
+    }
+
+    var resolutionTags = await db.Tags
+        .AsNoTracking()
+        .Include(tag => tag.Category)
+        .Where(tag => tag.Category.Name == "清晰度")
+        .ToListAsync();
+    if (resolutionTags.Count == 0)
+    {
+        return Results.Conflict(new { message = "尚未配置“清晰度”标签分类。" });
+    }
+
+    return Results.Ok(BuildResolutionSuggestions(videos, resolutionTags));
+});
+
+app.MapPost("/api/videos/batch/resolution-tags", async Task<IResult> (
+    BatchVideoRequest request,
+    CinemaDbContext db) =>
+{
+    const int maximumBatchSize = 200;
+    var videoIds = NormalizeBatchVideoIds(request.VideoIds);
+    if (videoIds.Count == 0 || videoIds.Count > maximumBatchSize)
+    {
+        return Results.BadRequest(new { message = $"请选择 1 到 {maximumBatchSize} 个视频。" });
+    }
+
+    var videos = await db.Videos
+        .Include(video => video.VideoTags)
+        .Where(video => videoIds.Contains(video.Id) && video.Status == VideoStatus.Available)
+        .ToListAsync();
+    if (videos.Count != videoIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选视频中包含不存在或不可用的项目，请刷新后重试。" });
+    }
+
+    var resolutionTags = await db.Tags
+        .Include(tag => tag.Category)
+        .Where(tag => tag.Category.Name == "清晰度")
+        .ToListAsync();
+    if (resolutionTags.Count == 0)
+    {
+        return Results.Conflict(new { message = "尚未配置“清晰度”标签分类。" });
+    }
+
+    var tagByName = resolutionTags.ToDictionary(tag => tag.Name, StringComparer.OrdinalIgnoreCase);
+    var resolutionTagIds = resolutionTags.Select(tag => tag.Id).ToHashSet();
+    var updatedVideoCount = 0;
+    var addedCount = 0;
+    var removedCount = 0;
+    foreach (var video in videos)
+    {
+        var suggestedName = GetSuggestedResolutionTagName(video.Width, video.Height);
+        if (suggestedName is null || !tagByName.TryGetValue(suggestedName, out var suggestedTag))
+        {
+            continue;
+        }
+
+        var existingResolutionLinks = video.VideoTags
+            .Where(link => resolutionTagIds.Contains(link.TagId))
+            .ToList();
+        var alreadyCorrect = existingResolutionLinks.Count == 1
+            && existingResolutionLinks[0].TagId == suggestedTag.Id;
+        if (alreadyCorrect)
+        {
+            continue;
+        }
+
+        db.VideoTags.RemoveRange(existingResolutionLinks);
+        removedCount += existingResolutionLinks.Count;
+        db.VideoTags.Add(new VideoTag { VideoId = video.Id, TagId = suggestedTag.Id });
+        addedCount++;
+        updatedVideoCount++;
+        video.UpdatedAt = DateTime.Now;
+    }
+
+    await db.SaveChangesAsync();
+    var suggestions = BuildResolutionSuggestions(videos, resolutionTags);
+    return Results.Ok(new ResolutionApplyResult(
+        videoIds.Count,
+        updatedVideoCount,
+        addedCount,
+        removedCount,
+        suggestions.NoSuggestionCount,
+        suggestions.Groups));
+});
+
+app.MapPost("/api/videos/batch/media-jobs", async Task<IResult> (
+    MediaMaintenanceJobRequest request,
+    CinemaDbContext db,
+    MediaJobQueueGate queueGate) =>
+{
+    const int maximumBatchSize = 200;
+    var videoIds = NormalizeBatchVideoIds(request.VideoIds);
+    var action = request.Action?.Trim() ?? "";
+    if (videoIds.Count == 0 || videoIds.Count > maximumBatchSize)
+    {
+        return Results.BadRequest(new { message = $"请选择 1 到 {maximumBatchSize} 个视频。" });
+    }
+    if (!MediaMaintenanceAction.IsSupported(action))
+    {
+        return Results.BadRequest(new { message = "不支持的媒体处理操作。" });
+    }
+
+    var availableCount = await db.Videos.CountAsync(
+        video => videoIds.Contains(video.Id) && video.Status == VideoStatus.Available);
+    if (availableCount != videoIds.Count)
+    {
+        return Results.BadRequest(new { message = "所选视频中包含不存在或不可用的项目，请刷新后重试。" });
+    }
+
+    await queueGate.Gate.WaitAsync();
+    try
+    {
+        var activeJob = await db.MediaJobs
+            .AsNoTracking()
+            .Where(job => job.Type == MediaJobType.MediaMaintenance
+                && (job.Status == MediaJobStatus.Queued || job.Status == MediaJobStatus.Running))
+            .OrderBy(job => job.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (activeJob is not null)
+        {
+            return Results.Conflict(new
+            {
+                message = "已有媒体重新处理任务正在等待或执行，请完成后再创建新任务。",
+                job = ToMediaJobItem(activeJob)
+            });
+        }
+
+        var now = DateTime.Now;
+        var job = new MediaJob
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Type = MediaJobType.MediaMaintenance,
+            Status = MediaJobStatus.Queued,
+            Progress = 0,
+            Stage = "等待执行",
+            InputJson = JsonSerializer.Serialize(
+                new MediaMaintenanceJobInput(videoIds, action),
+                JsonSerializerOptions.Web),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        db.MediaJobs.Add(job);
+        await db.SaveChangesAsync();
+        return Results.Accepted($"/api/jobs/{job.Id}", ToMediaJobItem(job));
+    }
+    finally
+    {
+        queueGate.Gate.Release();
+    }
 });
 
 app.MapPost("/api/videos/sync", async Task<IResult> (CinemaDbContext db, MediaJobQueueGate queueGate) =>
@@ -983,7 +1966,15 @@ app.MapPost("/api/videos/{id}/restore", async Task<IResult> (
 
     try
     {
-        video.Status = System.IO.File.Exists(originalPath)
+        var originalExists = System.IO.File.Exists(originalPath);
+        var hardSubtitleExists = !string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath)
+            && System.IO.File.Exists(storage.GetAbsolutePath(video.HardSubtitleRelativePath));
+        video.OriginalAvailable = originalExists;
+        if (originalExists)
+        {
+            video.OriginalDeletedAt = null;
+        }
+        video.Status = originalExists || hardSubtitleExists
             ? VideoStatus.Available
             : VideoStatus.Missing;
         video.UpdatedAt = DateTime.Now;
@@ -1042,6 +2033,16 @@ app.MapDelete("/api/videos/{id}", async Task<IResult> (
         }
     }
 
+    if (!string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath))
+    {
+        var hardSubtitlePath = storage.GetAbsolutePath(video.HardSubtitleRelativePath);
+        if (!TryDeleteManagedFile(hardSubtitlePath, out deleteError))
+        {
+            return Results.Conflict(new { message = deleteError });
+        }
+        DeleteDirectoryIfEmpty(Path.GetDirectoryName(hardSubtitlePath));
+    }
+
     var subtitleDirectory = storage.GetAbsolutePath(Path.Combine("subtitles", video.Id));
     if (!TryDeleteManagedDirectory(subtitleDirectory, out deleteError))
     {
@@ -1054,29 +2055,81 @@ app.MapDelete("/api/videos/{id}", async Task<IResult> (
     return Results.NoContent();
 });
 
-app.MapGet("/api/videos/{id}/stream", async Task<Results<PhysicalFileHttpResult, NotFound>> (
+app.MapGet("/api/videos/{id}/stream", async Task<IResult> (
     string id,
+    string? source,
     CinemaDbContext db,
     VideoStorage storage) =>
 {
     var video = await db.Videos.FirstOrDefaultAsync(item => item.Id == id);
     if (video is null || video.Status == VideoStatus.Trashed)
     {
-        return TypedResults.NotFound();
+        return Results.NotFound();
     }
 
-    var filePath = storage.GetAbsolutePath(video.RelativePath);
-    if (!System.IO.File.Exists(filePath))
+    var normalizedSource = source?.Trim().ToLowerInvariant();
+    if (normalizedSource is not (null or "" or "original" or "hard-subtitle"))
     {
-        video.Status = VideoStatus.Missing;
+        return Results.BadRequest(new { message = "不支持的视频来源。" });
+    }
+
+    var originalPath = storage.GetAbsolutePath(video.RelativePath);
+    var originalExists = System.IO.File.Exists(originalPath);
+    var hardSubtitlePath = string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath)
+        ? null
+        : storage.GetAbsolutePath(video.HardSubtitleRelativePath);
+    var hardSubtitleExists = hardSubtitlePath is not null && System.IO.File.Exists(hardSubtitlePath);
+    var changed = false;
+    if (video.OriginalAvailable != originalExists)
+    {
+        video.OriginalAvailable = originalExists;
+        changed = true;
+    }
+    if (!hardSubtitleExists && video.HardSubtitleRelativePath is not null)
+    {
+        ClearHardSubtitle(video);
+        changed = true;
+    }
+
+    string? filePath = normalizedSource switch
+    {
+        "original" when originalExists => originalPath,
+        "hard-subtitle" when hardSubtitleExists => hardSubtitlePath,
+        null or "" when originalExists => originalPath,
+        null or "" when hardSubtitleExists => hardSubtitlePath,
+        _ => null
+    };
+    if (filePath is null)
+    {
+        if (!originalExists && !hardSubtitleExists)
+        {
+            video.Status = VideoStatus.Missing;
+            changed = true;
+        }
+        if (changed)
+        {
+            video.UpdatedAt = DateTime.Now;
+            await db.SaveChangesAsync();
+        }
+        return Results.NotFound();
+    }
+
+    if (video.Status != VideoStatus.Available)
+    {
+        video.Status = VideoStatus.Available;
+        changed = true;
+    }
+    if (changed)
+    {
         video.UpdatedAt = DateTime.Now;
         await db.SaveChangesAsync();
-        return TypedResults.NotFound();
     }
 
+    var usesHardSubtitle = string.Equals(normalizedSource, "hard-subtitle", StringComparison.Ordinal)
+        || (!originalExists && string.IsNullOrWhiteSpace(normalizedSource));
     return TypedResults.PhysicalFile(
         filePath,
-        contentType: video.ContentType,
+        contentType: usesHardSubtitle ? "video/mp4" : video.ContentType,
         fileDownloadName: null,
         enableRangeProcessing: true);
 });
@@ -1572,6 +2625,7 @@ static async Task<EnrichmentResult> EnrichExistingVideosAsync(
 {
     var videos = await db.Videos
         .Where(video => video.Status == VideoStatus.Available
+            && video.OriginalAvailable
             && (video.DurationSeconds == null
                 || video.Width == null
                 || video.Height == null
@@ -1668,6 +2722,14 @@ static async Task EnsureDatabaseAsync(CinemaDbContext db)
     await EnsureVideoColumnAsync(db, "Height", """ALTER TABLE "Videos" ADD COLUMN "Height" INTEGER NULL;""");
     await EnsureVideoColumnAsync(db, "VideoCodec", """ALTER TABLE "Videos" ADD COLUMN "VideoCodec" TEXT NULL;""");
     await EnsureVideoColumnAsync(db, "SubtitleScanCompleted", """ALTER TABLE "Videos" ADD COLUMN "SubtitleScanCompleted" INTEGER NOT NULL DEFAULT 0;""");
+    await EnsureVideoColumnAsync(db, "OriginalAvailable", """ALTER TABLE "Videos" ADD COLUMN "OriginalAvailable" INTEGER NOT NULL DEFAULT 1;""");
+    await EnsureVideoColumnAsync(db, "OriginalDeletedAt", """ALTER TABLE "Videos" ADD COLUMN "OriginalDeletedAt" TEXT NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleRelativePath", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleRelativePath" TEXT NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleTrackId", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleTrackId" TEXT NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleTrackUpdatedAt", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleTrackUpdatedAt" TEXT NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleSize", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleSize" INTEGER NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleCreatedAt", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleCreatedAt" TEXT NULL;""");
+    await EnsureVideoColumnAsync(db, "HardSubtitleStyleJson", """ALTER TABLE "Videos" ADD COLUMN "HardSubtitleStyleJson" TEXT NULL;""");
 
     await db.Database.ExecuteSqlRawAsync("""
         CREATE TABLE IF NOT EXISTS "TagCategories" (
@@ -1725,6 +2787,8 @@ static async Task EnsureDatabaseAsync(CinemaDbContext db)
             "StartMilliseconds" INTEGER NOT NULL,
             "EndMilliseconds" INTEGER NOT NULL,
             "Text" TEXT NOT NULL,
+            "IsManuallyEdited" INTEGER NOT NULL DEFAULT 0,
+            "UpdatedAt" TEXT NULL,
             CONSTRAINT "FK_SubtitleCues_SubtitleTracks_TrackId" FOREIGN KEY ("TrackId") REFERENCES "SubtitleTracks" ("Id") ON DELETE CASCADE
         );
         """);
@@ -1751,6 +2815,8 @@ static async Task EnsureDatabaseAsync(CinemaDbContext db)
         """);
 
     await EnsureTableColumnAsync(db, "SubtitleTracks", "RevisionStage", """ALTER TABLE "SubtitleTracks" ADD COLUMN "RevisionStage" TEXT NOT NULL DEFAULT 'SourceOriginal';""");
+    await EnsureTableColumnAsync(db, "SubtitleCues", "IsManuallyEdited", """ALTER TABLE "SubtitleCues" ADD COLUMN "IsManuallyEdited" INTEGER NOT NULL DEFAULT 0;""");
+    await EnsureTableColumnAsync(db, "SubtitleCues", "UpdatedAt", """ALTER TABLE "SubtitleCues" ADD COLUMN "UpdatedAt" TEXT NULL;""");
     await EnsureTableColumnAsync(db, "MediaJobs", "InputJson", """ALTER TABLE "MediaJobs" ADD COLUMN "InputJson" TEXT NULL;""");
 
     await db.Database.ExecuteSqlRawAsync("""
@@ -1966,8 +3032,17 @@ static async Task RefreshMissingStatusAsync(CinemaDbContext db, VideoStorage sto
             continue;
         }
 
-        var exists = System.IO.File.Exists(storage.GetAbsolutePath(video.RelativePath));
-        var expectedStatus = exists ? VideoStatus.Available : VideoStatus.Missing;
+        var originalExists = System.IO.File.Exists(storage.GetAbsolutePath(video.RelativePath));
+        var hardSubtitleExists = !string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath)
+            && System.IO.File.Exists(storage.GetAbsolutePath(video.HardSubtitleRelativePath));
+        video.OriginalAvailable = originalExists;
+        if (!hardSubtitleExists && video.HardSubtitleRelativePath is not null)
+        {
+            ClearHardSubtitle(video);
+        }
+        var expectedStatus = originalExists || hardSubtitleExists
+            ? VideoStatus.Available
+            : VideoStatus.Missing;
 
         if (video.Status != expectedStatus)
         {
@@ -1977,6 +3052,16 @@ static async Task RefreshMissingStatusAsync(CinemaDbContext db, VideoStorage sto
     }
 
     await db.SaveChangesAsync();
+}
+
+static void ClearHardSubtitle(Video video)
+{
+    video.HardSubtitleRelativePath = null;
+    video.HardSubtitleTrackId = null;
+    video.HardSubtitleTrackUpdatedAt = null;
+    video.HardSubtitleSize = null;
+    video.HardSubtitleCreatedAt = null;
+    video.HardSubtitleStyleJson = null;
 }
 
 static string GetTrashRelativePath(Video video)
@@ -2040,12 +3125,38 @@ static string ResolveDatabasePath(IConfiguration configuration, string contentRo
         : Path.GetFullPath(Path.Combine(contentRootPath, configuredPath));
 }
 
+static string ResolvePortableSettingsPath(IConfiguration configuration, string contentRootPath)
+{
+    var configuredPath = configuration["Backup:PortableSettingsPath"];
+    if (string.IsNullOrWhiteSpace(configuredPath))
+    {
+        configuredPath = Path.Combine("Data", "portable-settings.json");
+    }
+
+    return Path.IsPathRooted(configuredPath)
+        ? Path.GetFullPath(configuredPath)
+        : Path.GetFullPath(Path.Combine(contentRootPath, configuredPath));
+}
+
 static string ResolveCredentialPath(IConfiguration configuration, string contentRootPath)
 {
     var configuredPath = configuration["Security:CredentialPath"];
     if (string.IsNullOrWhiteSpace(configuredPath))
     {
         configuredPath = Path.Combine("Data", "admin-credentials.json");
+    }
+
+    return Path.IsPathRooted(configuredPath)
+        ? configuredPath
+        : Path.GetFullPath(Path.Combine(contentRootPath, configuredPath));
+}
+
+static string ResolveAuditLogPath(IConfiguration configuration, string contentRootPath)
+{
+    var configuredPath = configuration["Security:AuditLogPath"];
+    if (string.IsNullOrWhiteSpace(configuredPath))
+    {
+        configuredPath = Path.Combine("Data", "admin-audit.jsonl");
     }
 
     return Path.IsPathRooted(configuredPath)
@@ -2074,10 +3185,14 @@ static IResult? ValidateAdminPassword(string? password)
     return null;
 }
 
-static Task SignInAdminAsync(HttpContext context)
+static Task SignInAdminAsync(HttpContext context, AdminCredentialStore credentials)
 {
     var identity = new ClaimsIdentity(
-        [new Claim(ClaimTypes.Name, "admin"), new Claim(ClaimTypes.Role, "Admin")],
+        [
+            new Claim(ClaimTypes.Name, "admin"),
+            new Claim(ClaimTypes.Role, "Admin"),
+            new Claim(AdminCredentialStore.SecurityStampClaimType, credentials.CurrentSecurityStamp)
+        ],
         CookieAuthenticationDefaults.AuthenticationScheme);
     var principal = new ClaimsPrincipal(identity);
     return context.SignInAsync(
@@ -2264,6 +3379,101 @@ static Task<Video?> LoadVideoAsync(CinemaDbContext db, string id, bool tracking)
         .FirstOrDefaultAsync(video => video.Id == id);
 }
 
+static List<string> NormalizeBatchVideoIds(IReadOnlyList<string>? videoIds) =>
+    videoIds?
+        .Where(id => !string.IsNullOrWhiteSpace(id))
+        .Select(id => id.Trim())
+        .Distinct(StringComparer.Ordinal)
+        .ToList()
+    ?? [];
+
+static ResolutionSuggestionResult BuildResolutionSuggestions(
+    IReadOnlyList<Video> videos,
+    IReadOnlyList<Tag> resolutionTags)
+{
+    var tagByName = resolutionTags.ToDictionary(tag => tag.Name, StringComparer.OrdinalIgnoreCase);
+    var groups = new List<ResolutionSuggestionGroup>();
+    var groupedVideos = videos
+        .Select(video => new
+        {
+            Video = video,
+            TagName = GetSuggestedResolutionTagName(video.Width, video.Height)
+        })
+        .Where(item => item.TagName is not null && tagByName.ContainsKey(item.TagName))
+        .GroupBy(item => item.TagName!, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(group => group.Key, group => group.Select(item => item.Video.Id).ToList(), StringComparer.OrdinalIgnoreCase);
+
+    foreach (var tagName in new[] { "4K", "1080P", "720P" })
+    {
+        if (!tagByName.TryGetValue(tagName, out var tag)
+            || !groupedVideos.TryGetValue(tagName, out var matchingVideoIds)
+            || matchingVideoIds.Count == 0)
+        {
+            continue;
+        }
+
+        groups.Add(new ResolutionSuggestionGroup(
+            tag.Id,
+            tag.Name,
+            matchingVideoIds.Count,
+            matchingVideoIds));
+    }
+
+    return new ResolutionSuggestionResult(
+        videos.Count,
+        videos.Count - groups.Sum(group => group.Count),
+        groups);
+}
+
+static string? GetSuggestedResolutionTagName(int? width, int? height)
+{
+    if (width is null || height is null)
+    {
+        return null;
+    }
+
+    var shortEdge = Math.Min(width.Value, height.Value);
+    return shortEdge switch
+    {
+        >= 2160 => "4K",
+        >= 1080 => "1080P",
+        >= 720 => "720P",
+        _ => null
+    };
+}
+
+static string? GetPlaybackWarning(string? codec)
+{
+    var normalized = codec?.Trim().ToLowerInvariant();
+    return normalized switch
+    {
+        "h264" or "avc" or "avc1" => null,
+        "hevc" or "h265" or "h.265" => "H.265/HEVC 在部分手机浏览器中无法播放，必要时请转码为 H.264。",
+        "av1" => "AV1 需要较新的浏览器和硬件解码支持，部分手机可能无法播放。",
+        null or "" => "尚未识别视频编码，无法确认浏览器兼容性。",
+        _ => $"当前编码 {codec} 可能不受手机浏览器支持，建议使用 H.264。"
+    };
+}
+
+static HardSubtitleStyle? DeserializeHardSubtitleStyle(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return null;
+    }
+
+    try
+    {
+        return JsonSerializer.Deserialize<HardSubtitleStyle>(
+            value,
+            JsonSerializerOptions.Web);
+    }
+    catch (JsonException)
+    {
+        return null;
+    }
+}
+
 static VideoItem ToVideoItem(Video video)
 {
     var tags = video.VideoTags
@@ -2282,6 +3492,24 @@ static VideoItem ToVideoItem(Video video)
         .ThenBy(track => track.CreatedAt)
         .Select(ToSubtitleTrackItem)
         .ToList();
+    var hardSubtitleTrack = video.SubtitleTracks
+        .FirstOrDefault(track => track.Id == video.HardSubtitleTrackId);
+    var hardSubtitleStyle = DeserializeHardSubtitleStyle(video.HardSubtitleStyleJson);
+    var hardSubtitle = string.IsNullOrWhiteSpace(video.HardSubtitleRelativePath)
+        || string.IsNullOrWhiteSpace(video.HardSubtitleTrackId)
+        || video.HardSubtitleSize is null
+        || video.HardSubtitleCreatedAt is null
+            ? null
+            : new HardSubtitleItem(
+                video.HardSubtitleTrackId,
+                hardSubtitleTrack?.Label ?? "硬字幕",
+                video.HardSubtitleSize.Value,
+                video.HardSubtitleCreatedAt.Value,
+                hardSubtitleTrack is null
+                    || video.HardSubtitleTrackUpdatedAt is null
+                    || hardSubtitleTrack.UpdatedAt > video.HardSubtitleTrackUpdatedAt.Value,
+                $"/api/videos/{Uri.EscapeDataString(video.Id)}/stream?source=hard-subtitle",
+                hardSubtitleStyle);
 
     return new VideoItem(
         video.Id,
@@ -2294,7 +3522,12 @@ static VideoItem ToVideoItem(Video video)
         video.Width,
         video.Height,
         video.VideoCodec,
+        GetPlaybackWarning(video.VideoCodec),
         $"/api/videos/{Uri.EscapeDataString(video.Id)}/stream",
+        video.OriginalAvailable,
+        video.OriginalDeletedAt,
+        $"/api/videos/{Uri.EscapeDataString(video.Id)}/stream?source=original",
+        hardSubtitle,
         string.IsNullOrWhiteSpace(video.CoverRelativePath) ? null : $"/api/videos/{Uri.EscapeDataString(video.Id)}/cover",
         video.CreatedAt,
         video.ImportedAt,
@@ -2419,6 +3652,9 @@ public sealed class CinemaDbContext(DbContextOptions<CinemaDbContext> options) :
             entity.Property(video => video.StoredFileName).HasMaxLength(80);
             entity.Property(video => video.RelativePath).HasMaxLength(700);
             entity.Property(video => video.CoverRelativePath).HasMaxLength(700);
+            entity.Property(video => video.HardSubtitleRelativePath).HasMaxLength(700);
+            entity.Property(video => video.HardSubtitleTrackId).HasMaxLength(32);
+            entity.Property(video => video.HardSubtitleStyleJson).HasMaxLength(1200);
             entity.Property(video => video.VideoCodec).HasMaxLength(80);
             entity.Property(video => video.ContentType).HasMaxLength(100);
             entity.Property(video => video.Status).HasMaxLength(40);
@@ -2536,6 +3772,14 @@ public sealed class Video
     public string? VideoCodec { get; set; }
     public string ContentType { get; set; } = "video/mp4";
     public string Status { get; set; } = VideoStatus.Available;
+    public bool OriginalAvailable { get; set; } = true;
+    public DateTime? OriginalDeletedAt { get; set; }
+    public string? HardSubtitleRelativePath { get; set; }
+    public string? HardSubtitleTrackId { get; set; }
+    public DateTime? HardSubtitleTrackUpdatedAt { get; set; }
+    public long? HardSubtitleSize { get; set; }
+    public DateTime? HardSubtitleCreatedAt { get; set; }
+    public string? HardSubtitleStyleJson { get; set; }
     public bool SubtitleScanCompleted { get; set; }
     public DateTime ImportedAt { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -2572,6 +3816,8 @@ public sealed class SubtitleCue
     public long StartMilliseconds { get; set; }
     public long EndMilliseconds { get; set; }
     public string Text { get; set; } = "";
+    public bool IsManuallyEdited { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public SubtitleTrack Track { get; set; } = null!;
 }
 
@@ -2651,6 +3897,7 @@ public static class SubtitleKind
 {
     public const string Original = "Original";
     public const string Translated = "Translated";
+    public const string Bilingual = "Bilingual";
 }
 
 public static class SubtitleSource
@@ -2659,6 +3906,7 @@ public static class SubtitleSource
     public const string Embedded = "Embedded";
     public const string SpeechRecognition = "SpeechRecognition";
     public const string AiTranslation = "AiTranslation";
+    public const string Review = "Review";
 }
 
 public static class SubtitleRevisionStage
@@ -2675,6 +3923,17 @@ public static class MediaJobType
     public const string Sync = "Sync";
     public const string SpeechRecognition = "SpeechRecognition";
     public const string SubtitleTranslation = "SubtitleTranslation";
+    public const string MediaMaintenance = "MediaMaintenance";
+    public const string HardSubtitle = "HardSubtitle";
+}
+
+public static class MediaMaintenanceAction
+{
+    public const string Reanalyze = "Reanalyze";
+    public const string RegenerateCover = "RegenerateCover";
+
+    public static bool IsSupported(string action) =>
+        action is Reanalyze or RegenerateCover;
 }
 
 public static class MediaJobStatus
@@ -2693,7 +3952,14 @@ public static class AiJobChunkStatus
     public const string Completed = "Completed";
 }
 
-public sealed record VideoStorage(string RootPath, string OriginalsPath, string CoversPath, string SubtitlesPath, string TrashPath)
+public sealed record VideoStorage(
+    string RootPath,
+    string OriginalsPath,
+    string CoversPath,
+    string SubtitlesPath,
+    string TrashPath,
+    string DerivedPath,
+    string DerivedWorkPath)
 {
     public static VideoStorage FromConfiguration(IConfiguration configuration, string contentRootPath)
     {
@@ -2702,7 +3968,9 @@ public sealed record VideoStorage(string RootPath, string OriginalsPath, string 
         var coversPath = Path.Combine(rootPath, "covers");
         var subtitlesPath = Path.Combine(rootPath, "subtitles");
         var trashPath = Path.Combine(rootPath, "trash");
-        return new VideoStorage(rootPath, originalsPath, coversPath, subtitlesPath, trashPath);
+        var derivedPath = Path.Combine(rootPath, "derived");
+        var derivedWorkPath = Path.Combine(derivedPath, ".work");
+        return new VideoStorage(rootPath, originalsPath, coversPath, subtitlesPath, trashPath, derivedPath, derivedWorkPath);
     }
 
     public string GetAbsolutePath(string relativePath)
@@ -2743,12 +4011,26 @@ public sealed record VideoItem(
     int? Width,
     int? Height,
     string? VideoCodec,
+    string? PlaybackWarning,
     string StreamUrl,
+    bool OriginalAvailable,
+    DateTime? OriginalDeletedAt,
+    string OriginalStreamUrl,
+    HardSubtitleItem? HardSubtitle,
     string? CoverUrl,
     DateTime CreatedAt,
     DateTime ImportedAt,
     IReadOnlyList<SubtitleTrackItem> Subtitles,
     IReadOnlyList<TagItem> Tags);
+
+public sealed record HardSubtitleItem(
+    string SubtitleTrackId,
+    string SubtitleLabel,
+    long Size,
+    DateTime CreatedAt,
+    bool IsStale,
+    string StreamUrl,
+    HardSubtitleStyle? Style);
 
 public sealed record SubtitleTrackItem(
     string Id,
@@ -2833,7 +4115,9 @@ public sealed record JobProgress(int Percent, string Stage, string? CurrentItem)
 public sealed record MediaJobHandlers(
     Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunSyncAsync,
     Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunSpeechRecognitionAsync,
-    Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunSubtitleTranslationAsync);
+    Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunSubtitleTranslationAsync,
+    Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunMediaMaintenanceAsync,
+    Func<IServiceProvider, string, CancellationToken, Func<JobProgress, Task>, Task<string>> RunHardSubtitleAsync);
 
 public sealed class MediaJobQueueGate
 {
@@ -2846,9 +4130,43 @@ public sealed record UpdateVideoRequest(
     string? Description,
     IReadOnlyList<int>? TagIds);
 
+public sealed record BatchVideoRequest(IReadOnlyList<string>? VideoIds);
+public sealed record BatchTagRequest(
+    IReadOnlyList<string>? VideoIds,
+    IReadOnlyList<int>? AddTagIds,
+    IReadOnlyList<int>? RemoveTagIds);
+public sealed record BatchTagResult(int VideoCount, int AddedRelationshipCount, int RemovedRelationshipCount);
+public sealed record BatchTrashResult(int VideoCount, int MovedFileCount);
+public sealed record ResolutionSuggestionGroup(
+    int TagId,
+    string TagName,
+    int Count,
+    IReadOnlyList<string> VideoIds);
+public sealed record ResolutionSuggestionResult(
+    int VideoCount,
+    int NoSuggestionCount,
+    IReadOnlyList<ResolutionSuggestionGroup> Groups);
+public sealed record ResolutionApplyResult(
+    int VideoCount,
+    int UpdatedVideoCount,
+    int AddedRelationshipCount,
+    int RemovedRelationshipCount,
+    int NoSuggestionCount,
+    IReadOnlyList<ResolutionSuggestionGroup> Groups);
+public sealed record MediaMaintenanceJobRequest(IReadOnlyList<string>? VideoIds, string? Action);
+public sealed record MediaMaintenanceJobInput(IReadOnlyList<string> VideoIds, string Action);
+public sealed record MediaMaintenanceIssue(string VideoId, string? FileName, string Reason);
+public sealed record MediaMaintenanceResult(
+    string Action,
+    int RequestedCount,
+    int ProcessedCount,
+    int UpdatedCount,
+    IReadOnlyList<MediaMaintenanceIssue> Issues);
+
 public sealed record TagNameRequest(string? Name);
 
 public sealed record PasswordRequest(string? Password);
+public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword);
 
 public sealed record TagCategorySeed(string Name, int SortOrder, string[] Tags);
 
@@ -2880,7 +4198,7 @@ public sealed record MediaTools(string FfprobePath, string FfmpegPath, TimeSpan 
 
 public sealed class MediaAnalyzer(MediaTools tools)
 {
-    public async Task<MediaAnalysis> AnalyzeAsync(string videoPath)
+    public async Task<MediaAnalysis> AnalyzeAsync(string videoPath, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -2891,7 +4209,7 @@ public sealed class MediaAnalyzer(MediaTools tools)
                 "-show_entries", "stream=width,height,codec_name:format=duration",
                 "-of", "json",
                 videoPath
-            ]);
+            ], cancellationToken);
 
             if (result.ExitCode != 0)
             {
@@ -3013,7 +4331,11 @@ public sealed class MediaAnalyzer(MediaTools tools)
         }
     }
 
-    public async Task<string?> GenerateCoverAsync(string videoPath, string outputPath, double? durationSeconds)
+    public async Task<string?> GenerateCoverAsync(
+        string videoPath,
+        string outputPath,
+        double? durationSeconds,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -3027,7 +4349,7 @@ public sealed class MediaAnalyzer(MediaTools tools)
                 "-vf", "scale=1280:-2:force_original_aspect_ratio=decrease",
                 "-q:v", "3",
                 outputPath
-            ]);
+            ], cancellationToken);
 
             if (result.ExitCode != 0 || !System.IO.File.Exists(outputPath) || new FileInfo(outputPath).Length == 0)
             {
@@ -3042,7 +4364,10 @@ public sealed class MediaAnalyzer(MediaTools tools)
         }
     }
 
-    private async Task<MediaToolResult> RunAsync(string executablePath, IReadOnlyList<string> arguments)
+    private async Task<MediaToolResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken = default)
     {
         using var process = new Process
         {
@@ -3067,15 +4392,22 @@ public sealed class MediaAnalyzer(MediaTools tools)
 
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(tools.Timeout);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(tools.Timeout);
         try
         {
             await process.WaitForExitAsync(timeout.Token);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(CancellationToken.None);
+            throw;
+        }
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
+            await process.WaitForExitAsync(CancellationToken.None);
             return new MediaToolResult(-1, await outputTask, $"处理超过 {tools.Timeout.TotalSeconds:0} 秒，已终止。");
         }
 
@@ -3122,6 +4454,7 @@ public sealed class MediaAnalyzer(MediaTools tools)
 public sealed class MediaJobWorker(
     IServiceScopeFactory scopeFactory,
     MediaJobHandlers handlers,
+    RestoreCoordinator restoreCoordinator,
     ILogger<MediaJobWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -3132,14 +4465,27 @@ public sealed class MediaJobWorker(
         {
             try
             {
-                var pending = await StartNextJobAsync(stoppingToken);
+                PendingMediaJob? pending;
+                using (var writeLease = restoreCoordinator.TryEnterWriter())
+                {
+                    if (writeLease is null)
+                    {
+                        pending = null;
+                    }
+                    else
+                    {
+                        pending = await StartNextJobAsync(stoppingToken);
+                        if (pending is not null)
+                        {
+                            await ExecuteJobAsync(pending, stoppingToken);
+                        }
+                    }
+                }
+
                 if (pending is null)
                 {
                     await Task.Delay(500, stoppingToken);
-                    continue;
                 }
-
-                await ExecuteJobAsync(pending, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -3232,6 +4578,16 @@ public sealed class MediaJobWorker(
                     executionCancellation.Token,
                     progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
                 MediaJobType.SubtitleTranslation => await handlers.RunSubtitleTranslationAsync(
+                    scope.ServiceProvider,
+                    pending.Id,
+                    executionCancellation.Token,
+                    progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
+                MediaJobType.MediaMaintenance => await handlers.RunMediaMaintenanceAsync(
+                    scope.ServiceProvider,
+                    pending.Id,
+                    executionCancellation.Token,
+                    progress => ReportProgressAsync(pending.Id, progress, executionCancellation.Token)),
+                MediaJobType.HardSubtitle => await handlers.RunHardSubtitleAsync(
                     scope.ServiceProvider,
                     pending.Id,
                     executionCancellation.Token,
@@ -3373,11 +4729,15 @@ public sealed class MediaJobWorker(
 
 public sealed class AdminCredentialStore(string path)
 {
+    public const string SecurityStampClaimType = "dreamy-cinema:security-stamp";
     private const int Iterations = 600_000;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private AdminCredential? _credential;
 
     public bool IsConfigured => _credential is not null;
+    public string CurrentSecurityStamp => _credential?.SecurityStamp
+        ?? throw new InvalidOperationException("管理员密码尚未设置。");
+    public DateTimeOffset? PasswordUpdatedAtUtc => _credential?.UpdatedAtUtc;
 
     public async Task InitializeAsync()
     {
@@ -3388,9 +4748,23 @@ public sealed class AdminCredentialStore(string path)
 
         try
         {
-            await using var stream = System.IO.File.OpenRead(path);
-            _credential = await JsonSerializer.DeserializeAsync<AdminCredential>(stream)
-                ?? throw new InvalidOperationException("管理员凭据文件为空。");
+            AdminCredential credential;
+            await using (var stream = System.IO.File.OpenRead(path))
+            {
+                credential = await JsonSerializer.DeserializeAsync<AdminCredential>(stream)
+                    ?? throw new InvalidOperationException("管理员凭据文件为空。");
+            }
+            if (string.IsNullOrWhiteSpace(credential.SecurityStamp))
+            {
+                credential = credential with
+                {
+                    Version = 2,
+                    SecurityStamp = CreateSecurityStamp(),
+                    UpdatedAtUtc = System.IO.File.GetLastWriteTimeUtc(path)
+                };
+                await WriteCredentialAsync(credential, overwrite: true);
+            }
+            _credential = credential;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or FormatException)
         {
@@ -3416,17 +4790,14 @@ public sealed class AdminCredentialStore(string path)
                 HashAlgorithmName.SHA256,
                 32);
             var credential = new AdminCredential(
-                Version: 1,
+                Version: 2,
                 Iterations,
                 Convert.ToBase64String(salt),
-                Convert.ToBase64String(hash));
+                Convert.ToBase64String(hash),
+                CreateSecurityStamp(),
+                DateTimeOffset.UtcNow);
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
-            await System.IO.File.WriteAllTextAsync(
-                temporaryPath,
-                JsonSerializer.Serialize(credential, new JsonSerializerOptions { WriteIndented = true }));
-            System.IO.File.Move(temporaryPath, path, overwrite: false);
+            await WriteCredentialAsync(credential, overwrite: false);
             _credential = credential;
             return true;
         }
@@ -3439,7 +4810,62 @@ public sealed class AdminCredentialStore(string path)
     public bool Verify(string password)
     {
         var credential = _credential;
-        if (credential is null || credential.Version != 1 || credential.Iterations < 100_000)
+        return credential is not null && VerifyCore(password, credential);
+    }
+
+    public bool IsCurrentSecurityStamp(string? securityStamp)
+    {
+        var credential = _credential;
+        return credential is not null
+            && credential.Version == 2
+            && !string.IsNullOrWhiteSpace(credential.SecurityStamp)
+            && string.Equals(credential.SecurityStamp, securityStamp, StringComparison.Ordinal);
+    }
+
+    public async Task<ChangePasswordResult> ChangePasswordAsync(
+        string currentPassword,
+        string newPassword)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var credential = _credential;
+            if (credential is null || !VerifyCore(currentPassword, credential))
+            {
+                return ChangePasswordResult.InvalidCurrentPassword;
+            }
+            if (VerifyCore(newPassword, credential))
+            {
+                return ChangePasswordResult.Unchanged;
+            }
+
+            var salt = RandomNumberGenerator.GetBytes(16);
+            var hash = Rfc2898DeriveBytes.Pbkdf2(
+                newPassword,
+                salt,
+                Iterations,
+                HashAlgorithmName.SHA256,
+                32);
+            var updated = new AdminCredential(
+                Version: 2,
+                Iterations,
+                Convert.ToBase64String(salt),
+                Convert.ToBase64String(hash),
+                CreateSecurityStamp(),
+                DateTimeOffset.UtcNow);
+            await WriteCredentialAsync(updated, overwrite: true);
+            _credential = updated;
+            return ChangePasswordResult.Changed;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private static bool VerifyCore(string password, AdminCredential credential)
+    {
+        if (credential.Version is not 1 and not 2 || credential.Iterations < 100_000)
         {
             return false;
         }
@@ -3462,5 +4888,41 @@ public sealed class AdminCredentialStore(string path)
         }
     }
 
-    private sealed record AdminCredential(int Version, int Iterations, string Salt, string Hash);
+    private async Task WriteCredentialAsync(AdminCredential credential, bool overwrite)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await System.IO.File.WriteAllTextAsync(
+                temporaryPath,
+                JsonSerializer.Serialize(credential, new JsonSerializerOptions { WriteIndented = true }));
+            System.IO.File.Move(temporaryPath, path, overwrite);
+        }
+        finally
+        {
+            if (System.IO.File.Exists(temporaryPath))
+            {
+                System.IO.File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private static string CreateSecurityStamp() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    private sealed record AdminCredential(
+        int Version,
+        int Iterations,
+        string Salt,
+        string Hash,
+        string? SecurityStamp = null,
+        DateTimeOffset? UpdatedAtUtc = null);
+}
+
+public enum ChangePasswordResult
+{
+    Changed,
+    InvalidCurrentPassword,
+    Unchanged
 }

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { Film, LogOut, Search, Tags, Trash2, RefreshCw, RotateCcw, X } from "@lucide/vue";
+import { CheckSquare, DatabaseBackup, Film, LogOut, Search, ShieldCheck, Tags, Trash2, RefreshCw, RotateCcw, X } from "@lucide/vue";
+import BackupDrawer from "@/components/BackupDrawer.vue";
+import BulkOrganizer from "@/components/BulkOrganizer.vue";
 import MaintenanceDrawer from "@/components/MaintenanceDrawer.vue";
+import SecurityDrawer from "@/components/SecurityDrawer.vue";
 import TagFilters from "@/components/TagFilters.vue";
 import TagManager from "@/components/TagManager.vue";
 import VideoCard from "@/components/VideoCard.vue";
 import VideoEditor from "@/components/VideoEditor.vue";
 import { useLibraryStore } from "@/stores/library";
 import { useSessionStore } from "@/stores/session";
+import type { MediaJob } from "@/types";
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -16,12 +20,18 @@ const session = useSessionStore();
 const editorVideoId = ref<string | null>(null);
 const tagManagerOpen = ref(false);
 const maintenanceOpen = ref(false);
+const backupOpen = ref(false);
+const bulkOrganizerOpen = ref(false);
+const securityOpen = ref(false);
 const inlineVideoId = ref<string | null>(null);
+const selectionMode = ref(false);
+const selectedVideoIds = ref<string[]>([]);
 const busy = ref(false);
 const pageError = ref("");
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 let searchTimer = 0;
 let loadObserver: IntersectionObserver | null = null;
+const selectedVideoIdSet = computed(() => new Set(selectedVideoIds.value));
 
 onMounted(async () => {
   loadObserver = new IntersectionObserver(entries => {
@@ -56,13 +66,20 @@ onBeforeUnmount(() => {
 
 watch(() => library.search, () => {
   inlineVideoId.value = null;
+  exitSelection();
   window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => library.loadVideos().catch(showError), 250);
 });
 
 watch(() => library.sort, () => {
   inlineVideoId.value = null;
+  exitSelection();
   library.loadVideos().catch(showError);
+});
+
+watch(() => library.videos.map(video => video.id).join(","), () => {
+  const loadedIds = new Set(library.videos.map(video => video.id));
+  selectedVideoIds.value = selectedVideoIds.value.filter(id => loadedIds.has(id));
 });
 
 function showError(error: unknown) {
@@ -71,6 +88,7 @@ function showError(error: unknown) {
 
 async function changeFilters(action: () => void) {
   inlineVideoId.value = null;
+  exitSelection();
   action();
   await library.loadVideos();
 }
@@ -90,6 +108,46 @@ async function refreshAfterMutation(message: string) {
   library.status = message;
   await library.refresh();
 }
+
+async function refreshAfterRestore(message: string) {
+  backupOpen.value = false;
+  await refreshAfterMutation(message);
+}
+
+function enterSelectionMode() {
+  inlineVideoId.value = null;
+  selectionMode.value = true;
+}
+
+function exitSelection() {
+  bulkOrganizerOpen.value = false;
+  selectionMode.value = false;
+  selectedVideoIds.value = [];
+}
+
+function toggleVideoSelection(videoId: string) {
+  selectedVideoIds.value = selectedVideoIdSet.value.has(videoId)
+    ? selectedVideoIds.value.filter(id => id !== videoId)
+    : [...selectedVideoIds.value, videoId];
+}
+
+function selectLoadedVideos() {
+  selectedVideoIds.value = library.videos.map(video => video.id);
+}
+
+async function handleBulkChanged(message: string) {
+  exitSelection();
+  await refreshAfterMutation(message);
+}
+
+function handleBulkJob(job: MediaJob) {
+  exitSelection();
+  library.trackJob(job).catch(showError);
+}
+
+function jobTypeLabel(job: MediaJob) {
+  return job.type === "Sync" ? "视频同步" : "媒体重新处理";
+}
 </script>
 
 <template>
@@ -98,6 +156,7 @@ async function refreshAfterMutation(message: string) {
       <div class="title-row">
         <div><p class="eyebrow"><Film :size="14" /> PRIVATE LIBRARY</p><h1>Dreamy Cinema</h1><p class="library-count">已加载 {{ library.videos.length }} / 共 {{ library.total }} 个视频</p></div>
         <div class="header-actions">
+          <button class="icon-command" type="button" title="数据备份" @click="backupOpen = true"><DatabaseBackup /></button>
           <button class="icon-command danger-soft" type="button" title="回收站" @click="maintenanceOpen = true"><Trash2 /></button>
           <button class="icon-command" type="button" title="标签管理" @click="tagManagerOpen = true"><Tags /></button>
           <button class="icon-command primary" type="button" title="同步视频" :disabled="busy || library.jobActive" @click="sync"><RefreshCw :class="{ spin: busy || library.jobActive }" /></button>
@@ -121,7 +180,7 @@ async function refreshAfterMutation(message: string) {
       />
     </header>
 
-    <section class="library-content">
+    <section class="library-content" :class="{ 'has-bulk-bar': selectionMode && selectedVideoIds.length }">
       <section v-if="library.activeJob" class="job-panel" :data-status="library.activeJob.status">
         <div class="job-summary">
           <strong>{{ library.activeJob.stage }}</strong>
@@ -129,13 +188,32 @@ async function refreshAfterMutation(message: string) {
         </div>
         <progress :value="library.activeJob.progress" max="100"></progress>
         <div class="job-detail">
-          <span>{{ library.activeJob.currentItem || `同步任务 · 第 ${library.activeJob.attemptCount || 1} 次执行` }}</span>
+          <span>{{ library.activeJob.currentItem || `${jobTypeLabel(library.activeJob)} · 第 ${library.activeJob.attemptCount || 1} 次执行` }}</span>
           <button v-if="library.jobActive" class="job-action" type="button" @click="library.cancelJob().catch(showError)"><X :size="14" />取消任务</button>
           <button v-else-if="library.activeJob.status === 'Failed' || library.activeJob.status === 'Cancelled'" class="job-action" type="button" @click="library.retryJob().catch(showError)"><RotateCcw :size="14" />重试</button>
         </div>
         <p v-if="library.activeJob.error" class="job-error">{{ library.activeJob.error }}</p>
       </section>
-      <div class="status-row"><p>{{ pageError || library.status }}</p><button class="logout-link" type="button" @click="logout"><LogOut :size="14" />退出</button></div>
+      <div class="bulk-selection-row" :class="{ active: selectionMode }">
+        <template v-if="selectionMode">
+          <strong>已选择 {{ selectedVideoIds.length }} 个</strong>
+          <div>
+            <button type="button" @click="selectLoadedVideos">全选已加载</button>
+            <button type="button" :disabled="!selectedVideoIds.length" @click="selectedVideoIds = []">清空</button>
+            <button type="button" @click="exitSelection">完成</button>
+          </div>
+        </template>
+        <button v-else class="bulk-entry-button" type="button" :disabled="!library.videos.length" @click="enterSelectionMode">
+          <CheckSquare :size="15" />批量整理
+        </button>
+      </div>
+      <div class="status-row">
+        <p>{{ pageError || library.status }}</p>
+        <div class="status-actions">
+          <button class="logout-link" type="button" @click="securityOpen = true"><ShieldCheck :size="14" />账户</button>
+          <button class="logout-link" type="button" @click="logout"><LogOut :size="14" />退出</button>
+        </div>
+      </div>
       <p v-if="library.loading" class="empty-copy">正在读取片库...</p>
       <p v-else-if="!library.videos.length" class="empty-copy">没有符合条件的视频</p>
       <div v-else class="video-list">
@@ -144,11 +222,14 @@ async function refreshAfterMutation(message: string) {
           :key="video.id"
           :video="video"
           :inline-active="inlineVideoId === video.id"
+          :selectable="selectionMode"
+          :selected="selectedVideoIdSet.has(video.id)"
           @inline-play="inlineVideoId = video.id"
           @inline-end="inlineVideoId = null"
           @open-player="router.push(`/videos/${encodeURIComponent(video.id)}/play`)"
           @edit="inlineVideoId = null; editorVideoId = video.id"
           @toggle-tag="changeFilters(() => library.toggleTag($event))"
+          @toggle-selection="toggleVideoSelection(video.id)"
         />
         <div ref="loadMoreTrigger" class="load-more-sentinel">
           <span v-if="library.loadingMore">正在加载更多...</span>
@@ -158,8 +239,23 @@ async function refreshAfterMutation(message: string) {
       </div>
     </section>
 
+    <div v-if="selectionMode && selectedVideoIds.length" class="bulk-bottom-bar">
+      <span>{{ selectedVideoIds.length }} 个视频</span>
+      <button class="primary-button" type="button" @click="bulkOrganizerOpen = true">打开批量整理</button>
+    </div>
+
     <VideoEditor :open="Boolean(editorVideoId)" :video-id="editorVideoId" :categories="library.categories" @close="editorVideoId = null" @saved="refreshAfterMutation" />
+    <BackupDrawer :open="backupOpen" @close="backupOpen = false" @restored="refreshAfterRestore" />
+    <BulkOrganizer
+      :open="bulkOrganizerOpen"
+      :video-ids="selectedVideoIds"
+      :categories="library.categories"
+      @close="bulkOrganizerOpen = false"
+      @changed="handleBulkChanged"
+      @job-created="handleBulkJob"
+    />
     <TagManager :open="tagManagerOpen" :categories="library.categories" @close="tagManagerOpen = false" @changed="refreshAfterMutation" />
     <MaintenanceDrawer :open="maintenanceOpen" @close="maintenanceOpen = false" @changed="refreshAfterMutation" />
+    <SecurityDrawer :open="securityOpen" :session="session.info" @close="securityOpen = false" />
   </main>
 </template>

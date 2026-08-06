@@ -37,7 +37,7 @@ export async function apiRequest<T = void>(url: string, options: RequestOptions 
   });
 
   if (response.status === 401 && !options.skipAuthRedirect) {
-    window.location.assign("/login");
+    window.location.assign("/login?reason=session-expired");
     throw new ApiError("登录已失效，请重新登录。", response.status);
   }
 

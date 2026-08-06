@@ -1,5 +1,6 @@
 bin/
 obj/
+.build/
 DreamyCinema.Web/node_modules/
 DreamyCinema.Web/node_modules/.tmp/
 DreamyCinema.Web/test-results/
@@ -8,3 +9,8 @@ Data/
 Videos/
 appsettings.Local.json
 local-ai/
+DreamyCinema.Android/.gradle/
+DreamyCinema.Android/.idea/
+DreamyCinema.Android/local.properties
+DreamyCinema.Android/**/build/
+*.iml

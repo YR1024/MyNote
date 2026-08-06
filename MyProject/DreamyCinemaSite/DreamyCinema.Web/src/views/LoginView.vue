@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { Film, LockKeyhole } from "@lucide/vue";
 import { useSessionStore } from "@/stores/session";
 
 const router = useRouter();
+const route = useRoute();
 const session = useSessionStore();
 const password = ref("");
 const confirmPassword = ref("");
@@ -13,6 +14,15 @@ const submitting = ref(false);
 
 const setupRequired = computed(() => session.info?.setupRequired === true);
 const canSubmitSetup = computed(() => !setupRequired.value || session.info?.canSetup === true);
+const loginNotice = computed(() => {
+  if (route.query.reason === "password-changed") {
+    return "密码已修改，所有旧登录均已失效。请使用新密码重新登录。";
+  }
+  if (route.query.reason === "session-expired") {
+    return "登录已过期或已在其他位置失效，请重新登录。";
+  }
+  return "";
+});
 
 onMounted(async () => {
   try {
@@ -57,12 +67,13 @@ async function submit() {
       <p class="login-copy">
         {{ setupRequired ? "首次使用，请创建管理员密码。" : "输入管理员密码进入片库。" }}
       </p>
+      <p v-if="loginNotice && !setupRequired" class="login-notice">{{ loginNotice }}</p>
 
       <form class="login-form" @submit.prevent="submit">
         <label class="field-label" for="password">管理员密码</label>
         <div class="input-with-icon">
           <LockKeyhole :size="18" />
-          <input id="password" v-model="password" type="password" minlength="10" autocomplete="current-password" required>
+          <input id="password" v-model="password" type="password" minlength="10" :autocomplete="setupRequired ? 'new-password' : 'current-password'" required>
         </div>
 
         <template v-if="setupRequired">

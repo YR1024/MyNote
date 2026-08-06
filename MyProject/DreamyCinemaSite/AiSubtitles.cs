@@ -693,7 +693,8 @@ public sealed class AiSubtitlePipeline(
     AiSubtitleOptions options,
     ISpeechRecognitionProvider speechProvider,
     ISubtitleTranslationProvider translationProvider,
-    AudioChunkExtractor audioChunkExtractor)
+    AudioChunkExtractor audioChunkExtractor,
+    SubtitleReviewService reviewService)
 {
     private const string TranslationProtocolVersion = "unicode-review-v2";
     public async Task<string> RunSpeechRecognitionAsync(
@@ -831,6 +832,12 @@ public sealed class AiSubtitlePipeline(
             .AsNoTracking()
             .Include(track => track.Cues)
             .FirstAsync(track => track.Id == input.SourceTrackId && track.VideoId == job.VideoId, cancellationToken);
+        var selectedIndexes = input.CueIndexes?.Distinct().Order().ToHashSet() ?? [];
+        var isPartialRetranslation = selectedIndexes.Count > 0;
+        if (isPartialRetranslation && string.IsNullOrWhiteSpace(input.TargetTrackId))
+        {
+            throw new InvalidOperationException("局部重译任务缺少目标校对轨道。");
+        }
         var sourceKey = BuildSourceKey(
             "translation",
             sourceTrack.Id,
@@ -844,13 +851,22 @@ public sealed class AiSubtitlePipeline(
                 options.SemanticReviewEnabled
             }),
             input.RetranslationId);
-        var existingTrack = await FindGeneratedTrackAsync(sourceTrack.VideoId, sourceKey, cancellationToken);
+        var existingTrack = isPartialRetranslation
+            ? null
+            : await FindGeneratedTrackAsync(sourceTrack.VideoId, sourceKey, cancellationToken);
         if (existingTrack is not null)
         {
             return SerializeResult(existingTrack, translationProvider, true);
         }
 
-        var sourceCues = sourceTrack.Cues.OrderBy(cue => cue.Index).ToList();
+        var sourceCues = sourceTrack.Cues
+            .Where(cue => !isPartialRetranslation || selectedIndexes.Contains(cue.Index))
+            .OrderBy(cue => cue.Index)
+            .ToList();
+        if (sourceCues.Count == 0)
+        {
+            throw new InvalidOperationException("没有可重新翻译的字幕 Cue。");
+        }
         var inputCharacters = sourceCues.Sum(cue => cue.Text.Length);
         if (inputCharacters > options.MaxInputCharacters)
         {
@@ -904,6 +920,19 @@ public sealed class AiSubtitlePipeline(
             previousTranslationContext = string.Join('\n', checkpoint.Cues.TakeLast(options.ContextCueCount).Select(cue => cue.Text));
             var percent = 10 + (int)Math.Round(75d * (index + 1) / Math.Max(1, chunks.Count));
             await reportProgress(new JobProgress(percent, "翻译并严格校验字幕", $"第 {index + 1} / {chunks.Count} 块"));
+        }
+
+        if (isPartialRetranslation)
+        {
+            await reportProgress(new JobProgress(90, "更新中文校对稿", $"选中 {sourceCues.Count} 条"));
+            var translatedByIndex = sourceCues.ToDictionary(cue => cue.Index, cue => translated[cue.Id]);
+            var reviewTrack = await reviewService.ApplyPartialRetranslationAsync(
+                sourceTrack.VideoId,
+                input.TargetTrackId!,
+                translatedByIndex,
+                cancellationToken)
+                ?? throw new InvalidOperationException("目标中文校对轨道不存在。");
+            return SerializeResult(reviewTrack, translationProvider, true);
         }
 
         var newCues = sourceCues.Select(cue => new NewCue(
@@ -1254,7 +1283,9 @@ public sealed record TranslationJobInput(
     string SourceTrackId,
     string TargetLanguage,
     TranslationProfile? Profile = null,
-    string? RetranslationId = null);
+    string? RetranslationId = null,
+    string? TargetTrackId = null,
+    IReadOnlyList<int>? CueIndexes = null);
 public sealed record AiSubtitleJobResult(
     string TrackId,
     string VideoId,

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { apiRequest } from "@/api/client";
-import type { MediaJob, SyncResult, TagCategory, VideoItem, VideoPage } from "@/types";
+import type { MediaJob, MediaMaintenanceResult, SyncResult, TagCategory, VideoItem, VideoPage } from "@/types";
 
 const pageSize = 20;
 let videoRequestSequence = 0;
@@ -97,12 +97,17 @@ export const useLibraryStore = defineStore("library", {
     },
     async resumeJobs() {
       const jobs = await apiRequest<MediaJob[]>("/api/jobs");
-      const syncJobs = jobs.filter(job => job.type === "Sync");
-      const active = syncJobs.find(job => job.status === "Queued" || job.status === "Running");
-      this.activeJob = active ?? syncJobs[0] ?? null;
+      const libraryJobs = jobs.filter(job => job.type === "Sync" || job.type === "MediaMaintenance");
+      const active = libraryJobs.find(job => job.status === "Queued" || job.status === "Running");
+      this.activeJob = active ?? libraryJobs[0] ?? null;
       if (!this.activeJob) return;
       this.updateJobStatus(this.activeJob);
       if (active) await this.waitForJob(active.id);
+    },
+    async trackJob(job: MediaJob) {
+      this.activeJob = job;
+      this.updateJobStatus(job);
+      await this.waitForJob(job.id);
     },
     async waitForJob(id: string) {
       const pollId = ++jobPollSequence;
@@ -142,7 +147,18 @@ export const useLibraryStore = defineStore("library", {
         return;
       }
       if (job.status === "Cancelled") {
-        this.status = "同步任务已取消，可重新执行。";
+        this.status = `${job.type === "Sync" ? "同步" : "媒体处理"}任务已取消，可重新执行。`;
+        return;
+      }
+      if (job.type === "MediaMaintenance") {
+        const result = job.result as MediaMaintenanceResult | null;
+        if (!result) {
+          this.status = "媒体处理任务已完成。";
+          return;
+        }
+        const action = result.action === "Reanalyze" ? "媒体信息重新分析" : "自动封面重新生成";
+        const issues = result.issues.length ? `，${result.issues.length} 个项目有警告` : "";
+        this.status = `${action}完成：处理 ${result.processedCount} 个，更新 ${result.updatedCount} 个${issues}。`;
         return;
       }
 
