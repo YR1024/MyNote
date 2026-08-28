@@ -13,6 +13,7 @@ import router from './router'
 import store from './store'
 import api from './core/index';
 import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css' // 关键样式文件
 
 const baseURL = "http://localhost:5142/";
 const app = createApp(App)

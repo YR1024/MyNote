@@ -1,5 +1,14 @@
 <template>
   <div class="container">
+    <div>
+      <el-input
+        v-model="videoDirectory"
+
+        style="width: 240px"
+        clearable
+      />
+      <el-button type="primary" @click="init"  >获取视频</el-button>
+    </div>
     <div v-for="(video, index) in videoList" :key="index" class="video-item">
       <!-- 复选框 -->
       <input
@@ -50,22 +59,23 @@ export default {
   data() {
     return {
       videoList: [],
+      videoDirectory: "F:\\videoTest",
+
       selectedVideos: [], // 已选中的合并视频
       renamingIndex: null, // 正在重命名的索引
       newName: "", // 新文件名
       currentVideo: null, // 当前播放的视频
 
-      blobUrls: new Map(), // 存储生成的Blob URL
     };
   },
   mounted() {
-    this.init();
+    // this.init();
   },
   methods: {
     async init() {
       try {
         const res = await this.$api.getAllVideoFiles({
-          path: "F:\\VideoWeb\\publish\\wwwroot\\Video\\AV",
+          path: this.videoDirectory,
         });
         // console.log(res);
         this.videoList = res.data;
@@ -85,28 +95,12 @@ export default {
       this.currentVideo = this.currentVideo === index ? null : index;
     },
     videoPath(video) {
-      console.log(video);
-      // return '../../Video/AV/' + video.ReleatviePath;
+      // console.log(video);
       // return  video.FullPath;
-      // return await this.$api.GetVideoStream({
-      //     path: video.FullPath,
-      //   });
-      // return "/api/video/GetVideoStream?path=F:\\VideoWeb\\publish\\wwwroot\\Video\\AV\\jul-953-C\\jul-953-C.mp4";
+    
       return `./api/api/video/video?_videoPath=${video.FullPath}`;
       // return "http://localhost:5142/api/values/video";
 
-      // try {
-      //   const response = await this.$api.GetVideoStream({
-      //     path: video.FullPath,
-      //   });
-
-      //   // 创建Blob URL
-      //   const blob = new Blob([response], { type: response.type });
-      //   return URL.createObjectURL(blob);
-      // } catch (error) {
-      //   console.error("获取视频流失败:", error);
-      //   return ""; // 返回空路径或占位符
-      // }
     },
     handleSeeking() {
       if (this.currentSource) {

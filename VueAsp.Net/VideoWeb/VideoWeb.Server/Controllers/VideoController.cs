@@ -68,10 +68,6 @@ namespace VideoWeb.Server.Controllers
             //var stream = new FileStream(_videoPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 65536, useAsync: true);
             //return File(stream, GetContentType(_videoPath), enableRangeProcessing: true);
 
-            if (!System.IO.File.Exists(_videoPath))
-            {
-                return NotFound();
-            }
             // 使用 PhysicalFile 代替 FileStream（自动处理资源释放）
             return PhysicalFile(_videoPath, "video/mp4", enableRangeProcessing: true);
         }
